@@ -113,7 +113,6 @@ dependencies:
       - six==1.17.0
       - stable-baselines3==2.7.1
       - sympy==1.14.0
-      - tbparse==0.0.9
       - tensorboard==2.20.0
       - tensorboard-data-server==0.7.2
       - torch==2.7.1+cu118
