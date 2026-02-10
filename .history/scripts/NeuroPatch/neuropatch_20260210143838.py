@@ -1089,17 +1089,6 @@ class PatchEnv(gym.Env):
         # Penalty for not making progress and not moving
         if abs(progress_delta) < 0.001 and self.patch.v < 0.3:
             reward -= 2.0
-
-        # ===== 10. SE-MPC FEEDBACK (Patch learns speed agents can achieve) =====
-        if self.mpc_attempts > 0:
-            feasibility_rate = self.mpc_successes / self.mpc_attempts
-            # Encourage high MPC feasibility
-            reward += 0.5 * (feasibility_rate - 0.5)  # in [-0.25, +0.25]
-
-        safety_rate = self.safety_interventions / max(1, self.step_count * self.num_agents)
-        if safety_rate > 0.3:
-            # Penalize frequent safety interventions
-            reward -= 0.5 * (safety_rate - 0.3)
         
         return np.clip(reward, -50.0, 50.0)  # Wider clipping range for dense rewards
     
@@ -1650,101 +1639,94 @@ class PatchEnv(gym.Env):
         
         #Update patch wall collision tracking
 
-        # === 2. AGENT CONTROL VIA SE-MPC + SAFETY LAYER ===
 
-        # Use last base observation for current agent poses
-        base_obs = self.current_base_obs
+        #2. AGENT AS STATIC SENSORS
+        agent_states = self._position_agents_as_sensors(randomize=True)
 
-        # Patch proxy for MPC & safety layer: use patch-local velocities and world center
-        vx_patch, vy_patch = self.patch.get_velocity_vector()
-        from types import SimpleNamespace
-        patch_for_mpc = SimpleNamespace(
-            a=self.patch.a,
-            b=self.patch.b,
-            theta=self.patch.theta,
-            vx=vx_patch,
-            vy=vy_patch,
-            cx=self.patch.x,
-            cy=self.patch.y,
-            cos_t=self.patch.cos_t,
-            sin_t=self.patch.sin_t,
-        )
-
-        # Agent positions in world & patch-local coordinates
-        positions_world = [
-            [base_obs["poses_x"][i], base_obs["poses_y"][i]]
-            for i in range(self.num_agents)
-        ]
-        patch_cx_world = self.patch.x
-        patch_cy_world = self.patch.y
-        positions_local = [
-            [p[0] - patch_cx_world, p[1] - patch_cy_world]
-            for p in positions_world
-        ]
-
-        env_actions = np.zeros((self.num_agents, 2), dtype=np.float32)
-        mpc_feasible = [False] * self.num_agents
-
-        # Solve MPC every few steps and cache controls for efficiency
-        solve_mpc = (self.step_count == 1) or (self.step_count % 5 == 0)
-
+        # Update agent states
         for i in range(self.num_agents):
-            x_local = positions_local[i][0]
-            y_local = positions_local[i][1]
-            theta_i = base_obs["poses_theta"][i]
-            v_i = self.prev_v[i]
+            self.agent_states[i] = [
+                agent_states[i][0],
+                agent_states[i][1],
+                agent_states[i][2],
+                0.0 #Agents are static
+            ]
+        agent_poses = self._position_agents_as_sensors(randomize=False)  
+        for i in range(self.num_agents):
+            self.agent_states[i] = [
+                agent_poses[i][0],
+                agent_poses[i][1],
+                agent_poses[i][2],
+                0.0  # Agents are static
+            ]
 
-            x0_local = np.array([x_local, y_local, theta_i, v_i], dtype=np.float32)
-            neighbors_local = [positions_local[j] for j in range(self.num_agents) if j != i]
+        # Store desired poses for LIDAR aggregation
+        self._desired_agent_poses = agent_poses
+        
+        # 2. AGENT CONTROL (from agent policy or heuristic)
+        # if self.agent_policy is None:
+        #     agent_actions = self._heuristic_agent_actions()
+        # else:
+        #     agent_actions = []
+        #     for i in range(self.num_agents):
+        #         neighbor_states = [self.agent_states[j] for j in range(self.num_agents) if j != i]
+        #         if self.agent_controllers:
+        #             agent_obs = self.agent_controllers[i].get_observation(
+        #                 self.agent_states[i], self.patch, neighbor_states
+        #             )
+        #             agent_action, _ = self.agent_policy.predict(agent_obs, deterministic=True)
+        #             agent_actions.append(agent_action)
+        #         else:
+        #             agent_actions.append((0.0, 0.0))
+        
+        # Convert to environment actions
+        env_actions = np.zeros((self.num_agents, 2))
+        # for i in range(self.num_agents):
+        #     if self.agent_policy is None:
+        #         accel, steering = agent_actions[i]
+        #     else:
+        #         accel = agent_actions[i][0] * 6.0  # agent_accel_max
+        #         steering = agent_actions[i][1] * 0.4  # agent_steering_max
 
-            # 2a. MPC solve with soft containment
-            if solve_mpc:
-                self.mpc_attempts += 1
-                u_opt, feasible = self.mpc_solvers[i].solve(x0_local, patch_for_mpc, neighbors_local)
-                self.cached_controls[i] = u_opt
-                self.cached_feasible[i] = feasible
-                if feasible:
-                    self.mpc_successes += 1
-            else:
-                u_opt = self.cached_controls[i]
-                feasible = self.cached_feasible[i]
+            # Make first step more conservative for agents
+            # if self.step_count == 1:
+            #     accel = np.clip(accel, -1.0, 1.0)
+            #     steering = np.clip(steering, -0.2, 0.2)
+            # # Update agent state
+            # x, y, theta, v = self.agent_states[i]
+            # x += v * np.cos(theta) * dt
+            # y += v * np.sin(theta) * dt
+            # theta += (v / self.wheelbase) * np.tan(steering) * dt
+            # v += accel * dt
+            # v = np.clip(v, 0.5, 10.0)
+            
+            # while theta > np.pi:
+            #     theta -= 2 * np.pi
+            # while theta < -np.pi:
+            #     theta += 2 * np.pi
+            
+            # self.agent_states[i] = [x, y, theta, v]
+            # env_actions[i] = [np.clip(steering, -0.4, 0.4), v]
+        
+        # 3. STEP BASE ENVIRONMENT
+        base_obs, _, base_done, base_truncated, _ = self.base_env.step(env_actions)
+        # self.current_base_obs = base_obs
+        
+        # # Sync agent states
+        # for i in range(self.num_agents):
+        #     v = np.sqrt(base_obs["linear_vels_x"][i]**2 + 
+        #                base_obs["linear_vels_y"][i]**2)
+        #     self.agent_states[i] = [
+        #         base_obs["poses_x"][i],
+        #         base_obs["poses_y"][i],
+        #         base_obs["poses_theta"][i],
+        #         max(v, 0.5)
+        #     ]
 
-            mpc_feasible[i] = feasible
-
-            # 2b. Safety layer hardens constraints
-            u_safe, intervention = self.safety_layer.filter_control(
-                u_opt if feasible else None,
-                x0_local,
-                patch_for_mpc,
-                neighbors_local,
-                dt=dt,
-            )
-            if intervention:
-                self.safety_interventions += 1
-
-            accel, steering = u_safe
-
-            # Integrate agent speed (env expects [steering, speed])
-            v_new = v_i + accel * dt
-            v_new = np.clip(v_new, 0.5, 10.0)
-            self.prev_v[i] = v_new
-
-            env_actions[i] = [np.clip(steering, -0.4, 0.4), v_new]
-
-        # 3. STEP BASE ENVIRONMENT ONCE with MPC actions
+        # FIX: Check LIDAR safety NOW (after getting new base_obs) and set flag
+        # 3. STEP BASE ENVIRONMENT
         base_obs, _, base_done, base_truncated, _ = self.base_env.step(env_actions)
         self.current_base_obs = base_obs
-
-        # Sync agent states from simulator
-        for i in range(self.num_agents):
-            v_sim = np.sqrt(base_obs["linear_vels_x"][i]**2 +
-                            base_obs["linear_vels_y"][i]**2)
-            self.agent_states[i] = [
-                base_obs["poses_x"][i],
-                base_obs["poses_y"][i],
-                base_obs["poses_theta"][i],
-                max(v_sim, 0.5),
-            ]
         
         # Check LIDAR safety with radial sweep
         lidar_safe, min_dist, lidar_info = self._check_lidar_safety(

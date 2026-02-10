@@ -1089,17 +1089,6 @@ class PatchEnv(gym.Env):
         # Penalty for not making progress and not moving
         if abs(progress_delta) < 0.001 and self.patch.v < 0.3:
             reward -= 2.0
-
-        # ===== 10. SE-MPC FEEDBACK (Patch learns speed agents can achieve) =====
-        if self.mpc_attempts > 0:
-            feasibility_rate = self.mpc_successes / self.mpc_attempts
-            # Encourage high MPC feasibility
-            reward += 0.5 * (feasibility_rate - 0.5)  # in [-0.25, +0.25]
-
-        safety_rate = self.safety_interventions / max(1, self.step_count * self.num_agents)
-        if safety_rate > 0.3:
-            # Penalize frequent safety interventions
-            reward -= 0.5 * (safety_rate - 0.3)
         
         return np.clip(reward, -50.0, 50.0)  # Wider clipping range for dense rewards
     
