@@ -1466,6 +1466,7 @@ class PatchEnv(gym.Env):
         
         # Create base environment (once)
         if self.base_env is None:
+            # import f1tenth_gym  # Register env in subprocess
             self.base_env = gym.make(
                 "f1tenth_gym:f1tenth-v0",
                 config={
