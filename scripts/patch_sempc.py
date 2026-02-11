@@ -20,7 +20,7 @@ from matplotlib.patches import Ellipse
 
 # Import SE-MPC and SafetyLayer from FastFunnels (parent scripts directory)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from FastFunnels import SEMPCSolver, SafetyLayer
+from SEMPC import SEMPCSolver, SafetyLayer
 
 # Import agent controller for heuristic agents
 try:

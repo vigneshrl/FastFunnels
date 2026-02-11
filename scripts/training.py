@@ -32,8 +32,8 @@ except ImportError:
 
 # Import environments
 # Make NeuroPatch module importable when running from project root
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "scripts/NeuroPatch")))
-from FastFunnels import PatchEnv
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "FastFunnels")))
+from patch_sempc import PatchEnv
 # from neurocontrollers import AgentEnv
 
 
