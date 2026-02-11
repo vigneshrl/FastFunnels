@@ -1002,20 +1002,20 @@ class PatchEnv(gym.Env):
         max_a = 5.0
         max_b = 3.0
         
-        # ===== 1. DENSE VELOCITY REWARD (Always Active) - MAXIMUM SPEED =====
-        # Reward forward velocity continuously - encourage maximum speed!
+        # ===== 1. DENSE VELOCITY REWARD (Always Active) =====
+        # Reward forward velocity continuously (not just when > 1.0)
+        # Optimal velocity is around 2-3 m/s
         if self.patch.v > 0.1:  # Only reward if moving
-            # Linear reward for speed (no cap - encourage going as fast as possible)
-            # Normalize by max possible speed (5.0 m/s from patch dynamics)
-            v_normalized = min(self.patch.v / 5.0, 1.0)  # Normalize to [0, 1]
-            reward += 10.0 * v_normalized  # Strong reward for speed (was 5.0)
+            # Normalized velocity reward: peak at 3.0 m/s
+            v_normalized = min(self.patch.v / 3.0, 1.0)  # Normalize to [0, 1]
+            reward += 5.0 * v_normalized  # Dense reward for any forward movement
             
-            # Bonus for high speed (encourage pushing limits)
-            if self.patch.v >= 3.0:
-                reward += 5.0 * (self.patch.v - 3.0) / 2.0  # Extra bonus for 3-5 m/s
+            # Bonus for maintaining good speed
+            if 2.0 <= self.patch.v <= 4.0:
+                reward += 3.0  # Sweet spot bonus
         else:
             # Penalty for being stuck
-            reward -= 5.0  # Stronger penalty (was 3.0)
+            reward -= 3.0
         
         # ===== 2. DENSE DISTANCE TRAVELED REWARD =====
         # Track previous position to compute distance moved
@@ -1064,11 +1064,11 @@ class PatchEnv(gym.Env):
         if self.lap_progress > 0.9 and progress < 0.1:
             progress_delta = progress + (1.0 - self.lap_progress)
         
-        # Dense progress reward (even small progress gets reward) - MAXIMUM SPEED
+        # Dense progress reward (even small progress gets reward)
         if progress_delta > 0.001:
-            reward += 100.0 * progress_delta  # Very strong reward for forward progress (was 50.0)
+            reward += 50.0 * progress_delta  # Strong reward for forward progress
         elif progress_delta < -0.01:  # Significant backward movement
-            reward -= 30.0 * abs(progress_delta)  # Stronger penalty for going backward (was 20.0)
+            reward -= 20.0 * abs(progress_delta)  # Penalty for going backward
         
         # ===== 5. DENSE ALIGNMENT REWARD (Always Active) =====
         patch_direction = np.array([np.cos(self.patch.theta), np.sin(self.patch.theta)])
@@ -1158,29 +1158,23 @@ class PatchEnv(gym.Env):
         self._prev_steering = self.patch.steering
         
         # ===== 8. SURVIVAL BONUS =====
-        reward += 0.05  # Small bonus for every step survived
+        reward += 0.2  # Small bonus for every step survived
         
         # ===== 9. STUCK PENALTY =====
         # Penalty for not making progress and not moving
         if abs(progress_delta) < 0.001 and self.patch.v < 0.3:
             reward -= 2.0
 
-        # ===== 10. SE-MPC FEEDBACK (Patch learns MAXIMUM speed agents can achieve) =====
-        # CRITICAL: This is how patch learns to go as fast as possible while agents can keep up
+        # ===== 10. SE-MPC FEEDBACK (Patch learns speed agents can achieve) =====
         if self.mpc_attempts > 0:
             feasibility_rate = self.mpc_successes / self.mpc_attempts
-            # Strong reward for high MPC feasibility (agents can keep up = can go faster!)
-            # Scale: 0.0 feasibility = -5.0, 1.0 feasibility = +5.0
-            reward += 10.0 * (feasibility_rate - 0.5)  # Stronger feedback (was 0.5)
-            
-            # Bonus for perfect feasibility (encourage pushing speed limits)
-            if feasibility_rate >= 0.95:
-                reward += 3.0  # Extra bonus when agents can easily keep up
+            # Encourage high MPC feasibility
+            reward += 0.5 * (feasibility_rate - 0.5)  # in [-0.25, +0.25]
 
         safety_rate = self.safety_interventions / max(1, self.step_count * self.num_agents)
-        if safety_rate > 0.2:  # Lower threshold (was 0.3) - be more sensitive
-            # Strong penalty for frequent safety interventions (patch going too fast)
-            reward -= 5.0 * (safety_rate - 0.2)  # Stronger penalty (was 0.5)
+        if safety_rate > 0.3:
+            # Penalize frequent safety interventions
+            reward -= 0.5 * (safety_rate - 0.3)
         
         return np.clip(reward, -50.0, 50.0)  # Wider clipping range for dense rewards
     
@@ -1531,10 +1525,6 @@ class PatchEnv(gym.Env):
         # Store safe initial size for validation checks
         self._safe_init_a = init_a
         self._safe_init_b = init_b
-        min_a = init_a * 0.5
-        min_b = init_b * 0.5
-        self.patch_a_range = (min_a, init_a)  # Can shrink to 50%, max is spawn size
-        self.patch_b_range = (min_b, init_b)
 
         self._safe_min_a = self._safe_init_a * 0.5
         self._safe_min_b = self._safe_init_b * 0.5
@@ -1588,21 +1578,6 @@ class PatchEnv(gym.Env):
         self.safety_interventions = 0
         self.cached_controls = [None] * self.num_agents
         self.cached_feasible = [False] * self.num_agents
-
-        # CRITICAL: Update action range minimum based on agent positions
-        # Patch must be at least large enough to contain all agents
-        min_a_for_agents, min_b_for_agents = self._calculate_min_patch_size_for_agents()
-        
-        # Update action range: minimum is max(50% spawn, agent requirement)
-        min_a = max(self._safe_min_a, min_a_for_agents)
-        min_b = max(self._safe_min_b, min_b_for_agents)
-        
-        # Ensure minimum doesn't exceed spawn size
-        min_a = min(min_a, self._safe_init_a)
-        min_b = min(min_b, self._safe_init_b)
-        
-        self.patch_a_range = (min_a, self._safe_init_a)
-        self.patch_b_range = (min_b, self._safe_init_b)
 
         # ===== VALIDATION: Check LIDAR safety FIRST (before discretization) =====
         # Get LIDAR data and check if patch respects LIDAR safety rule
@@ -1713,26 +1688,7 @@ class PatchEnv(gym.Env):
         self.patch.step(smoothed_patch_accel, smoothed_patch_steering, dt)
 
         prev_x, prev_y = self.patch.x, self.patch.y
-        
-        # Calculate minimum patch size needed to contain all agents
-        min_a_for_agents, min_b_for_agents = self._calculate_min_patch_size_for_agents()
-        
-        # Constrain target size: must be >= agent requirement, <= spawn size
-        spawn_a = getattr(self, '_safe_init_a', None)
-        spawn_b = getattr(self, '_safe_init_b', None)
-        
-        # Ensure patch is large enough for agents
-        a = max(a, min_a_for_agents)
-        b = max(b, min_b_for_agents)
-        
-        # Ensure patch doesn't exceed spawn size
-        if spawn_a is not None:
-            a = min(a, spawn_a)
-        if spawn_b is not None:
-            b = min(b, spawn_b)
-        
-        # Pass spawn size as maximum to prevent expansion
-        self.patch.update_shape(a, b, dt, max_a=spawn_a, max_b=spawn_b)
+        self.patch.update_shape(a, b, dt)
         self.patch.save_state()
 
         lidar_check_obs = self.current_base_obs if hasattr(self, 'current_base_obs') and self.current_base_obs is not None else None
@@ -1891,10 +1847,6 @@ class PatchEnv(gym.Env):
         reward = self._compute_reward(base_obs, lidar_info)
         self.episode_reward += reward
         
-        # this ensures progress_delta is calculated correctly next step 
-        patch_pos = np.array([self.patch.x, self.patch.y])
-        self.lap_progress, _ = self._get_lap_progress(patch_pos)
-
         # 5. CHECK TERMINATION
         terminated, truncated, termination_reason = self._check_termination(base_obs)
         

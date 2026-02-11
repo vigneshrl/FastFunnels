@@ -1002,20 +1002,20 @@ class PatchEnv(gym.Env):
         max_a = 5.0
         max_b = 3.0
         
-        # ===== 1. DENSE VELOCITY REWARD (Always Active) - MAXIMUM SPEED =====
-        # Reward forward velocity continuously - encourage maximum speed!
+        # ===== 1. DENSE VELOCITY REWARD (Always Active) =====
+        # Reward forward velocity continuously (not just when > 1.0)
+        # Optimal velocity is around 2-3 m/s
         if self.patch.v > 0.1:  # Only reward if moving
-            # Linear reward for speed (no cap - encourage going as fast as possible)
-            # Normalize by max possible speed (5.0 m/s from patch dynamics)
-            v_normalized = min(self.patch.v / 5.0, 1.0)  # Normalize to [0, 1]
-            reward += 10.0 * v_normalized  # Strong reward for speed (was 5.0)
+            # Normalized velocity reward: peak at 3.0 m/s
+            v_normalized = min(self.patch.v / 3.0, 1.0)  # Normalize to [0, 1]
+            reward += 5.0 * v_normalized  # Dense reward for any forward movement
             
-            # Bonus for high speed (encourage pushing limits)
-            if self.patch.v >= 3.0:
-                reward += 5.0 * (self.patch.v - 3.0) / 2.0  # Extra bonus for 3-5 m/s
+            # Bonus for maintaining good speed
+            if 2.0 <= self.patch.v <= 4.0:
+                reward += 3.0  # Sweet spot bonus
         else:
             # Penalty for being stuck
-            reward -= 5.0  # Stronger penalty (was 3.0)
+            reward -= 3.0
         
         # ===== 2. DENSE DISTANCE TRAVELED REWARD =====
         # Track previous position to compute distance moved
@@ -1064,11 +1064,11 @@ class PatchEnv(gym.Env):
         if self.lap_progress > 0.9 and progress < 0.1:
             progress_delta = progress + (1.0 - self.lap_progress)
         
-        # Dense progress reward (even small progress gets reward) - MAXIMUM SPEED
+        # Dense progress reward (even small progress gets reward)
         if progress_delta > 0.001:
-            reward += 100.0 * progress_delta  # Very strong reward for forward progress (was 50.0)
+            reward += 50.0 * progress_delta  # Strong reward for forward progress
         elif progress_delta < -0.01:  # Significant backward movement
-            reward -= 30.0 * abs(progress_delta)  # Stronger penalty for going backward (was 20.0)
+            reward -= 20.0 * abs(progress_delta)  # Penalty for going backward
         
         # ===== 5. DENSE ALIGNMENT REWARD (Always Active) =====
         patch_direction = np.array([np.cos(self.patch.theta), np.sin(self.patch.theta)])
@@ -1165,22 +1165,16 @@ class PatchEnv(gym.Env):
         if abs(progress_delta) < 0.001 and self.patch.v < 0.3:
             reward -= 2.0
 
-        # ===== 10. SE-MPC FEEDBACK (Patch learns MAXIMUM speed agents can achieve) =====
-        # CRITICAL: This is how patch learns to go as fast as possible while agents can keep up
+        # ===== 10. SE-MPC FEEDBACK (Patch learns speed agents can achieve) =====
         if self.mpc_attempts > 0:
             feasibility_rate = self.mpc_successes / self.mpc_attempts
-            # Strong reward for high MPC feasibility (agents can keep up = can go faster!)
-            # Scale: 0.0 feasibility = -5.0, 1.0 feasibility = +5.0
-            reward += 10.0 * (feasibility_rate - 0.5)  # Stronger feedback (was 0.5)
-            
-            # Bonus for perfect feasibility (encourage pushing speed limits)
-            if feasibility_rate >= 0.95:
-                reward += 3.0  # Extra bonus when agents can easily keep up
+            # Encourage high MPC feasibility
+            reward += 0.5 * (feasibility_rate - 0.5)  # in [-0.25, +0.25]
 
         safety_rate = self.safety_interventions / max(1, self.step_count * self.num_agents)
-        if safety_rate > 0.2:  # Lower threshold (was 0.3) - be more sensitive
-            # Strong penalty for frequent safety interventions (patch going too fast)
-            reward -= 5.0 * (safety_rate - 0.2)  # Stronger penalty (was 0.5)
+        if safety_rate > 0.3:
+            # Penalize frequent safety interventions
+            reward -= 0.5 * (safety_rate - 0.3)
         
         return np.clip(reward, -50.0, 50.0)  # Wider clipping range for dense rewards
     

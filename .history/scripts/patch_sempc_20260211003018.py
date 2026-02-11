@@ -1064,11 +1064,11 @@ class PatchEnv(gym.Env):
         if self.lap_progress > 0.9 and progress < 0.1:
             progress_delta = progress + (1.0 - self.lap_progress)
         
-        # Dense progress reward (even small progress gets reward) - MAXIMUM SPEED
+        # Dense progress reward (even small progress gets reward)
         if progress_delta > 0.001:
-            reward += 100.0 * progress_delta  # Very strong reward for forward progress (was 50.0)
+            reward += 50.0 * progress_delta  # Strong reward for forward progress
         elif progress_delta < -0.01:  # Significant backward movement
-            reward -= 30.0 * abs(progress_delta)  # Stronger penalty for going backward (was 20.0)
+            reward -= 20.0 * abs(progress_delta)  # Penalty for going backward
         
         # ===== 5. DENSE ALIGNMENT REWARD (Always Active) =====
         patch_direction = np.array([np.cos(self.patch.theta), np.sin(self.patch.theta)])
