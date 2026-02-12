@@ -1934,7 +1934,7 @@ class PatchEnv(gym.Env):
             plt.show(block=False)
         
         self._ax.clear()
-
+        
         self._ax.set_aspect('equal')
         self._ax.grid(True, alpha=0.3)
         
@@ -1982,13 +1982,13 @@ class PatchEnv(gym.Env):
                         )
                         
                         # Draw wall boundaries
-                        # self._ax.contour(
-                        #     X, Y, occ_region,
-                        #     levels=[0.5],
-                        #     colors='black',
-                        #     linewidths=1.5,
-                        #     alpha=0.7
-                        # )
+                        self._ax.contour(
+                            X, Y, occ_region,
+                            levels=[0.5],
+                            colors='black',
+                            linewidths=1.5,
+                            alpha=0.7
+                        )
                 
                 # Draw centerline
                 if hasattr(track, 'centerline') and track.centerline is not None:
