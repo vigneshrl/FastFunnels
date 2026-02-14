@@ -1434,25 +1434,28 @@ class PatchEnv(gym.Env):
             )
             self.base_env.reset()       
        
-        # Optional centerline cache for visualization only (not used for control/reward)
-        track = self.base_env.unwrapped.track
-        if self.waypoints is None and track.centerline is not None:
-            self.waypoints = np.column_stack([track.centerline.xs, track.centerline.ys])
-            self.track_length = track.centerline.length
+        # Get track info
+        if self.waypoints is None:
+            track = self.base_env.unwrapped.track
+            if track.centerline is not None:
+                self.waypoints = np.column_stack([
+                    track.centerline.xs,
+                    track.centerline.ys
+                ])
+                self.track_length = track.centerline.length
+                self.start_x = track.centerline.xs[300]
+                self.start_y = track.centerline.ys[300]
+                if len(track.centerline.xs) > 1:
+                    dx = track.centerline.xs[1] - track.centerline.xs[0]
+                    dy = track.centerline.ys[1] - track.centerline.ys[0]
+                    self.start_theta = np.arctan2(dy, dx)
+                else:
+                    self.start_theta = 0.0
 
-        # External spawn/goal override
-        if options is not None and "spawn_pose" in options:
-            self.spawn_pose = np.array(options["spawn_pose"], dtype=np.float32)
-        if options is not None and "goal_xy" in options:
-            self.goal_xy = np.array(options["goal_xy"], dtype=np.float32)
-
-        # Landmark-based spawn pose
-        patch_x = float(self.spawn_pose[0])
-        patch_y = float(self.spawn_pose[1])
-        patch_theta = float(self.spawn_pose[2])
-        self.start_x = patch_x
-        self.start_y = patch_y
-        self.start_theta = patch_theta
+        # Determine patch position and size
+        patch_x = self.start_x
+        patch_y = self.start_y
+        patch_theta = self.start_theta
         
         #Estimate track width and set max patch size based on it
         track_width = self._estimate_track_width(patch_x, patch_y, patch_theta)
@@ -1505,12 +1508,11 @@ class PatchEnv(gym.Env):
         self._prev_patch_pos = np.array([self.patch.x, self.patch.y])
         self._prev_accel = 0.0
         self._prev_steering = 0.0
-        
-        # Generate agent poses with SAFE inter-agent spacing (prevents instant collisions)
-        agent_poses = self._generate_safe_agent_poses(
-            patch_x, patch_y, patch_theta, init_a, init_b
-        )
-        
+        # Generate agent poses
+        # agent_poses = self._generate_safe_agent_poses(
+        #     patch_x, patch_y, patch_theta, init_a, init_b
+        # )
+        agent_poses = self._position_agents_as_sensors(randomize=True)
         # Reset base env
         base_obs, info = self.base_env.reset(options={"poses": agent_poses})
         
@@ -1631,12 +1633,10 @@ class PatchEnv(gym.Env):
         # self.patch.b = 1.8
         # Reset tracking
         self.step_count = 0
+        self.lap_progress = 0.0
         self.episode_reward = 0.0
         self.current_base_obs = base_obs
-        _, _, goal_dist = self._get_goal_direction_and_distance(self.patch.x, self.patch.y)
-        self._init_goal_dist = max(goal_dist, 1e-6)
-        self._prev_goal_dist = goal_dist
-        self.lap_progress = 0.0
+        self._current_waypoint_idx = 0
         
         return self._get_patch_observation(base_obs), {}
     
@@ -1842,9 +1842,9 @@ class PatchEnv(gym.Env):
         reward = self._compute_reward(base_obs, lidar_info)
         self.episode_reward += reward
         
-        # Update normalized goal progress metric for logging/plots
-        _, _, goal_dist = self._get_goal_direction_and_distance(self.patch.x, self.patch.y)
-        self.lap_progress = float(np.clip(1.0 - (goal_dist / max(self._init_goal_dist, 1e-6)), 0.0, 1.0))
+        # this ensures progress_delta is calculated correctly next step 
+        patch_pos = np.array([self.patch.x, self.patch.y])
+        self.lap_progress, _ = self._get_lap_progress(patch_pos)
 
         # 5. CHECK TERMINATION
         terminated, truncated, termination_reason = self._check_termination(base_obs)

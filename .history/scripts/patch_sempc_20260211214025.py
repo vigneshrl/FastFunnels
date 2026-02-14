@@ -265,15 +265,6 @@ class PatchEnv(gym.Env):
         # self.current_base_obs = None
         # self._current_waypoint_idx = 0
         
-        # ---- Landmark navigation config (no centerline dependency) ----
-        self.spawn_pose = np.array([-46.6, 27.0, 2.25], dtype=np.float32)  # x, y, theta
-        self.goal_xy = np.array([-52.8, 19.33], dtype=np.float32)            # global landmark
-        self.goal_reached_radius = 1.5
-
-        # Goal tracking for dense reward
-        self._prev_goal_dist = None
-        self._init_goal_dist = None
-        
         # Add these for visualization tracking
         self.patch_wall_collisions = 0
         self.patch_min_clearance = float('inf')
@@ -715,35 +706,58 @@ class PatchEnv(gym.Env):
         angle_offset = (best_idx - n_sectors // 2) / (n_sectors // 2)
         return angle_offset, min(best_clearance / 10.0, 1.0)
     
-    def _get_goal_direction_and_distance(self, patch_x, patch_y):
-        """Get goal direction and distance for landmark-based navigation."""
-        goal_vec_world = np.array([self.goal_xy[0] - patch_x, self.goal_xy[1] - patch_y], dtype=np.float32)
-        goal_dist = float(np.linalg.norm(goal_vec_world))
-
-        if goal_dist > 1e-6:
-            goal_dir_world = goal_vec_world / goal_dist
-        else:
-            goal_dir_world = np.array([1.0, 0.0], dtype=np.float32)
-
-        # Convert 1m point along world goal direction into patch-local direction
-        gx = patch_x + goal_dir_world[0]
-        gy = patch_y + goal_dir_world[1]
-        lx, ly = self.patch.world_to_patch_frame(gx, gy)
-        local_norm = np.linalg.norm([lx, ly]) + 1e-6
-        local_goal_dir = np.array([lx, ly], dtype=np.float32) / local_norm
-
-        return goal_dir_world, local_goal_dir, goal_dist
-    
     def _get_lap_progress(self, position):
-        """
-        Legacy API kept for compatibility.
-        Returns normalized progress-to-goal and global goal direction, without centerline use.
-        """
-        goal_dir_world, _, goal_dist = self._get_goal_direction_and_distance(position[0], position[1])
-        if self._init_goal_dist is None:
-            self._init_goal_dist = max(goal_dist, 1e-6)
-        progress = float(np.clip(1.0 - (goal_dist / max(self._init_goal_dist, 1e-6)), 0.0, 1.0))
-        return progress, goal_dir_world
+        """Compute progress along track."""
+        if self.waypoints is None or len(self.waypoints) < 2:
+            return 0.0, np.array([1.0, 0.0])
+        
+        n_waypoints = len(self.waypoints)
+        if not hasattr(self, '_current_waypoint_idx'):
+            self._current_waypoint_idx = 0
+        
+        search_window = 30 #only look ahead 20 waypoints
+        start_idx = self._current_waypoint_idx
+        # end_idx = start_idx + search_window
+        
+        search_indices = []
+        for i in range(search_window):
+            idx = (start_idx + i) % n_waypoints
+            search_indices.append(idx)
+
+        search_waypoints = self.waypoints[search_indices]
+        dists = np.linalg.norm(search_waypoints - position, axis=1)
+        nearest_local_idx = np.argmin(dists)
+        nearest_idx = search_indices[nearest_local_idx]
+        # dist_to_centerline = dists[nearest_local_idx]
+
+        # FIX: Only update waypoint index if we've moved forward
+        # Prevent going backward - only allow forward progress
+        if nearest_idx >= self._current_waypoint_idx:
+            # Moving forward - update index
+            self._current_waypoint_idx = nearest_idx
+        elif nearest_idx < self._current_waypoint_idx:
+            # Check if we wrapped around (lap completion)
+            if nearest_idx < search_window and self._current_waypoint_idx > (n_waypoints - search_window):
+                # Likely wrapped around - allow update
+                self._current_waypoint_idx = nearest_idx
+            elif hasattr(self, '_current_waypoint_idx') and dists[nearest_local_idx] < 0.5:
+                if abs(nearest_idx - self._current_waypoint_idx) < 5:
+                    self._current_waypoint_idx = nearest_idx
+            # Otherwise, don't update (prevent going backward)
+        
+        progress = self._current_waypoint_idx / n_waypoints
+        
+        # FIX: Always look forward for goal (not backward)
+        # Look ahead more waypoints for better goal direction
+        look_ahead = 10  # Look 10 waypoints ahead
+        next_idx = (self._current_waypoint_idx + look_ahead) % n_waypoints
+        next_wp = self.waypoints[next_idx]
+        
+        # Compute direction to next waypoint
+        direction = next_wp - position
+        direction = direction / (np.linalg.norm(direction) + 1e-6)
+        
+        return progress, direction
     
     def _get_patch_observation(self, base_obs):
         """Build observation for patch policy (leader)."""
@@ -782,12 +796,38 @@ class PatchEnv(gym.Env):
         best_heading, best_clearance = self._get_best_heading(base_obs)
         heading_obs = np.array([best_heading, best_clearance])
         
-        # Goal info (landmark-based, no centerline/waypoint dependency)
-        _, local_goal_dir, goal_dist = self._get_goal_direction_and_distance(patch_x, patch_y)
+        # Goal info
+        progress, goal_dir = self._get_lap_progress(
+            np.array([patch_x, patch_y])
+        )
+
+        # normalized_dist_to_center = np.clip(dist_to_center / 5.0, 0.0, 2.0)
+        goal_dist = (1.0 - progress) * self.track_length
+
+    
+    # Get a point 1 unit away in goal direction (in world frame)
+        goal_point_world_x = patch_x + goal_dir[0]
+        goal_point_world_y = patch_y + goal_dir[1]
+        
+        # Convert to patch local frame
+        goal_point_local_x, goal_point_local_y = self.patch.world_to_patch_frame(
+            goal_point_world_x, goal_point_world_y
+        )
+        
+        # Create local goal direction vector (normalized)
+        local_goal_vec = np.array([goal_point_local_x, goal_point_local_y])
+        local_goal_norm = np.linalg.norm(local_goal_vec)
+        if local_goal_norm > 1e-6:
+            local_goal_dir = local_goal_vec / local_goal_norm
+        else:
+            # Fallback if too small
+            local_goal_dir = np.array([1.0, 0.0])  # Forward direction
+        
         goal_obs = np.array([
             local_goal_dir[0],  # Goal direction in patch local frame (x)
             local_goal_dir[1],  # Goal direction in patch local frame (y)
             min(goal_dist / 50.0, 1.0),  # Normalized distance to goal
+            # normalized_dist_to_center  # Normalized distance to centerline
         ])
     
         # # Agent relative positions
@@ -1015,22 +1055,32 @@ class PatchEnv(gym.Env):
         if min_dist < 0.8:
             reward -= 10.0 * (0.8 - min_dist)  # Large penalty for dangerous proximity
         
-        # ===== 4. LANDMARK PROGRESS + ALIGNMENT REWARD =====
-        goal_dir_world, _, goal_dist = self._get_goal_direction_and_distance(self.patch.x, self.patch.y)
-        if self._prev_goal_dist is None:
-            self._prev_goal_dist = goal_dist
-        dist_improve = self._prev_goal_dist - goal_dist  # positive when moving toward goal
-        reward += 8.0 * dist_improve  # Reward for approaching goal
-        if dist_improve < -0.01:  # Moving away from goal
-            reward -= 2.0 * abs(dist_improve)  # Penalty for moving away
-        self._prev_goal_dist = goal_dist
-
+        # ===== 4. DENSE PROGRESS REWARD (Always Active) =====
+        patch_pos = np.array([self.patch.x, self.patch.y])
+        progress, goal_dir = self._get_lap_progress(patch_pos)
+        progress_delta = progress - self.lap_progress
+        
+        # Handle lap wrap-around
+        if self.lap_progress > 0.9 and progress < 0.1:
+            progress_delta = progress + (1.0 - self.lap_progress)
+        
+        # Dense progress reward (even small progress gets reward) - MAXIMUM SPEED
+        if progress_delta > 0.001:
+            reward += 100.0 * progress_delta  # Very strong reward for forward progress (was 50.0)
+        elif progress_delta < -0.01:  # Significant backward movement
+            reward -= 30.0 * abs(progress_delta)  # Stronger penalty for going backward (was 20.0)
+        
+        # ===== 5. DENSE ALIGNMENT REWARD (Always Active) =====
         patch_direction = np.array([np.cos(self.patch.theta), np.sin(self.patch.theta)])
-        goal_alignment = np.dot(patch_direction, goal_dir_world)  # [-1, 1]
+        goal_alignment = np.dot(patch_direction, goal_dir)  # [-1, 1]
+        
+        # Continuous alignment reward (not just when > 0.8)
         if self.patch.v > 0.1:  # Only when moving
-            reward += 2.0 * max(goal_alignment, 0.0)  # Reward positive alignment
-            if goal_alignment < -0.3:  # Going wrong way
-                reward -= 2.0 * abs(goal_alignment)  # Penalty for wrong direction
+            reward += 3.0 * max(goal_alignment, 0.0)  # Reward positive alignment
+            if goal_alignment > 0.9:
+                reward += 2.0  # Bonus for excellent alignment
+            elif goal_alignment < -0.5:  # Going wrong way
+                reward -= 5.0 * abs(goal_alignment)  # Penalty for wrong direction
         
         # ===== 6. DENSE SIZE EFFICIENCY REWARD (Always Active) =====
         # Get LIDAR distances for directional shrinking
@@ -1111,8 +1161,8 @@ class PatchEnv(gym.Env):
         reward += 0.05  # Small bonus for every step survived
         
         # ===== 9. STUCK PENALTY =====
-        # Penalty for not approaching goal and not moving
-        if abs(dist_improve) < 1e-3 and self.patch.v < 0.3:
+        # Penalty for not making progress and not moving
+        if abs(progress_delta) < 0.001 and self.patch.v < 0.3:
             reward -= 2.0
 
         # ===== 10. SE-MPC FEEDBACK (Patch learns MAXIMUM speed agents can achieve) =====
@@ -1434,25 +1484,28 @@ class PatchEnv(gym.Env):
             )
             self.base_env.reset()       
        
-        # Optional centerline cache for visualization only (not used for control/reward)
-        track = self.base_env.unwrapped.track
-        if self.waypoints is None and track.centerline is not None:
-            self.waypoints = np.column_stack([track.centerline.xs, track.centerline.ys])
-            self.track_length = track.centerline.length
+        # Get track info
+        if self.waypoints is None:
+            track = self.base_env.unwrapped.track
+            if track.centerline is not None:
+                self.waypoints = np.column_stack([
+                    track.centerline.xs,
+                    track.centerline.ys
+                ])
+                self.track_length = track.centerline.length
+                self.start_x = track.centerline.xs[0]
+                self.start_y = track.centerline.ys[0]
+                if len(track.centerline.xs) > 1:
+                    dx = track.centerline.xs[1] - track.centerline.xs[0]
+                    dy = track.centerline.ys[1] - track.centerline.ys[0]
+                    self.start_theta = np.arctan2(dy, dx)
+                else:
+                    self.start_theta = 0.0
 
-        # External spawn/goal override
-        if options is not None and "spawn_pose" in options:
-            self.spawn_pose = np.array(options["spawn_pose"], dtype=np.float32)
-        if options is not None and "goal_xy" in options:
-            self.goal_xy = np.array(options["goal_xy"], dtype=np.float32)
-
-        # Landmark-based spawn pose
-        patch_x = float(self.spawn_pose[0])
-        patch_y = float(self.spawn_pose[1])
-        patch_theta = float(self.spawn_pose[2])
-        self.start_x = patch_x
-        self.start_y = patch_y
-        self.start_theta = patch_theta
+        # Determine patch position and size
+        patch_x = self.start_x
+        patch_y = self.start_y
+        patch_theta = self.start_theta
         
         #Estimate track width and set max patch size based on it
         track_width = self._estimate_track_width(patch_x, patch_y, patch_theta)
@@ -1505,12 +1558,11 @@ class PatchEnv(gym.Env):
         self._prev_patch_pos = np.array([self.patch.x, self.patch.y])
         self._prev_accel = 0.0
         self._prev_steering = 0.0
-        
-        # Generate agent poses with SAFE inter-agent spacing (prevents instant collisions)
-        agent_poses = self._generate_safe_agent_poses(
-            patch_x, patch_y, patch_theta, init_a, init_b
-        )
-        
+        # Generate agent poses
+        # agent_poses = self._generate_safe_agent_poses(
+        #     patch_x, patch_y, patch_theta, init_a, init_b
+        # )
+        agent_poses = self._position_agents_as_sensors(randomize=True)
         # Reset base env
         base_obs, info = self.base_env.reset(options={"poses": agent_poses})
         
@@ -1631,12 +1683,10 @@ class PatchEnv(gym.Env):
         # self.patch.b = 1.8
         # Reset tracking
         self.step_count = 0
+        self.lap_progress = 0.0
         self.episode_reward = 0.0
         self.current_base_obs = base_obs
-        _, _, goal_dist = self._get_goal_direction_and_distance(self.patch.x, self.patch.y)
-        self._init_goal_dist = max(goal_dist, 1e-6)
-        self._prev_goal_dist = goal_dist
-        self.lap_progress = 0.0
+        self._current_waypoint_idx = 0
         
         return self._get_patch_observation(base_obs), {}
     
@@ -1842,9 +1892,9 @@ class PatchEnv(gym.Env):
         reward = self._compute_reward(base_obs, lidar_info)
         self.episode_reward += reward
         
-        # Update normalized goal progress metric for logging/plots
-        _, _, goal_dist = self._get_goal_direction_and_distance(self.patch.x, self.patch.y)
-        self.lap_progress = float(np.clip(1.0 - (goal_dist / max(self._init_goal_dist, 1e-6)), 0.0, 1.0))
+        # this ensures progress_delta is calculated correctly next step 
+        patch_pos = np.array([self.patch.x, self.patch.y])
+        self.lap_progress, _ = self._get_lap_progress(patch_pos)
 
         # 5. CHECK TERMINATION
         terminated, truncated, termination_reason = self._check_termination(base_obs)
@@ -1930,7 +1980,7 @@ class PatchEnv(gym.Env):
                             extend='neither'
                         )
                         
-                        # Draw wall boundaries
+                        Draw wall boundaries
                         self._ax.contour(
                             X, Y, occ_region,
                             levels=[0.5],

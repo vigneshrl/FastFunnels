@@ -1842,9 +1842,9 @@ class PatchEnv(gym.Env):
         reward = self._compute_reward(base_obs, lidar_info)
         self.episode_reward += reward
         
-        # Update normalized goal progress metric for logging/plots
-        _, _, goal_dist = self._get_goal_direction_and_distance(self.patch.x, self.patch.y)
-        self.lap_progress = float(np.clip(1.0 - (goal_dist / max(self._init_goal_dist, 1e-6)), 0.0, 1.0))
+        # this ensures progress_delta is calculated correctly next step 
+        patch_pos = np.array([self.patch.x, self.patch.y])
+        self.lap_progress, _ = self._get_lap_progress(patch_pos)
 
         # 5. CHECK TERMINATION
         terminated, truncated, termination_reason = self._check_termination(base_obs)

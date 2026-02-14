@@ -207,14 +207,6 @@ class TrainingCallback(BaseCallback):
             with open(path + "_metadata.json", 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-            # Log checkpoint to wandb
-            if self.use_wandb:
-                wandb.log({
-                    "checkpoint/timesteps": int(self.num_timesteps),
-                    "checkpoint/episodes": int(self.episode_count),
-                    "checkpoint/avg_reward": float(avg_reward),
-                }, step=self.num_timesteps)
-            
             print(f"\n💾 Checkpoint saved: {path}")
         
         return True
@@ -227,10 +219,7 @@ def train_patch_policy(
     num_envs=8,
     agent_policy_path=None,
     resume_from=None,
-    domain_randomize=False,
-    wandb_project="patch_sempc_training",
-    wandb_entity=None,
-    wandb_run_name=None
+    domain_randomize=False
 ):
     """
     Train the patch policy (leader).
@@ -252,28 +241,6 @@ def train_patch_policy(
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = os.path.join(save_path, f"run_{run_id}")
     os.makedirs(run_dir, exist_ok=True)
-    
-    # Initialize wandb
-    if WANDB_AVAILABLE:
-        wandb.init(
-            project=wandb_project,
-            entity=wandb_entity,
-            name=wandb_run_name or f"patch_sempc_{run_id}",
-            config={
-                "total_timesteps": total_timesteps,
-                "num_envs": num_envs,
-                "checkpoint_freq": checkpoint_freq,
-                "agent_policy_path": agent_policy_path,
-                "domain_randomize": domain_randomize,
-                "policy_type": "patch_sempc",
-                "run_dir": run_dir,
-            },
-            sync_tensorboard=False,  # We're not using TensorBoard
-            monitor_gym=False,  # We handle our own logging
-        )
-        print(f"✅ wandb initialized: {wandb.run.url}")
-    else:
-        print("⚠️  wandb not available, logging to CSV only")
     
     print("=" * 70)
     print("TRAINING PATCH POLICY (Leader with SE-MPC agents)")
@@ -312,7 +279,7 @@ def train_patch_policy(
     )
     
     # Create callback
-    callback = TrainingCallback(run_dir, checkpoint_freq, num_envs, "PATCH", use_wandb=WANDB_AVAILABLE)
+    callback = TrainingCallback(run_dir, checkpoint_freq, num_envs, "PATCH")
     
     # Create/load model
     if resume_from and os.path.exists(resume_from + ".zip"):
@@ -336,6 +303,7 @@ def train_patch_policy(
             vf_coef=0.5,
             max_grad_norm=0.5,
             verbose=1,
+            tensorboard_log=os.path.join(save_path, "tensorboard"),
             use_sde=True,
             policy_kwargs={
                 "net_arch": dict(pi=[256, 256], vf=[256, 256]),
@@ -343,28 +311,6 @@ def train_patch_policy(
                 "log_std_init": -1.0
             }
         )
-        
-        # Log model config to wandb
-        if WANDB_AVAILABLE:
-            wandb.config.update({
-                "learning_rate": 5e-5,
-                "n_steps": 1024,
-                "batch_size": 256,
-                "n_epochs": 5,
-                "gamma": 0.99,
-                "gae_lambda": 0.95,
-                "clip_range": 0.2,
-                "ent_coef": 0.01,
-                "vf_coef": 0.5,
-                "max_grad_norm": 0.5,
-                "net_arch": "256x256",
-            })
-            
-            # Note: PPO training metrics (loss, value_loss, policy_gradient_loss, etc.)
-            # are logged by SB3 internally. To see them in wandb, you can either:
-            # 1. Use wandb's tensorboard sync: wandb sync <tensorboard_log_dir>
-            # 2. Or enable tensorboard_log and use wandb's tensorboard integration
-            # For now, we log episode-level metrics which are more important for monitoring
     
     print(f"\n🚀 Starting training...")
     
@@ -382,19 +328,12 @@ def train_patch_policy(
         print(f"\n{'='*70}")
         print(f"✅ TRAINING COMPLETE!")
         print(f"   Model saved to: {run_dir}/final_model")
-        if WANDB_AVAILABLE:
-            print(f"   wandb run: {wandb.run.url}")
         print(f"{'='*70}")
-        
-        if WANDB_AVAILABLE:
-            wandb.finish()
         
     except KeyboardInterrupt:
         print("\n⚠️ Training interrupted")
         model.save(os.path.join(run_dir, "interrupted_model"))
         env.save(os.path.join(run_dir, "interrupted_vecnormalize.pkl"))
-        if WANDB_AVAILABLE:
-            wandb.finish()
     
     env.close()
     return model
@@ -549,12 +488,6 @@ if __name__ == "__main__":
                        help="Path to resume training from")
     parser.add_argument("--domain-randomize", action="store_true",
                        help="Enable domain randomization")
-    parser.add_argument("--wandb-project", type=str, default="patch_sempc_training",
-                       help="wandb project name")
-    parser.add_argument("--wandb-entity", type=str, default=None,
-                       help="wandb entity/team name (optional)")
-    parser.add_argument("--wandb-run-name", type=str, default=None,
-                       help="wandb run name (optional, defaults to timestamp)")
     
     args = parser.parse_args()
     
@@ -570,10 +503,7 @@ if __name__ == "__main__":
             num_envs=args.num_envs,
             agent_policy_path=args.frozen_policy,
             resume_from=args.resume,
-            domain_randomize=args.domain_randomize,
-            wandb_project=args.wandb_project,
-            wandb_entity=args.wandb_entity,
-            wandb_run_name=args.wandb_run_name
+            domain_randomize=args.domain_randomize
         )
     # elif args.policy == "agent":
     #     train_agent_policy(

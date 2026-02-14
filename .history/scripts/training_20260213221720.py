@@ -359,12 +359,6 @@ def train_patch_policy(
                 "max_grad_norm": 0.5,
                 "net_arch": "256x256",
             })
-            
-            # Note: PPO training metrics (loss, value_loss, policy_gradient_loss, etc.)
-            # are logged by SB3 internally. To see them in wandb, you can either:
-            # 1. Use wandb's tensorboard sync: wandb sync <tensorboard_log_dir>
-            # 2. Or enable tensorboard_log and use wandb's tensorboard integration
-            # For now, we log episode-level metrics which are more important for monitoring
     
     print(f"\n🚀 Starting training...")
     

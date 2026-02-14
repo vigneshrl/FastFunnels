@@ -109,7 +109,7 @@ def evaluate_patch_policy(
     # Create environment
     env = PatchEnv(
         num_agents=2,
-        render_mode="human" if render else None,
+        render_mode="human" if (render else None,
         domain_randomize=False,
         agent_policy=agent_policy
     )

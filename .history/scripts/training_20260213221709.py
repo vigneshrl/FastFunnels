@@ -112,6 +112,22 @@ class TrainingCallback(BaseCallback):
         with open(self.log_file, 'w') as f:
             f.write("timesteps,episodes,avg_reward,time_elapsed,timesteps_per_sec\n")
     
+    def _on_training_end(self):
+        """Log PPO training metrics after each update."""
+        if self.use_wandb and hasattr(self.model, 'logger'):
+            # Get PPO training metrics from SB3 logger
+            logger = self.model.logger
+            if hasattr(logger, 'name_to_value'):
+                metrics = {}
+                for key, value in logger.name_to_value.items():
+                    if isinstance(value, (int, float, np.number)):
+                        # Convert SB3 metric names to wandb-friendly names
+                        wandb_key = key.replace("/", "_").replace(" ", "_").lower()
+                        metrics[f"train/{wandb_key}"] = float(value)
+                
+                if metrics:
+                    wandb.log(metrics, step=self.num_timesteps)
+    
     def _on_step(self):
         # Check for episode completion
         for i, done in enumerate(self.locals.get("dones", [])):
@@ -206,14 +222,6 @@ class TrainingCallback(BaseCallback):
             }
             with open(path + "_metadata.json", 'w') as f:
                 json.dump(metadata, f, indent=2)
-            
-            # Log checkpoint to wandb
-            if self.use_wandb:
-                wandb.log({
-                    "checkpoint/timesteps": int(self.num_timesteps),
-                    "checkpoint/episodes": int(self.episode_count),
-                    "checkpoint/avg_reward": float(avg_reward),
-                }, step=self.num_timesteps)
             
             print(f"\n💾 Checkpoint saved: {path}")
         
@@ -359,12 +367,6 @@ def train_patch_policy(
                 "max_grad_norm": 0.5,
                 "net_arch": "256x256",
             })
-            
-            # Note: PPO training metrics (loss, value_loss, policy_gradient_loss, etc.)
-            # are logged by SB3 internally. To see them in wandb, you can either:
-            # 1. Use wandb's tensorboard sync: wandb sync <tensorboard_log_dir>
-            # 2. Or enable tensorboard_log and use wandb's tensorboard integration
-            # For now, we log episode-level metrics which are more important for monitoring
     
     print(f"\n🚀 Starting training...")
     

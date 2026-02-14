@@ -207,14 +207,6 @@ class TrainingCallback(BaseCallback):
             with open(path + "_metadata.json", 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-            # Log checkpoint to wandb
-            if self.use_wandb:
-                wandb.log({
-                    "checkpoint/timesteps": int(self.num_timesteps),
-                    "checkpoint/episodes": int(self.episode_count),
-                    "checkpoint/avg_reward": float(avg_reward),
-                }, step=self.num_timesteps)
-            
             print(f"\n💾 Checkpoint saved: {path}")
         
         return True
@@ -359,12 +351,6 @@ def train_patch_policy(
                 "max_grad_norm": 0.5,
                 "net_arch": "256x256",
             })
-            
-            # Note: PPO training metrics (loss, value_loss, policy_gradient_loss, etc.)
-            # are logged by SB3 internally. To see them in wandb, you can either:
-            # 1. Use wandb's tensorboard sync: wandb sync <tensorboard_log_dir>
-            # 2. Or enable tensorboard_log and use wandb's tensorboard integration
-            # For now, we log episode-level metrics which are more important for monitoring
     
     print(f"\n🚀 Starting training...")
     
@@ -570,10 +556,7 @@ if __name__ == "__main__":
             num_envs=args.num_envs,
             agent_policy_path=args.frozen_policy,
             resume_from=args.resume,
-            domain_randomize=args.domain_randomize,
-            wandb_project=args.wandb_project,
-            wandb_entity=args.wandb_entity,
-            wandb_run_name=args.wandb_run_name
+            domain_randomize=args.domain_randomize
         )
     # elif args.policy == "agent":
     #     train_agent_policy(
