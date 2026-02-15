@@ -327,7 +327,7 @@ def train_patch_policy(
             env,
             learning_rate=2e-4, #it was 5e-5
             n_steps=2048,   #It was 1024 
-            batch_size=512, #It was 256
+            batch_size=512, #It was 
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,

@@ -340,7 +340,7 @@ class PatchEnv(gym.Env):
         # Domain randomization params (1)
         # Alpha (1)
         # SE-MPC feedback: feasibility_rate (1) + safety_rate (1)
-        obs_dim = 4 + 2 + 16 + 2 + 3 + 16 + 1 + 1 + 2 + 1
+        obs_dim = 4 + 2 + 16 + 2 + 3 + 16 + 1 + 1 + 2
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
         )
@@ -815,9 +815,7 @@ class PatchEnv(gym.Env):
         #                   if self.patch.is_inside(self.agent_states[i][0], 
         #                                           self.agent_states[i][1]))
         # inside_obs = np.array([agents_inside / self.num_agents])
-        #Minimum Lidar Reading 
-        min_wall_dist = min(lidar_distances)
-        wall_dist_obs = np.array([min_wall_dist / 10.0])  #normalised 
+        
         # Domain randomization
         domain_obs = np.array([self.patch.size_change_rate / 2.0])
         alpha_obs = np.array([self.alpha])
@@ -837,7 +835,6 @@ class PatchEnv(gym.Env):
             heading_obs,    # 2
             goal_obs,       # 3
             clearance_obs,  # 16 (clearance per sector)
-            wall_dist_obs,  # 1 for wall distances 
             domain_obs,     # 1
             alpha_obs,      # 1
             mpc_obs         # 2 (feasibility, safety)
@@ -1006,13 +1003,13 @@ class PatchEnv(gym.Env):
         # ===== 3. DENSE CLEARANCE REWARD (Always Active) =====
         # Continuous reward for maintaining safe clearance
         wall_dist_reward = min_dist / 2.0
-        reward += 5.0 * wall_dist_reward
-        # # Higher clearance = safer = better reward
-        # if min_dist > 0.3:  # Only reward if we have some clearance
-        #     # Normalize clearance: optimal around 2.0m
-        #     clearance_reward = min(min_dist / 2.0, 1.0)  # Normalize to [0, 1]
-        #     reward += 1.0 * clearance_reward  # Dense reward for safety margin
-        if min_dist < 0.5:
+        reward +
+        # Higher clearance = safer = better reward
+        if min_dist > 0.3:  # Only reward if we have some clearance
+            # Normalize clearance: optimal around 2.0m
+            clearance_reward = min(min_dist / 2.0, 1.0)  # Normalize to [0, 1]
+            reward += 1.0 * clearance_reward  # Dense reward for safety margin
+        else:
             # Penalty for being too close
             reward -= 4.0 * (0.5 - min_dist)  # Exponential penalty as we get closer
         
@@ -1761,7 +1758,7 @@ class PatchEnv(gym.Env):
         mpc_feasible = [False] * self.num_agents
 
         # Solve MPC every few steps and cache controls for efficiency
-        solve_mpc = (self.step_count == 1) or (self.step_count % 2 == 0)
+        solve_mpc = (self.step_count == 1) or (self.step_count % 5 == 0)
 
         for i in range(self.num_agents):
             x_local = positions_local[i][0]

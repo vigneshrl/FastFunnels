@@ -325,14 +325,14 @@ def train_patch_policy(
         model = PPO(
             "MlpPolicy",
             env,
-            learning_rate=2e-4, #it was 5e-5
-            n_steps=2048,   #It was 1024 
-            batch_size=512, #It was 256
-            n_epochs=10,
+            learning_rate=2e-5,
+            n_steps=1024,
+            batch_size=256,
+            n_epochs=5,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2, 
-            ent_coef=0.05,  # was 0.01 decreased for more expoloration
+            ent_coef=0.01,
             vf_coef=0.5,
             max_grad_norm=0.5,
             verbose=1,

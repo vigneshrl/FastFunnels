@@ -1007,12 +1007,12 @@ class PatchEnv(gym.Env):
         # Continuous reward for maintaining safe clearance
         wall_dist_reward = min_dist / 2.0
         reward += 5.0 * wall_dist_reward
-        # # Higher clearance = safer = better reward
-        # if min_dist > 0.3:  # Only reward if we have some clearance
-        #     # Normalize clearance: optimal around 2.0m
-        #     clearance_reward = min(min_dist / 2.0, 1.0)  # Normalize to [0, 1]
-        #     reward += 1.0 * clearance_reward  # Dense reward for safety margin
-        if min_dist < 0.5:
+        # Higher clearance = safer = better reward
+        if min_dist > 0.3:  # Only reward if we have some clearance
+            # Normalize clearance: optimal around 2.0m
+            clearance_reward = min(min_dist / 2.0, 1.0)  # Normalize to [0, 1]
+            reward += 1.0 * clearance_reward  # Dense reward for safety margin
+        else:
             # Penalty for being too close
             reward -= 4.0 * (0.5 - min_dist)  # Exponential penalty as we get closer
         
