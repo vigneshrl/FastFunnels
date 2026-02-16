@@ -27,7 +27,7 @@ class F110Config:
     model: str = "st"
     observation_type: str = "original"
     mu: float = 1.0
-    reset_type: str = "rl_random_static"
+    reset_type: str = "rl_grid_static"
     extra_params: Dict[str, Any] = field(default_factory=dict)
 
     def to_gym_config(self) -> Dict[str, Any]:

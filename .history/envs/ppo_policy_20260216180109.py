@@ -103,6 +103,10 @@ class PatchEnvConfig:
     # Centerline-based setup (used when navigation_mode="centerline")
     look_ahead_waypoints: int = 10  # How many waypoints ahead to look for goal direction
     search_window: int = 30  # Window size for finding nearest waypoint
+    
+    # Performance optimization settings
+    mpc_solve_frequency: int = 2  # Solve MPC every N steps (1 = every step, 2 = every 2 steps, etc.)
+    frenet_cache_steps: int = 1  # Cache Frenet coordinates for N steps (1 = no cache, 2+ = cache)
 
 
 class PatchEnv(gym.Env):
@@ -675,7 +679,7 @@ class PatchEnv(gym.Env):
             accel, steering = float(u_safe[0]), float(u_safe[1])
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
             self.prev_v[i] = v_new
-            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs

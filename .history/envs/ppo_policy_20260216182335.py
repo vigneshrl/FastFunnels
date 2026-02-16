@@ -675,7 +675,7 @@ class PatchEnv(gym.Env):
             accel, steering = float(u_safe[0]), float(u_safe[1])
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
             self.prev_v[i] = v_new
-            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            env_actions[i] = [float(np.clip(steering, -0.4, 0.4))]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs

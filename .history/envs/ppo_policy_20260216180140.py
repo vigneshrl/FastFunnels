@@ -103,6 +103,13 @@ class PatchEnvConfig:
     # Centerline-based setup (used when navigation_mode="centerline")
     look_ahead_waypoints: int = 10  # How many waypoints ahead to look for goal direction
     search_window: int = 30  # Window size for finding nearest waypoint
+    
+    # Performance optimization settings
+    # IMPORTANT: These significantly affect training speed vs accuracy tradeoff
+    mpc_solve_frequency: int = 2  # Solve MPC every N steps (1=every step, 2=every 2 steps, 3=every 3 steps)
+                                  # Higher = faster but less responsive. Recommended: 2-3 for good balance
+    frenet_cache_steps: int = 2  # Cache Frenet coordinates for N steps (1=no cache, 2+=cache)
+                                  # Higher = faster but less accurate. Recommended: 2-3 for good balance
 
 
 class PatchEnv(gym.Env):
@@ -190,6 +197,10 @@ class PatchEnv(gym.Env):
         self.lap_count = 0
         self.prev_waypoint_idx = 0
         self.lap_start_step = 0
+        
+        # Performance optimization: Frenet coordinate caching
+        self._frenet_cache = None
+        self._frenet_cache_step = -1
 
         # Navigation mode setup
         self.navigation_mode = self.cfg.navigation_mode
@@ -283,9 +294,33 @@ class PatchEnv(gym.Env):
         L = float(self.track_length)    
         return (ds + 0.5 * L) % L - 0.5 * L 
 
-    def _patch_to_frenet(self) -> tuple[float, float]:
+    def _patch_to_frenet(self, use_cache: bool = True) -> tuple[float, float]:
+        """
+        Convert patch position to Frenet coordinates with optional caching.
+        
+        Args:
+            use_cache: If True and cache is valid, return cached values
+            
+        Returns:
+            (s, ey): Arc length and cross-track error
+        """
+        # Use cache if available and valid
+        if use_cache and self.cfg.frenet_cache_steps > 1:
+            if (self._frenet_cache is not None and 
+                self._frenet_cache_step >= 0 and
+                (self.step_count - self._frenet_cache_step) < self.cfg.frenet_cache_steps):
+                return self._frenet_cache
+        
+        # Compute fresh Frenet coordinates
         s, ey = self.track_spline.calc_arclength_inaccurate(float(self.patch.x), float(self.patch.y))
-        return float(s), float(ey)
+        result = (float(s), float(ey))
+        
+        # Update cache
+        if use_cache and self.cfg.frenet_cache_steps > 1:
+            self._frenet_cache = result
+            self._frenet_cache_step = self.step_count
+        
+        return result
 
     def _compute_reward_w_o_frenet(self, lidar_info: dict) -> float:
         reward = 0.0
@@ -568,7 +603,10 @@ class PatchEnv(gym.Env):
         if self.track_spline is not None:
             self.prev_steer = 0.0
             self.no_progress_counter = 0
-            self.prev_s, _ = self._patch_to_frenet()
+            self.prev_s, _ = self._patch_to_frenet(use_cache=False)  # Don't cache on init
+            # Reset cache
+            self._frenet_cache = None
+            self._frenet_cache_step = -1
 
         agent_poses = self.map_reset.generate_safe_agent_poses(
             num_agents=self.num_agents,
@@ -647,7 +685,8 @@ class PatchEnv(gym.Env):
         positions_local = [[p[0] - self.patch.x, p[1] - self.patch.y] for p in positions_world]
 
         env_actions = np.zeros((self.num_agents, 2), dtype=np.float32)
-        solve_mpc = True
+        # Performance optimization: Solve MPC less frequently
+        solve_mpc = (self.step_count == 1) or (self.step_count % self.cfg.mpc_solve_frequency == 0)
         for i in range(self.num_agents):
             x_local = positions_local[i][0]
             y_local = positions_local[i][1]
@@ -675,7 +714,7 @@ class PatchEnv(gym.Env):
             accel, steering = float(u_safe[0]), float(u_safe[1])
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
             self.prev_v[i] = v_new
-            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs
