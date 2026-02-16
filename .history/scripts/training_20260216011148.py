@@ -332,7 +332,7 @@ def train_patch_policy(
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2, 
-            ent_coef=0.01,  # was 0.01 decreased for more exploration
+            ent_coef=0.001,  # was 0.01 decreased for more exploration
             vf_coef=0.5,
             max_grad_norm=0.5,
             verbose=1,
