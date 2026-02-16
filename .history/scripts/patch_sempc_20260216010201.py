@@ -1804,7 +1804,7 @@ class PatchEnv(gym.Env):
             v_new = np.clip(v_new, 0.5, 10.0)
             self.prev_v[i] = v_new
 
-            env_actions[i] = [v_new, np.clip(steering, -0.4, 0.4)]
+            env_actions[i] = [np.clip(steering, -0.4, 0.4)]
 
         # 3. STEP BASE ENVIRONMENT ONCE with MPC actions
         base_obs, _, base_done, base_truncated, _ = self.base_env.step(env_actions)
