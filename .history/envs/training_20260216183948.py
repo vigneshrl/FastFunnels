@@ -169,9 +169,9 @@ def train_patch_policy(
             max_grad_norm=0.5,
             verbose=1,
             use_sde=False,
-            policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False,
-            "activation_fn": nn.ReLU,
-            }
+            policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False
+            
+            },
         )
 
     model.learn(total_timesteps=total_timesteps, callback=callback, progress_bar=True)

@@ -387,7 +387,7 @@ class PatchEnv(gym.Env):
 
         self.prev_s = s
         self.prev_steer = steer_cmd
-        return float(np.clip(reward, -100.0, 100.0))
+        return float(np.clip(reward)
 
     #check termination with frenet compatible logic 
     def _check_termination(self, lidar_info: dict):

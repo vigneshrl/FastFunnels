@@ -170,7 +170,7 @@ def train_patch_policy(
             verbose=1,
             use_sde=False,
             policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False,
-            "activation_fn": nn.ReLU,
+            "activation_fn": n.ReLU,
             }
         )
 
