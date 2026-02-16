@@ -1,0 +1,46 @@
+{
+  "os":  "Linux-5.15.0-170-generic-x86_64-with-glibc2.35",
+  "python":  "CPython 3.9.25",
+  "startedAt":  "2026-02-14T22:31:06.391299Z",
+  "args":  [
+    "--policy",
+    "patch_sempc",
+    "--timesteps",
+    "1000000"
+  ],
+  "program":  "/bigtemp/atk9sb/FastFunnels/scripts/training.py",
+  "codePath":  "scripts/training.py",
+  "codePathLocal":  "scripts/training.py",
+  "git":  {
+    "remote":  "https://github.com/vigneshrl/FastFunnels.git",
+    "commit":  "3f1b4374d15e10c8f042755e88fba20f78c57f1f"
+  },
+  "email":  "vickyrv570@gmail.com",
+  "root":  "/bigtemp/atk9sb/FastFunnels",
+  "host":  "cral",
+  "executable":  "/u/atk9sb/.conda/envs/f1tenth_gym/bin/python3",
+  "cpu_count":  16,
+  "cpu_count_logical":  32,
+  "gpu":  "NVIDIA RTX 6000 Ada Generation",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "980122034176",
+      "used":  "809951948800"
+    }
+  },
+  "memory":  {
+    "total":  "66826555392"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA RTX 6000 Ada Generation",
+      "memoryTotal":  "51527024640",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-fc62bd2d-9128-f4fb-d6f6-3e723af34708"
+    }
+  ],
+  "cudaVersion":  "12.8",
+  "writerId":  "rqcp7jy3bexr7z72btycfcaq7j3x65yr"
+}

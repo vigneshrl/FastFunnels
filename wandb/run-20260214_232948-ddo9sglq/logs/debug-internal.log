@@ -1,0 +1,12 @@
+{"time":"2026-02-14T23:29:48.966308704-05:00","level":"INFO","msg":"stream: starting","core version":"0.25.0"}
+{"time":"2026-02-14T23:29:49.181029486-05:00","level":"INFO","msg":"stream: created new stream","id":"ddo9sglq"}
+{"time":"2026-02-14T23:29:49.181096879-05:00","level":"INFO","msg":"handler: started","stream_id":"ddo9sglq"}
+{"time":"2026-02-14T23:29:49.185118834-05:00","level":"INFO","msg":"stream: started","id":"ddo9sglq"}
+{"time":"2026-02-14T23:29:49.185176602-05:00","level":"INFO","msg":"writer: started","stream_id":"ddo9sglq"}
+{"time":"2026-02-14T23:29:49.185202311-05:00","level":"INFO","msg":"sender: started","stream_id":"ddo9sglq"}
+{"time":"2026-02-14T23:42:44.240064884-05:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-02-14T23:42:44.415604985-05:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-02-14T23:42:44.468717549-05:00","level":"INFO","msg":"stream: closing","id":"ddo9sglq"}
+{"time":"2026-02-14T23:42:44.468736929-05:00","level":"INFO","msg":"handler: closed","stream_id":"ddo9sglq"}
+{"time":"2026-02-14T23:42:44.556219402-05:00","level":"INFO","msg":"sender: closed","stream_id":"ddo9sglq"}
+{"time":"2026-02-14T23:42:44.556247515-05:00","level":"INFO","msg":"stream: closed","id":"ddo9sglq"}
