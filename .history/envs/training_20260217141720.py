@@ -26,7 +26,6 @@ except ImportError:
 
 try:
     import wandb
-    from wandb.integration.sb3 import WandbCallback
 
     WANDB_AVAILABLE = True
 except ImportError:
@@ -109,23 +108,6 @@ class TrainingCallback(BaseCallback):
                     f"min_dist={avg_min_dist:.3f} ds={avg_last_ds:.4f} ey={avg_last_ey:.3f} "
                     f"mpc_feas={avg_mpc_feas:.3f} safety_rate={avg_safety:.3f} clip_frac={clip_frac:.2f}"
                 )
-                if self.use_wandb:
-                    wandb.log(
-                        {
-                            "train/avg_reward_50": avg_r,
-                            "train/avg_len_50": avg_len,
-                            "train/avg_min_dist_50": avg_min_dist,
-                            "train/avg_last_ds_50": avg_last_ds,
-                            "train/avg_last_ey_50": avg_last_ey,
-                            "train/avg_mpc_feas_50": avg_mpc_feas,
-                            "train/avg_safety_rate_50": avg_safety,
-                            "train/reward_clip_frac_50": clip_frac,
-                            "train/episodes": self.episode_count,
-                            "train/timesteps": self.num_timesteps,
-                            "train/timesteps_per_sec": tps,
-                        },
-                        step=self.num_timesteps,
-                    )
                 if avg_len < 5.0:
                     print("  WARNING: Very short episodes. Focus on termination reasons and min_dist.")
                 with open(self.log_file, "a", encoding="utf-8") as f:
@@ -141,13 +123,6 @@ class TrainingCallback(BaseCallback):
                     if hasattr(self.training_env, "save"):
                         self.training_env.save(os.path.join(self.save_dir, "best_vecnormalize.pkl"))
                     print(f"  New best model: {avg_r:.2f}")
-                    if self.use_wandb:
-                        wandb.log(
-                            {
-                                "train/best_avg_reward_50": self.best_reward,
-                            },
-                            step=self.num_timesteps,
-                        )
                 self.last_log_time = now
                 self.last_log_timesteps = self.num_timesteps
 
@@ -194,12 +169,9 @@ def train_patch_policy(
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = os.path.join(save_path, f"run_{run_id}")
     os.makedirs(run_dir, exist_ok=True)
-    tb_log_dir = os.path.join(run_dir, "tb")
-    os.makedirs(tb_log_dir, exist_ok=True)
 
-    wandb_run = None
     if WANDB_AVAILABLE:
-        wandb_run = wandb.init(
+        wandb.init(
             project=wandb_project,
             entity=wandb_entity,
             name=wandb_run_name or f"patch_envs_{run_id}",
@@ -210,9 +182,8 @@ def train_patch_policy(
                 "domain_randomize": domain_randomize,
                 "run_dir": run_dir,
             },
-            sync_tensorboard=True,
-            monitor_gym=True,
-            save_code=True,
+            sync_tensorboard=False,
+            monitor_gym=False,
         )
 
     if num_envs > 1:
@@ -274,7 +245,6 @@ def train_patch_policy(
         model = PPO(
             "MlpPolicy",
             env,
-            tensorboard_log=tb_log_dir,
             learning_rate=3e-4,
             seed = 42,
             n_steps=rollout_steps,
@@ -293,22 +263,11 @@ def train_patch_policy(
             }
         )
 
-    callbacks = [callback]
-    if WANDB_AVAILABLE:
-        callbacks.append(
-            WandbCallback(
-                gradient_save_freq=0,
-                model_save_path=run_dir,
-                model_save_freq=checkpoint_freq,
-                verbose=0,
-            )
-        )
-
-    model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
+    model.learn(total_timesteps=total_timesteps, callback=callback, progress_bar=True)
     model.save(os.path.join(run_dir, "final_model"))
     env.save(os.path.join(run_dir, "final_vecnormalize.pkl"))
     env.close()
-    if WANDB_AVAILABLE and wandb_run is not None:
+    if WANDB_AVAILABLE:
         wandb.finish()
     return model
 
