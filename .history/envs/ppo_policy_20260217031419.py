@@ -88,10 +88,13 @@ class PatchEnvConfig:
     spin_yawrate_threshold: float = 0.0
     reward_spin_weight: float = 0.0
     collision_penalty: float = 300.0
+    containment_penalty_weight: float = 20.0
+    containment_distance_weight: float = 5.0
     collision_min_dist: float = 0.25
     enable_lidar_termination: bool = False
     patch_boundary_violation_threshold: float = 0.20
     offtrack_ey_termination: float = 8.0
+    outside_patch_termination_patience: int = 20
 
     stuck_no_progress_steps: int = 60
     stuck_progress_eps: float = 1e-3
@@ -239,10 +242,13 @@ class PatchEnv(gym.Env):
         self._prev_patch_pos = None
         self.patch_min_clearance = float("inf")
         self.patch_wall_collisions = 0
+        self.outside_patch_streak = 0
 
         # Visualization attributes
         self._fig = None
         self._ax = None
+        self._cached_patch_collision = False
+        self._cached_clearance = 0.0
 
         self.mpc_successes = 0
         self.mpc_attempts = 0
@@ -428,6 +434,7 @@ class PatchEnv(gym.Env):
         else:
             self.no_progress_counter = 0
 
+        inside_count, outside_fraction, mean_outside_distance = self._agent_containment_stats()
         reward_raw = (
             self.cfg.reward_progress_scale * ds
             - self.cfg.reward_crosstrack_weight * abs(ey)
@@ -435,6 +442,8 @@ class PatchEnv(gym.Env):
             - self.cfg.reward_steer_rate_weight * steer_rate
             - self.cfg.reward_spin_weight * spin_excess
             - (self.cfg.collision_penalty if collision else 0.0)
+            - self.cfg.containment_penalty_weight * outside_fraction
+            - self.cfg.containment_distance_weight * mean_outside_distance
         )
 
         # Per-step time penalty
@@ -458,12 +467,35 @@ class PatchEnv(gym.Env):
             "yaw_rate_proxy": float(yaw_rate),
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
+            "inside_agents": int(inside_count),
+            "outside_fraction": float(outside_fraction),
+            "mean_outside_distance": float(mean_outside_distance),
             "reward_raw": float(reward_raw),
             "reward_clipped": float(reward_clipped),
             "reward_was_clipped": bool(abs(reward_raw) > 100.0),
             "no_progress_counter": int(self.no_progress_counter),
         }
         return reward_clipped
+
+    def _agent_containment_stats(self) -> tuple[int, float, float]:
+        """Return (inside_count, outside_fraction, mean_outside_distance)."""
+        if not self.agent_states:
+            return 0, 1.0, 0.0
+
+        outside_distances = []
+        inside_count = 0
+        for state in self.agent_states:
+            x, y = float(state[0]), float(state[1])
+            signed_dist = float(self.patch.signed_distance(x, y))
+            if signed_dist <= 0.0:
+                inside_count += 1
+            else:
+                outside_distances.append(signed_dist)
+
+        total = max(1, len(self.agent_states))
+        outside_fraction = float((total - inside_count) / total)
+        mean_outside_distance = float(np.mean(outside_distances)) if outside_distances else 0.0
+        return inside_count, outside_fraction, mean_outside_distance
 
     #check termination with frenet compatible logic 
     def _check_termination(self, lidar_info: dict):
@@ -481,7 +513,10 @@ class PatchEnv(gym.Env):
             violation_threshold=self.cfg.patch_boundary_violation_threshold,
         )
         if patch_collision:
+            self._cached_patch_collision = True
+            self.patch_wall_collisions += 1
             return True, False, f"patch_wall_collision ({len(violated)} points)"
+        self._cached_patch_collision = False
 
         # 2) Lidar safety collision proxy (ellipse-normalized metric)
         min_dist = float(lidar_info["min_dist"])
@@ -497,11 +532,20 @@ class PatchEnv(gym.Env):
         if abs(float(ey)) > self.cfg.offtrack_ey_termination:
             return True, False, "offtrack_ey"
 
-        # 5) Stuck termination (aligned with frenet reward bookkeeping)
+        # 5) Terminate if all agents remain outside patch for several steps.
+        inside_count, _, _ = self._agent_containment_stats()
+        if inside_count == 0:
+            self.outside_patch_streak += 1
+        else:
+            self.outside_patch_streak = 0
+        if self.outside_patch_streak >= self.cfg.outside_patch_termination_patience:
+            return True, False, "all_agents_outside_patch"
+
+        # 6) Stuck termination (aligned with frenet reward bookkeeping)
         if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
             return True, False, "stuck_no_progress"
 
-        # 6) Time limit
+        # 7) Time limit
         if self.step_count >= self.cfg.max_steps:
             truncated = True
             reason = "max_steps"
@@ -559,12 +603,15 @@ class PatchEnv(gym.Env):
         self._prev_patch_pos = None
         self.patch_min_clearance = float("inf")
         self.patch_wall_collisions = 0
+        self.outside_patch_streak = 0
         self.mpc_successes = 0
         self.mpc_attempts = 0
         self.safety_interventions = 0
         self.cached_controls = [None] * self.num_agents
         self.cached_feasible = [False] * self.num_agents
         self._last_reward_terms = {}
+        self._cached_patch_collision = False
+        self._cached_clearance = 0.0
 
         #lap bookkepping reset 
         self.lap_count = 0
@@ -723,8 +770,8 @@ class PatchEnv(gym.Env):
             theta=self.patch.theta,
             vx=vx_patch,
             vy=vy_patch,
-            cx=0.0,
-            cy=0.0,
+            cx=self.patch.x,
+            cy=self.patch.y,
             cos_t=self.patch.cos_t,
             sin_t=self.patch.sin_t,
         )
@@ -764,7 +811,7 @@ class PatchEnv(gym.Env):
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
             self.prev_v[i] = v_new
             # Base env control_input is ("speed", "steering_angle"), so order is [speed, steering].
-            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs
@@ -794,6 +841,7 @@ class PatchEnv(gym.Env):
             clearance = (min_dist - self.cfg.collision_min_dist)
         if np.isfinite(clearance):
             self.patch_min_clearance = min(self.patch_min_clearance, float(clearance))
+        self._cached_clearance = float(clearance)
 
         # Update lap progress based on navigation mode
         if self.navigation_mode == "landmark":
@@ -859,6 +907,10 @@ class PatchEnv(gym.Env):
             "base_truncated": bool(base_truncated),
             "base_reset_type": str(self.cfg.base_reset_type),
             "use_base_done_termination": bool(self.cfg.use_base_done_termination),
+            "patch_wall_collisions": int(self.patch_wall_collisions),
+            "outside_patch_streak": int(self.outside_patch_streak),
+            "cached_patch_collision": bool(self._cached_patch_collision),
+            "cached_clearance": float(self._cached_clearance),
         }
         info.update(reward_terms)
 
@@ -896,9 +948,6 @@ class PatchEnv(gym.Env):
         self._ax.grid(True, alpha=0.3)
         
         # Draw track walls from occupancy map
-        occ_map = None
-        resolution = None
-        origin = None
         if self.base_env is not None:
             try:
                 # Get track data from F110EnvAdapter
@@ -967,34 +1016,12 @@ class PatchEnv(gym.Env):
                           if self.patch.is_inside(self.agent_states[i][0],
                                                   self.agent_states[i][1]))
         
-        # Compute wall collision status live so visualization matches runtime behavior.
-        patch_wall_collision = False
-        violated = []
-        if occ_map is not None and resolution is not None and origin is not None:
-            patch_wall_collision, violated = self.patch.check_patch_boundary_wall_collision(
-                occ_map,
-                resolution,
-                origin,
-                n_points=32,
-                violation_threshold=self.cfg.patch_boundary_violation_threshold,
-            )
-
-        # Visualization-friendly clearance estimate from latest lidar aggregation.
-        clearance = float("nan")
-        if self.current_base_obs is not None:
-            lidar_distances = self.lidar_model.aggregate(self.current_base_obs, self.patch)
-            min_dist = float(np.nanmin(lidar_distances))
-            min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
-            clearance = min_dist - float(self.cfg.collision_min_dist)
-        elif np.isfinite(self.patch_min_clearance):
-            clearance = float(self.patch_min_clearance)
+        # Use cached wall collision result (no recomputation!)
+        clearance = getattr(self, '_cached_clearance', 0.0)
+        patch_wall_collision = getattr(self, '_cached_patch_collision', False)
         
         # Title with wall collision warning
-        wall_status = (
-            f"⚠️ WALL! ({len(violated)} pts)"
-            if patch_wall_collision
-            else f"Clear: {clearance:.2f}m"
-        )
+        wall_status = "⚠️ WALL!" if patch_wall_collision else f"Clear: {clearance:.1f}m"
         self._ax.set_title(
             f'Patch Funnel V1 | Step {self.step_count} | Progress: {self.lap_progress:.1%}\n'
             f'Patch: v={self.patch.v:.1f}m/s, size=({self.patch.a:.1f}, {self.patch.b:.1f}) | '

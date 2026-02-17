@@ -723,8 +723,8 @@ class PatchEnv(gym.Env):
             theta=self.patch.theta,
             vx=vx_patch,
             vy=vy_patch,
-            cx=0.0,
-            cy=0.0,
+            cx=self.patch.x,
+            cy=self.patch.y,
             cos_t=self.patch.cos_t,
             sin_t=self.patch.sin_t,
         )
@@ -764,7 +764,7 @@ class PatchEnv(gym.Env):
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
             self.prev_v[i] = v_new
             # Base env control_input is ("speed", "steering_angle"), so order is [speed, steering].
-            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs
@@ -896,9 +896,6 @@ class PatchEnv(gym.Env):
         self._ax.grid(True, alpha=0.3)
         
         # Draw track walls from occupancy map
-        occ_map = None
-        resolution = None
-        origin = None
         if self.base_env is not None:
             try:
                 # Get track data from F110EnvAdapter
@@ -967,34 +964,12 @@ class PatchEnv(gym.Env):
                           if self.patch.is_inside(self.agent_states[i][0],
                                                   self.agent_states[i][1]))
         
-        # Compute wall collision status live so visualization matches runtime behavior.
-        patch_wall_collision = False
-        violated = []
-        if occ_map is not None and resolution is not None and origin is not None:
-            patch_wall_collision, violated = self.patch.check_patch_boundary_wall_collision(
-                occ_map,
-                resolution,
-                origin,
-                n_points=32,
-                violation_threshold=self.cfg.patch_boundary_violation_threshold,
-            )
-
-        # Visualization-friendly clearance estimate from latest lidar aggregation.
-        clearance = float("nan")
-        if self.current_base_obs is not None:
-            lidar_distances = self.lidar_model.aggregate(self.current_base_obs, self.patch)
-            min_dist = float(np.nanmin(lidar_distances))
-            min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
-            clearance = min_dist - float(self.cfg.collision_min_dist)
-        elif np.isfinite(self.patch_min_clearance):
-            clearance = float(self.patch_min_clearance)
+        # Use cached wall collision result (no recomputation!)
+        clearance = getattr(self, '_cached_clearance', 0.0)
+        patch_wall_collision = getattr(self, '_cached_patch_collision', False)
         
         # Title with wall collision warning
-        wall_status = (
-            f"⚠️ WALL! ({len(violated)} pts)"
-            if patch_wall_collision
-            else f"Clear: {clearance:.2f}m"
-        )
+        wall_status = "⚠️ WALL!" if patch_wall_collision else f"Clear: {clearance:.1f}m"
         self._ax.set_title(
             f'Patch Funnel V1 | Step {self.step_count} | Progress: {self.lap_progress:.1%}\n'
             f'Patch: v={self.patch.v:.1f}m/s, size=({self.patch.a:.1f}, {self.patch.b:.1f}) | '

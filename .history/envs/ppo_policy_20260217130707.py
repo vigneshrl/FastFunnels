@@ -723,8 +723,8 @@ class PatchEnv(gym.Env):
             theta=self.patch.theta,
             vx=vx_patch,
             vy=vy_patch,
-            cx=0.0,
-            cy=0.0,
+            cx=,
+            cy=self.patch.y,
             cos_t=self.patch.cos_t,
             sin_t=self.patch.sin_t,
         )
