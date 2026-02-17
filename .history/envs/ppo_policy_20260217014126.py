@@ -880,8 +880,6 @@ def make_patch_env(
     navigation_mode: str = "landmark",
     debug_print_every_n_steps: int = 0,
     debug_print_episode_end: bool = True,
-    base_reset_type: str = "rl_random_static",
-    use_base_done_termination: bool = False,
 ):
     """
     Factory function to create patch environments for parallel training.
@@ -907,8 +905,6 @@ def make_patch_env(
             navigation_mode=navigation_mode,
             debug_print_every_n_steps=debug_print_every_n_steps,
             debug_print_episode_end=debug_print_episode_end,
-            base_reset_type=base_reset_type,
-            use_base_done_termination=use_base_done_termination,
         )
         env = PatchEnv(cfg)
         env.reset(seed=seed + rank)
