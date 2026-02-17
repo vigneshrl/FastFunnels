@@ -7,7 +7,7 @@ from typing import Optional
 
 import numpy as np
 import torch 
-import torch.nn as nn 
+import 
 
 try:
     from .ppo_policy import make_patch_env
@@ -17,7 +17,7 @@ except ImportError:
 try:
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
-    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecCheckNan, VecNormalize
+    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 
     SB3_AVAILABLE = True
 except ImportError:
@@ -138,7 +138,6 @@ def train_patch_policy(
     else:
         env = DummyVecEnv([make_patch_env(0, seed=42, domain_randomize=domain_randomize, navigation_mode="centerline")])
 
-    env = VecCheckNan(env, raise_exception=True)
     env = VecNormalize(
         env,
         norm_obs=True,
@@ -152,13 +151,6 @@ def train_patch_policy(
         run_dir, checkpoint_freq, "PATCH", use_wandb=WANDB_AVAILABLE
     )
 
-    rollout_steps = 1024
-    total_rollout = rollout_steps * max(1, num_envs)
-    batch_size = max(64, total_rollout // 4)
-    if total_rollout % batch_size != 0:
-        # Keep PPO minibatches exact to avoid partial batches.
-        batch_size = 256 if total_rollout % 256 == 0 else 128
-
     if resume_from and os.path.exists(resume_from + ".zip"):
         model = PPO.load(resume_from, env=env)
     else:
@@ -167,8 +159,9 @@ def train_patch_policy(
             env,
             learning_rate=3e-4,
             seed = 42,
-            n_steps=rollout_steps,
-            batch_size=batch_size,
+            # n_steps=1048,  # old
+            n_steps=1024,   # new: standard rollout length, cleaner batching
+            batch_size=256,
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,

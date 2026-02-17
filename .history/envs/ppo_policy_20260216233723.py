@@ -84,7 +84,7 @@ class PatchEnvConfig:
     reward_steer_rate_weight: float = 0.0
     spin_yawrate_threshold: float = 0.0
     reward_spin_weight: float = 0.0
-    collision_penalty: float = 300.0
+    collision_penalty: float = 1500.0
 
     stuck_no_progress_steps: int = 60
     stuck_progress_eps: float = 1e-3
@@ -92,7 +92,6 @@ class PatchEnvConfig:
     lap_finish_bonus: float = 2000.0
     lap_bonus_tau = 200.0
     time_penalty_per_sec: float = 0.0
-    compact_observation: bool = True
 
     # Navigation mode: "landmark" or "centerline"
     navigation_mode: str = "centerline"
@@ -135,11 +134,10 @@ class PatchEnv(gym.Env):
         self.action_model = PatchAction(PatchActionConfig())
         self.action_space = self.action_model.space
 
-        # Compact default: [s, ey, patch_v, patch_theta] + lidar sectors.
-        # Full observation remains available via config for ablations.
-        self.compact_observation = bool(self.cfg.compact_observation)
-        obs_dim = 20 if self.compact_observation else 48
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32)
+        # 4 + 2 + 16 + 2 + 3 + 16 + 1 + 1 + 1 + 2
+        self.observation_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(48,), dtype=np.float32
+        )
 
         self.f110 = F110EnvAdapter(
             F110Config(
@@ -255,36 +253,13 @@ class PatchEnv(gym.Env):
             # Fallback: create dummy observation or raise error
             raise RuntimeError("track_spline not initialized! Cannot compute Frenet coordinates.")
         lidar_distances = self.lidar_model.aggregate(self.current_base_obs, self.patch)
-        lidar_distances = np.nan_to_num(lidar_distances, nan=10.0, posinf=10.0, neginf=0.0).astype(np.float32)
-        lidar_norm = np.clip(lidar_distances / 10.0, 0.0, 1.0).astype(np.float32)
-        s, ey = self._patch_to_frenet()
-
-        if self.compact_observation:
-            compact = np.concatenate(
-                [
-                    np.array(
-                        [
-                            float(s) / 100.0,
-                            float(ey) / 10.0,
-                            float(np.clip(self.patch.v / 10.0, 0.0, 1.5)),
-                            float(self.patch.theta / np.pi),
-                        ],
-                        dtype=np.float32,
-                    ),
-                    lidar_norm,
-                ],
-                axis=0,
-            )
-            compact = np.nan_to_num(compact, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-            return np.clip(compact, -10.0, 10.0).astype(np.float32)
-
         clearance_obs = self.lidar_model.compute_clearance_observation(
             self.patch, lidar_distances
         )
         best_heading, best_clearance = self.lidar_model.get_best_heading(
             self.current_base_obs, self.patch
         )
-        obs = self.obs_builder.build(
+        return self.obs_builder.build(
             patch=self.patch,
             start_xy=self.start_xy,
             goal_xy=self.goal_xy if self.navigation_mode == "landmark" else None,
@@ -305,17 +280,15 @@ class PatchEnv(gym.Env):
             alpha=self.cfg.alpha,
             size_change_rate=self.patch.config.size_change_rate,
         )
-        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        return np.clip(obs, -10.0, 10.0).astype(np.float32)
 
     # Freenet helper functions 
-    def _wrap_ds(self, ds: float) -> float:
-        if self.track_length is None or not np.isfinite(self.track_length):
-            return ds  # Safe fallback
-        L = float(self.track_length)
-        if L <= 0:
-            return ds
-        return (ds + 0.5 * L) % L - 0.5 * L
+def _wrap_ds(self, ds: float) -> float:
+    if self.track_length is None or not np.isfinite(self.track_length):
+        return ds  # Safe fallback
+    L = float(self.track_length)
+    if L <= 0:
+        return ds
+    return (ds + 0.5 * L) % L - 0.5 * L
 
     def _patch_to_frenet(self) -> tuple[float, float]:
         if self.track_spline is None:
@@ -647,7 +620,6 @@ class PatchEnv(gym.Env):
             )
 
         obs = self._build_obs()
-        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
         return obs, {}
 
     def step(self, patch_action):
@@ -773,7 +745,6 @@ class PatchEnv(gym.Env):
             self.prev_waypoint_idx = int(self._current_waypoint_idx)
         
         reward = self._compute_reward_w_frenet(lidar_info, dt, lap_bonus=lap_bonus)
-        reward = float(np.nan_to_num(reward, nan=-10.0, posinf=100.0, neginf=-100.0))
         self.episode_reward += reward
 
         terminated, truncated, reason = self._check_termination(lidar_info)
@@ -781,7 +752,6 @@ class PatchEnv(gym.Env):
         truncated = bool(truncated or base_truncated)
 
         obs = self._build_obs()
-        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
         info = {
             "episode_reward": self.episode_reward,
             "lap_progress": self.lap_progress,
@@ -794,8 +764,6 @@ class PatchEnv(gym.Env):
             "lap_count": int(self.lap_count),
             "lap_bonus": float(lap_bonus),
             "lap_time": None if lap_time is None else float(lap_time),
-            "mpc_feasibility_rate": 1.0 if self.mpc_attempts == 0 else float(self.mpc_successes / self.mpc_attempts),
-            "safety_intervention_rate": float(self.safety_interventions / max(1, self.step_count * self.num_agents)),
         }
         return obs, reward, terminated, truncated, info
 

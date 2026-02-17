@@ -138,7 +138,7 @@ class PatchEnv(gym.Env):
         # Compact default: [s, ey, patch_v, patch_theta] + lidar sectors.
         # Full observation remains available via config for ablations.
         self.compact_observation = bool(self.cfg.compact_observation)
-        obs_dim = 20 if self.compact_observation else 48
+        obs_dim = 4 + int(self.lidar_model.config.n_sectors) if self.compact_observation else 48
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32)
 
         self.f110 = F110EnvAdapter(
@@ -647,7 +647,6 @@ class PatchEnv(gym.Env):
             )
 
         obs = self._build_obs()
-        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
         return obs, {}
 
     def step(self, patch_action):
@@ -773,7 +772,6 @@ class PatchEnv(gym.Env):
             self.prev_waypoint_idx = int(self._current_waypoint_idx)
         
         reward = self._compute_reward_w_frenet(lidar_info, dt, lap_bonus=lap_bonus)
-        reward = float(np.nan_to_num(reward, nan=-10.0, posinf=100.0, neginf=-100.0))
         self.episode_reward += reward
 
         terminated, truncated, reason = self._check_termination(lidar_info)
@@ -781,7 +779,6 @@ class PatchEnv(gym.Env):
         truncated = bool(truncated or base_truncated)
 
         obs = self._build_obs()
-        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
         info = {
             "episode_reward": self.episode_reward,
             "lap_progress": self.lap_progress,
@@ -794,8 +791,6 @@ class PatchEnv(gym.Env):
             "lap_count": int(self.lap_count),
             "lap_bonus": float(lap_bonus),
             "lap_time": None if lap_time is None else float(lap_time),
-            "mpc_feasibility_rate": 1.0 if self.mpc_attempts == 0 else float(self.mpc_successes / self.mpc_attempts),
-            "safety_intervention_rate": float(self.safety_interventions / max(1, self.step_count * self.num_agents)),
         }
         return obs, reward, terminated, truncated, info
 
