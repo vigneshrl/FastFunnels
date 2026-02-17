@@ -90,7 +90,7 @@ class PatchEnvConfig:
     collision_penalty: float = 300.0
     collision_min_dist: float = 0.25
     enable_lidar_termination: bool = False
-    patch_boundary_violation_threshold: float = 0.05
+    patch_boundary_violation_threshold: float = 0.20
     offtrack_ey_termination: float = 8.0
 
     stuck_no_progress_steps: int = 60
@@ -467,46 +467,45 @@ class PatchEnv(gym.Env):
 
     #check termination with frenet compatible logic 
     def _check_termination(self, lidar_info: dict):
-        terminated = False
-        truncated = False
-        reason = None
+    #     terminated = False
+    #     truncated = False
+    #     reason = None
 
-        # 1) Hard collision from map boundary check
-        _, occ_map, resolution, origin = self.f110.get_track_data()
-        patch_collision, violated = self.patch.check_patch_boundary_wall_collision(
-            occ_map,
-            resolution,
-            origin,
-            n_points=32,
-            violation_threshold=self.cfg.patch_boundary_violation_threshold,
-        )
-        if patch_collision:
-            return True, False, f"patch_wall_collision ({len(violated)} points)"
+    #     track, occ_map, resolution, origin = self.f110.get_track_data()
+    #     del track
+    #     patch_collision, violated = self.patch.check_patch_boundary_wall_collision(
+    #         occ_map, resolution, origin, n_points=32, violation_threshold=0.05
+    #     )
+    #     if patch_collision:
+    #         return True, False, f"patch_wall_collision ({len(violated)} points)"
 
-        # 2) Lidar safety collision proxy (ellipse-normalized metric)
-        min_dist = float(lidar_info["min_dist"])
-        if self.cfg.enable_lidar_termination and ((not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)):
-            return True, False, "patch_wall_collision_lidar"
+    #     min_dist = float(lidar_info["min_dist"])
+    #     if not np.isfinite(min_dist) or min_dist < 0.95:
+    #         return True, False, "patch_wall_collision_lidar"
 
-        # 3) Optional shape-failure termination (keep if you want shape safety)
-        if self.patch.a < self._safe_min_a or self.patch.b < self._safe_min_b:
-            return True, False, "patch_too_small"
+    #     if self.patch.a < self._safe_min_a or self.patch.b < self._safe_min_b:
+    #         return True, False, "patch_too_small"
 
-        # 4) Off-track guard: cut hopeless episodes with very large lateral error.
-        _, ey = self._patch_to_frenet()
-        if abs(float(ey)) > self.cfg.offtrack_ey_termination:
-            return True, False, "offtrack_ey"
+    #     # Progress calculation based on navigation mode
+    #     if self.navigation_mode == "landmark":
+    #         progress, _, self._init_goal_dist = self.obs_builder.lap_progress(
+    #             self.patch, self.goal_xy, self._init_goal_dist
+    #         )
+    #     elif self.navigation_mode == "centerline" and self.waypoints is not None:
+    #         n_waypoints = len(self.waypoints)
+    #         progress, _, self._current_waypoint_idx = self.obs_builder.lap_progress_centerline(
+    #             self.patch, self.waypoints, self._current_waypoint_idx, n_waypoints, self.search_window
+    #         )
+    #     else:
+    #         progress = 0.0
+        
+    #     if progress > 0.95 and self.lap_progress > 0.9:
+    #         return True, False, "goal_reached"
 
-        # 5) Stuck termination (aligned with frenet reward bookkeeping)
-        if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
-            return True, False, "stuck_no_progress"
-
-        # 6) Time limit
-        if self.step_count >= self.cfg.max_steps:
-            truncated = True
-            reason = "max_steps"
-
-        return terminated, truncated, reason
+    #     if self.step_count >= self.cfg.max_steps:
+    #         truncated = True
+    #         reason = "max_steps"
+    #     return terminated, truncated, reason
     # def _check_termination(self, lidar_info: dict):
     #     terminated = False
     #     truncated = False
@@ -926,7 +925,7 @@ class PatchEnv(gym.Env):
                     
                     # Draw walls using contourf for filled regions
                     # Note: occupancy map convention - 0.0 = free space, 1.0 = occupied/wall
-                    wall_mask = occ_region < 0.5  # Walls are values > 0.5
+                    wall_mask = occ_region > 0.5  # Walls are values > 0.5
                     if np.any(wall_mask):
                         # Create meshgrid for contour
                         X, Y = np.meshgrid(x_world, y_world)

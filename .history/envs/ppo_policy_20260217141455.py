@@ -926,7 +926,7 @@ class PatchEnv(gym.Env):
                     
                     # Draw walls using contourf for filled regions
                     # Note: occupancy map convention - 0.0 = free space, 1.0 = occupied/wall
-                    wall_mask = occ_region < 0.5  # Walls are values > 0.5
+                    wall_mask = occ_region ><0.5  # Walls are values > 0.5
                     if np.any(wall_mask):
                         # Create meshgrid for contour
                         X, Y = np.meshgrid(x_world, y_world)

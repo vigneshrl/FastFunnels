@@ -194,7 +194,7 @@ class SafetyConfig:
     max_steering: float = 0.4
     v_min: float = 0.5
     v_max: float = 10.0
-    alpha_contain: float = 1.0 #bumped up from 1.0 to increase the safety aggressiveness
+    alpha_contain: float = 2.0 #bumped up from 1.0 to increase the safety aggressiveness
     alpha_collision: float = 2.0
 
 
