@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Optional
+import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 
 import gymnasium as gym
 import numpy as np
@@ -159,6 +161,7 @@ class PatchEnv(gym.Env):
             ),
             render_mode=self.render_mode,
         )
+        self.base_env = self.f110  # Alias for visualization and other code
         self.map_reset = MapResetHelper()
         self.lidar_model = LidarModel()
         self.obs_builder = PatchObservationBuilder()
@@ -235,6 +238,11 @@ class PatchEnv(gym.Env):
         self._prev_goal_dist = None
         self._prev_patch_pos = None
         self.patch_min_clearance = float("inf")
+        self.patch_wall_collisions = 0
+
+        # Visualization attributes
+        self._fig = None
+        self._ax = None
 
         self.mpc_successes = 0
         self.mpc_attempts = 0
@@ -550,6 +558,7 @@ class PatchEnv(gym.Env):
         self._init_goal_dist = None
         self._prev_patch_pos = None
         self.patch_min_clearance = float("inf")
+        self.patch_wall_collisions = 0
         self.mpc_successes = 0
         self.mpc_attempts = 0
         self.safety_interventions = 0
@@ -875,7 +884,214 @@ class PatchEnv(gym.Env):
     def render(self):
         return self.f110.render()
 
+    def _visualize(self):
+        """Visualize patch and agents with wall collision info."""
+        if self._fig is None:
+            plt.ion()
+            self._fig, self._ax = plt.subplots(figsize=(12, 9))
+            plt.show(block=False)
+        
+        self._ax.clear()
+        self._ax.set_aspect('equal')
+        self._ax.grid(True, alpha=0.3)
+        
+        # Draw track walls from occupancy map
+        if self.base_env is not None:
+            try:
+                # Get track data from F110EnvAdapter
+                track, occ_map, resolution, origin = self.base_env.get_track_data()
+
+                # Calculate view bounds around patch
+                margin = max(self.patch.a, self.patch.b) + 10
+                x_min = self.patch.x - margin
+                x_max = self.patch.x + margin
+                y_min = self.patch.y - margin
+                y_max = self.patch.y + margin
+                
+                # Convert to pixel coordinates
+                px_min = max(0, int((x_min - origin[0]) / resolution))
+                px_max = min(occ_map.shape[1], int((x_max - origin[0]) / resolution))
+                py_min = max(0, int((y_min - origin[1]) / resolution))
+                py_max = min(occ_map.shape[0], int((y_max - origin[1]) / resolution))
+                
+                if px_max > px_min and py_max > py_min:
+                    occ_region = occ_map[py_min:py_max, px_min:px_max]
+                    
+                    # Create world coordinate arrays
+                    x_world = np.arange(px_min, px_max) * resolution + origin[0]
+                    y_world = np.arange(py_min, py_max) * resolution + origin[1]
+                    
+                    # Draw walls using contourf for filled regions
+                    # Note: occupancy map convention - 0.0 = free space, 1.0 = occupied/wall
+                    wall_mask = occ_region > 0.5  # Walls are values > 0.5
+                    if np.any(wall_mask):
+                        # Create meshgrid for contour
+                        X, Y = np.meshgrid(x_world, y_world)
+
+                        # Draw filled wall regions (more visible)
+                        self._ax.contourf(
+                            X, Y, occ_region,
+                            levels=[0.5, 1.0],
+                            colors=['#333333'],  # Dark gray for walls
+                            alpha=0.8,
+                            extend='neither',
+                            zorder=0  # Draw walls behind everything else
+                        )
+
+                        # Draw wall boundaries (more prominent)
+                        self._ax.contour(
+                            X, Y, occ_region,
+                            levels=[0.5],
+                            colors='black',
+                            linewidths=2.0,
+                            alpha=0.9,
+                            zorder=0
+                        )
+                
+                # Draw centerline
+                if hasattr(track, 'centerline') and track.centerline is not None:
+                    centerline_x = track.centerline.xs
+                    centerline_y = track.centerline.ys
+                    self._ax.plot(centerline_x, centerline_y, 'g--', 
+                                 linewidth=1.5, alpha=0.4, label='Track Centerline', zorder=1)
+                
+            except (AttributeError, KeyError, Exception) as e:
+                # If track info not available, skip wall drawing
+                print(f"Warning: Could not draw track walls: {type(e).__name__}: {e}")
+                pass
+        
+        agents_inside = sum(1 for i in range(self.num_agents)
+                          if self.patch.is_inside(self.agent_states[i][0],
+                                                  self.agent_states[i][1]))
+        
+        # Use cached wall collision result (no recomputation!)
+        clearance = getattr(self, '_cached_clearance', 0.0)
+        patch_wall_collision = getattr(self, '_cached_patch_collision', False)
+        
+        # Title with wall collision warning
+        wall_status = "⚠️ WALL!" if patch_wall_collision else f"Clear: {clearance:.1f}m"
+        self._ax.set_title(
+            f'Patch Funnel V1 | Step {self.step_count} | Progress: {self.lap_progress:.1%}\n'
+            f'Patch: v={self.patch.v:.1f}m/s, size=({self.patch.a:.1f}, {self.patch.b:.1f}) | '
+            f'Inside: {agents_inside}/{self.num_agents} | {wall_status}',
+            fontsize=11,
+            color='red' if patch_wall_collision else 'black'
+        )
+        
+        # Draw ellipsoid patch - RED if hitting wall
+        if patch_wall_collision:
+            face_color = 'red'
+            edge_color = 'darkred'
+            alpha = 0.4
+        elif agents_inside == self.num_agents:
+            face_color = 'cyan'
+            edge_color = 'darkblue'
+            alpha = 0.3
+        else:
+            face_color = 'yellow'
+            edge_color = 'orange'
+            alpha = 0.3
+        
+        ellipse = Ellipse(
+            xy=(self.patch.x, self.patch.y),
+            width=self.patch.a * 2,
+            height=self.patch.b * 2,
+            angle=np.degrees(self.patch.theta),
+            facecolor=face_color,
+            edgecolor=edge_color,
+            alpha=alpha,
+            linewidth=3
+        )
+        self._ax.add_patch(ellipse)
+        
+        # Draw patch boundary points to show wall collision check
+        boundary_points = self.patch.get_boundary_points(16)
+        for bx, by in boundary_points:
+            self._ax.plot(bx, by, 'k.', markersize=4, alpha=0.5)
+        
+        # Draw patch center
+        self._ax.plot(self.patch.x, self.patch.y, 'b+', markersize=15, markeredgewidth=2)
+        
+        # Draw patch velocity arrow
+        vx, vy = self.patch.get_velocity_vector()
+        self._ax.arrow(
+            self.patch.x, self.patch.y,
+            vx * 0.3, vy * 0.3,
+            head_width=0.2, head_length=0.15,
+            fc='blue', ec='blue', linewidth=2
+        )
+        
+        # Draw agents
+        colors = ['red', 'orange', 'purple', 'green']
+        for i in range(self.num_agents):
+            x, y, theta, v = self.agent_states[i]
+            inside = self.patch.is_inside(x, y)
+            collision = self.current_base_obs["collisions"][i] > 0.5
+            
+            color = colors[i % len(colors)]
+            if collision:
+                marker = 'X'
+                size = 18
+            elif inside:
+                marker = 'o'
+                size = 12
+            else:
+                marker = 's'  # Square if outside patch
+                size = 14
+            
+            self._ax.plot(x, y, marker, color=color, markersize=size,
+                         markeredgecolor='black', markeredgewidth=2)
+            
+            # Agent velocity arrow
+            self._ax.arrow(
+                x, y,
+                v * np.cos(theta) * 0.2, v * np.sin(theta) * 0.2,
+                head_width=0.1, head_length=0.05,
+                fc=color, ec=color, alpha=0.7
+            )
+            
+            # Label agents
+            self._ax.text(x + 0.3, y + 0.3, f'R{i}', fontsize=8, fontweight='bold')
+        
+        # Draw next waypoint if available
+        if self.waypoints is not None and len(self.waypoints) > 0:
+            # Find nearest waypoint
+            patch_pos = np.array([self.patch.x, self.patch.y])
+            dists = np.linalg.norm(self.waypoints - patch_pos, axis=1)
+            nearest_idx = np.argmin(dists)
+            next_idx = (nearest_idx + 10) % len(self.waypoints)
+            self._ax.plot(self.waypoints[next_idx, 0], self.waypoints[next_idx, 1],
+                         'g*', markersize=20, markeredgecolor='black', markeredgewidth=1)
+        
+        # Info box
+        info_text = (
+            f'Reward: {self.episode_reward:.1f}\n'
+            f'Patch collisions: {self.patch_wall_collisions}\n'
+            f'Min clearance: {self.patch_min_clearance:.2f}m'
+        )
+        self._ax.text(0.02, 0.98, info_text, transform=self._ax.transAxes,
+                     fontsize=10, verticalalignment='top',
+                     bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
+        
+        # Set limits around patch
+        margin = max(self.patch.a, self.patch.b) + 5
+        self._ax.set_xlim(self.patch.x - margin, self.patch.x + margin)
+        self._ax.set_ylim(self.patch.y - margin, self.patch.y + margin)
+        
+        plt.pause(0.001)
+
+        try:
+            self._ax.figure.canvas.draw()
+            self._ax.figure.canvas.flush_events()
+        except Exception as e:
+            pass
+
     def close(self):
+        if hasattr(self, '_fig') and self._fig is not None:
+            import matplotlib.pyplot as plt
+            plt.close(self._fig)
+            self._fig = None
+            self._ax = None
         self.f110.close()
 
 
