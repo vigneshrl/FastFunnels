@@ -523,7 +523,7 @@ class PatchEnv(gym.Env):
         return reward_clipped
 
     #check termination with frenet compatible logic 
-    def _check_termination(self, lidar_info: dict, track_half_width: float | None = None):
+    def _check_termination(self, lidar_info: dict):
         terminated = False
         truncated = False
         reason = None
@@ -551,8 +551,6 @@ class PatchEnv(gym.Env):
 
         # 4) Off-track guard: cut hopeless episodes with very large lateral error.
         _, ey = self._patch_to_frenet()
-        if track_half_width is not None and abs(float(ey)) > track_half_width:
-            return True, False, "patch_center_outside_trackwidth_half"
         if abs(float(ey)) > self.cfg.offtrack_ey_termination:
             return True, False, "offtrack_ey"
 
@@ -775,10 +773,6 @@ class PatchEnv(gym.Env):
         self.patch.save_state()
 
         base_obs = self.current_base_obs
-        s_now, ey_now = self._patch_to_frenet()
-        track_width_now = self._estimate_current_track_width()
-        track_half_width = max(0.5 * track_width_now, 1e-3)
-        self._last_track_width = track_width_now
         vx_patch, vy_patch = self.patch.get_velocity_vector()
         patch_for_mpc = SimpleNamespace(
             a=self.patch.a,
@@ -825,19 +819,9 @@ class PatchEnv(gym.Env):
                 self.safety_interventions += 1
             accel, steering = float(u_safe[0]), float(u_safe[1])
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
-            # Agent-level lidar safety: use each agent's own scan to slow down near obstacles.
-            if "scans" in base_obs and i < len(base_obs["scans"]):
-                scan_i = np.asarray(base_obs["scans"][i], dtype=np.float32)
-                scan_i = np.nan_to_num(scan_i, nan=10.0, posinf=10.0, neginf=0.0)
-                min_scan_i = float(np.min(scan_i))
-                if min_scan_i <= self.cfg.agent_lidar_brake_dist:
-                    scale = float(np.clip(min_scan_i / max(self.cfg.agent_lidar_brake_dist, 1e-3), 0.2, 1.0))
-                    v_new = max(0.5, v_new * scale)
             self.prev_v[i] = v_new
-            # Old line (kept for reference):
-            # env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
             # Base env control_input is ("speed", "steering_angle"), so order is [speed, steering].
-            env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
+            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs
@@ -856,12 +840,7 @@ class PatchEnv(gym.Env):
                 max(v_sim, 0.5),
             ]
 
-        # Old real lidar aggregation kept commented by request:
-        # lidar_distances = self.lidar_model.aggregate(base_obs, self.patch)
-        if self.cfg.use_frenet_proxy_lidar:
-            lidar_distances = self._frenet_proxy_lidar(ey=ey_now, track_width=track_width_now)
-        else:
-            lidar_distances = self.lidar_model.aggregate(base_obs, self.patch)
+        lidar_distances = self.lidar_model.aggregate(base_obs, self.patch)
         min_dist = float(np.min(lidar_distances))
         min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
         lidar_safe = bool(min_dist >= self.cfg.collision_min_dist)
@@ -898,22 +877,11 @@ class PatchEnv(gym.Env):
 
             self.prev_waypoint_idx = int(self._current_waypoint_idx)
         
-        reward = self._compute_reward_w_frenet(
-            lidar_info,
-            dt,
-            lap_bonus=lap_bonus,
-            track_half_width=track_half_width,
-        )
+        reward = self._compute_reward_w_frenet(lidar_info, dt, lap_bonus=lap_bonus)
         reward = float(np.nan_to_num(reward, nan=-10.0, posinf=100.0, neginf=-100.0))
         self.episode_reward += reward
 
-        terminated, truncated, reason = self._check_termination(
-            lidar_info,
-            track_half_width=track_half_width,
-        )
-        if reason == "patch_center_outside_trackwidth_half":
-            reward -= float(self.cfg.trackwidth_violation_penalty)
-            self.episode_reward -= float(self.cfg.trackwidth_violation_penalty)
+        terminated, truncated, reason = self._check_termination(lidar_info)
         if self.cfg.use_base_done_termination:
             terminated = bool(terminated or base_done)
             truncated = bool(truncated or base_truncated)
@@ -943,10 +911,6 @@ class PatchEnv(gym.Env):
             "mpc_feasibility_rate": 1.0 if self.mpc_attempts == 0 else float(self.mpc_successes / self.mpc_attempts),
             "safety_intervention_rate": float(self.safety_interventions / max(1, self.step_count * self.num_agents)),
             "min_lidar_dist": float(min_dist),
-            "frenet_s": float(s_now),
-            "frenet_ey": float(ey_now),
-            "track_width": float(track_width_now),
-            "track_half_width": float(track_half_width),
             "collision_min_dist_threshold": float(self.cfg.collision_min_dist),
             "base_done": bool(base_done),
             "base_truncated": bool(base_truncated),
