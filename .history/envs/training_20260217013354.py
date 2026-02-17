@@ -153,8 +153,6 @@ def train_patch_policy(
     num_envs: int = 8,
     resume_from: Optional[str] = None,
     domain_randomize: bool = False,
-    debug_print_every_n_steps: int = 0,
-    debug_print_episode_end: bool = True,
     wandb_project: str = "patch_sempc_training",
     wandb_entity: Optional[str] = None,
     wandb_run_name: Optional[str] = None,
@@ -184,32 +182,9 @@ def train_patch_policy(
         )
 
     if num_envs > 1:
-        env = SubprocVecEnv(
-            [
-                make_patch_env(
-                    i,
-                    seed=42,
-                    domain_randomize=domain_randomize,
-                    navigation_mode="centerline",
-                    debug_print_every_n_steps=debug_print_every_n_steps,
-                    debug_print_episode_end=debug_print_episode_end,
-                )
-                for i in range(num_envs)
-            ]
-        )
+        env = SubprocVecEnv([make_patch_env(i, seed=42, domain_randomize=domain_randomize, navigation_mode="centerline") for i in range(num_envs)])
     else:
-        env = DummyVecEnv(
-            [
-                make_patch_env(
-                    0,
-                    seed=42,
-                    domain_randomize=domain_randomize,
-                    navigation_mode="centerline",
-                    debug_print_every_n_steps=debug_print_every_n_steps,
-                    debug_print_episode_end=debug_print_episode_end,
-                )
-            ]
-        )
+        env = DummyVecEnv([make_patch_env(0, seed=42, domain_randomize=domain_randomize, navigation_mode="centerline")])
 
     env = VecCheckNan(env, raise_exception=True)
     env = VecNormalize(
@@ -273,8 +248,6 @@ if __name__ == "__main__":
     parser.add_argument("--save-path", type=str, default="patch_policy_models")
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--domain-randomize", action="store_true")
-    parser.add_argument("--debug-step-print-every", type=int, default=0)
-    parser.add_argument("--no-debug-episode-end", action="store_true")
     parser.add_argument("--wandb-project", type=str, default="patch_sempc_training")
     parser.add_argument("--wandb-entity", type=str, default=None)
     parser.add_argument("--wandb-run-name", type=str, default=None)
@@ -287,8 +260,6 @@ if __name__ == "__main__":
         num_envs=args.num_envs,
         resume_from=args.resume,
         domain_randomize=args.domain_randomize,
-        debug_print_every_n_steps=args.debug_step_print_every,
-        debug_print_episode_end=not args.no_debug_episode_end,
         wandb_project=args.wandb_project,
         wandb_entity=args.wandb_entity,
         wandb_run_name=args.wandb_run_name,

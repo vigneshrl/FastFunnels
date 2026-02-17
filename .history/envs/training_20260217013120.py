@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 import time
-from collections import Counter
 from datetime import datetime
 from typing import Optional
 
@@ -47,19 +46,9 @@ class TrainingCallback(BaseCallback):
         self.best_reward = -np.inf
         self.episode_lengths = []
         self.termination_reasons = {}
-        self.recent_reasons = []
-        self.recent_min_dists = []
-        self.recent_last_ds = []
-        self.recent_last_ey = []
-        self.recent_mpc_feas = []
-        self.recent_safety_rates = []
-        self.recent_reward_clipped = []
         self.log_file = os.path.join(save_dir, "training_log.csv")
         with open(self.log_file, "w", encoding="utf-8") as f:
-            f.write(
-                "timesteps,episodes,avg_reward,avg_len,time_elapsed,timesteps_per_sec,"
-                "top_reason,avg_min_dist,avg_last_ds,avg_last_ey,avg_mpc_feas,avg_safety_rate,clip_frac\n"
-            )
+            f.write("timesteps,episodes,avg_reward,avg_len,time_elapsed,timesteps_per_sec,top_reason\n")
 
     def _on_step(self):
         for i, done in enumerate(self.locals.get("dones", [])):
@@ -73,13 +62,6 @@ class TrainingCallback(BaseCallback):
             self.episode_rewards.append(reward)
             self.episode_lengths.append(ep_len)
             self.termination_reasons[reason] = self.termination_reasons.get(reason, 0) + 1
-            self.recent_reasons.append(reason)
-            self.recent_min_dists.append(float(info.get("min_lidar_dist", np.nan)))
-            self.recent_last_ds.append(float(info.get("ds", np.nan)))
-            self.recent_last_ey.append(float(info.get("ey", np.nan)))
-            self.recent_mpc_feas.append(float(info.get("mpc_feasibility_rate", np.nan)))
-            self.recent_safety_rates.append(float(info.get("safety_intervention_rate", np.nan)))
-            self.recent_reward_clipped.append(bool(info.get("reward_was_clipped", False)))
 
             if self.episode_count % 50 == 0 and self.episode_rewards:
                 now = time.time()
@@ -90,31 +72,15 @@ class TrainingCallback(BaseCallback):
                 avg_r = float(np.mean(self.episode_rewards[-50:]))
                 avg_len = float(np.mean(self.episode_lengths[-50:])) if self.episode_lengths else 0.0
                 top_reason = max(self.termination_reasons.items(), key=lambda kv: kv[1])[0] if self.termination_reasons else "unknown"
-                recent_reason_counts = Counter(self.recent_reasons[-50:])
-                reason_breakdown = ", ".join(f"{k}:{v}" for k, v in recent_reason_counts.most_common(4))
-                avg_min_dist = float(np.nanmean(self.recent_min_dists[-50:])) if self.recent_min_dists else float("nan")
-                avg_last_ds = float(np.nanmean(self.recent_last_ds[-50:])) if self.recent_last_ds else float("nan")
-                avg_last_ey = float(np.nanmean(self.recent_last_ey[-50:])) if self.recent_last_ey else float("nan")
-                avg_mpc_feas = float(np.nanmean(self.recent_mpc_feas[-50:])) if self.recent_mpc_feas else float("nan")
-                avg_safety = float(np.nanmean(self.recent_safety_rates[-50:])) if self.recent_safety_rates else float("nan")
-                clip_frac = float(np.mean(self.recent_reward_clipped[-50:])) if self.recent_reward_clipped else 0.0
                 print(f"\n[{self.policy_name}] Episode {self.episode_count} | Timesteps: {self.num_timesteps}")
                 print(
                     f"  Avg Reward: {avg_r:.2f} | Avg Len: {avg_len:.1f} | "
                     f"Top End: {top_reason} | Time: {elapsed/60:.1f} min | Speed: {tps:.1f} steps/sec"
                 )
-                print(
-                    f"  Debug(last50): reasons=[{reason_breakdown}] "
-                    f"min_dist={avg_min_dist:.3f} ds={avg_last_ds:.4f} ey={avg_last_ey:.3f} "
-                    f"mpc_feas={avg_mpc_feas:.3f} safety_rate={avg_safety:.3f} clip_frac={clip_frac:.2f}"
-                )
-                if avg_len < 5.0:
-                    print("  WARNING: Very short episodes. Focus on termination reasons and min_dist.")
                 with open(self.log_file, "a", encoding="utf-8") as f:
                     f.write(
                         f"{self.num_timesteps},{self.episode_count},{avg_r:.2f},"
-                        f"{avg_len:.2f},{elapsed:.1f},{tps:.2f},{top_reason},"
-                        f"{avg_min_dist:.4f},{avg_last_ds:.6f},{avg_last_ey:.4f},{avg_mpc_feas:.4f},{avg_safety:.4f},{clip_frac:.4f}\n"
+                        f"{avg_len:.2f},{elapsed:.1f},{tps:.2f},{top_reason}\n"
                     )
 
                 if avg_r > self.best_reward:
@@ -153,8 +119,6 @@ def train_patch_policy(
     num_envs: int = 8,
     resume_from: Optional[str] = None,
     domain_randomize: bool = False,
-    debug_print_every_n_steps: int = 0,
-    debug_print_episode_end: bool = True,
     wandb_project: str = "patch_sempc_training",
     wandb_entity: Optional[str] = None,
     wandb_run_name: Optional[str] = None,
@@ -184,32 +148,9 @@ def train_patch_policy(
         )
 
     if num_envs > 1:
-        env = SubprocVecEnv(
-            [
-                make_patch_env(
-                    i,
-                    seed=42,
-                    domain_randomize=domain_randomize,
-                    navigation_mode="centerline",
-                    debug_print_every_n_steps=debug_print_every_n_steps,
-                    debug_print_episode_end=debug_print_episode_end,
-                )
-                for i in range(num_envs)
-            ]
-        )
+        env = SubprocVecEnv([make_patch_env(i, seed=42, domain_randomize=domain_randomize, navigation_mode="centerline") for i in range(num_envs)])
     else:
-        env = DummyVecEnv(
-            [
-                make_patch_env(
-                    0,
-                    seed=42,
-                    domain_randomize=domain_randomize,
-                    navigation_mode="centerline",
-                    debug_print_every_n_steps=debug_print_every_n_steps,
-                    debug_print_episode_end=debug_print_episode_end,
-                )
-            ]
-        )
+        env = DummyVecEnv([make_patch_env(0, seed=42, domain_randomize=domain_randomize, navigation_mode="centerline")])
 
     env = VecCheckNan(env, raise_exception=True)
     env = VecNormalize(
@@ -273,8 +214,6 @@ if __name__ == "__main__":
     parser.add_argument("--save-path", type=str, default="patch_policy_models")
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--domain-randomize", action="store_true")
-    parser.add_argument("--debug-step-print-every", type=int, default=0)
-    parser.add_argument("--no-debug-episode-end", action="store_true")
     parser.add_argument("--wandb-project", type=str, default="patch_sempc_training")
     parser.add_argument("--wandb-entity", type=str, default=None)
     parser.add_argument("--wandb-run-name", type=str, default=None)
@@ -287,8 +226,6 @@ if __name__ == "__main__":
         num_envs=args.num_envs,
         resume_from=args.resume,
         domain_randomize=args.domain_randomize,
-        debug_print_every_n_steps=args.debug_step_print_every,
-        debug_print_episode_end=not args.no_debug_episode_end,
         wandb_project=args.wandb_project,
         wandb_entity=args.wandb_entity,
         wandb_run_name=args.wandb_run_name,

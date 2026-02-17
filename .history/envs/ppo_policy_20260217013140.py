@@ -96,8 +96,6 @@ class PatchEnvConfig:
     lap_bonus_tau = 200.0
     time_penalty_per_sec: float = 0.0
     compact_observation: bool = True
-    debug_print_every_n_steps: int = 0
-    debug_print_episode_end: bool = True
 
     # Navigation mode: "landmark" or "centerline"
     navigation_mode: str = "centerline"
@@ -238,7 +236,6 @@ class PatchEnv(gym.Env):
         self.safety_interventions = 0
         self.cached_controls = [None] * self.num_agents
         self.cached_feasible = [False] * self.num_agents
-        self._last_reward_terms = {}
 
     def _calculate_min_patch_size_for_agents(self):
         if self.agent_states is None:
@@ -417,7 +414,7 @@ class PatchEnv(gym.Env):
         else:
             self.no_progress_counter = 0
 
-        reward_raw = (
+        reward = (
             self.cfg.reward_progress_scale * ds
             - self.cfg.reward_crosstrack_weight * abs(ey)
             - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
@@ -427,32 +424,17 @@ class PatchEnv(gym.Env):
         )
 
         # Per-step time penalty
-        reward_raw -= self.cfg.time_penalty_per_sec * dt
+        reward -= self.cfg.time_penalty_per_sec * dt
 
         # Event-based lap bonus
-        reward_raw += float(lap_bonus)
+        reward += float(lap_bonus)
 
         if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
-            reward_raw -= self.cfg.stuck_penalty
+            reward -= self.cfg.stuck_penalty
 
         self.prev_s = s
         self.prev_steer = steer_cmd
-        reward_clipped = float(np.clip(reward_raw, -100.0, 100.0))
-        self._last_reward_terms = {
-            "s": float(s),
-            "ey": float(ey),
-            "ds": float(ds),
-            "steer_cmd": float(steer_cmd),
-            "steer_rate": float(steer_rate),
-            "yaw_rate_proxy": float(yaw_rate),
-            "spin_excess": float(spin_excess),
-            "collision_proxy": bool(collision),
-            "reward_raw": float(reward_raw),
-            "reward_clipped": float(reward_clipped),
-            "reward_was_clipped": bool(abs(reward_raw) > 100.0),
-            "no_progress_counter": int(self.no_progress_counter),
-        }
-        return reward_clipped
+        return float(np.clip(reward, -100.0, 100.0))
 
     #check termination with frenet compatible logic 
     def _check_termination(self, lidar_info: dict):
@@ -547,7 +529,6 @@ class PatchEnv(gym.Env):
         self.safety_interventions = 0
         self.cached_controls = [None] * self.num_agents
         self.cached_feasible = [False] * self.num_agents
-        self._last_reward_terms = {}
 
         #lap bookkepping reset 
         self.lap_count = 0
@@ -809,14 +790,9 @@ class PatchEnv(gym.Env):
         terminated, truncated, reason = self._check_termination(lidar_info)
         terminated = bool(terminated or base_done)
         truncated = bool(truncated or base_truncated)
-        if reason is None and base_done:
-            reason = "base_env_done"
-        if reason is None and base_truncated:
-            reason = "base_env_truncated"
 
         obs = self._build_obs()
         obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        reward_terms = dict(self._last_reward_terms)
         info = {
             "episode_reward": self.episode_reward,
             "lap_progress": self.lap_progress,
@@ -831,30 +807,7 @@ class PatchEnv(gym.Env):
             "lap_time": None if lap_time is None else float(lap_time),
             "mpc_feasibility_rate": 1.0 if self.mpc_attempts == 0 else float(self.mpc_successes / self.mpc_attempts),
             "safety_intervention_rate": float(self.safety_interventions / max(1, self.step_count * self.num_agents)),
-            "min_lidar_dist": float(min_dist),
-            "collision_min_dist_threshold": float(self.cfg.collision_min_dist),
-            "base_done": bool(base_done),
-            "base_truncated": bool(base_truncated),
         }
-        info.update(reward_terms)
-
-        if self.cfg.debug_print_every_n_steps > 0 and (self.step_count % self.cfg.debug_print_every_n_steps == 0):
-            print(
-                f"[PATCH-DEBUG] step={self.step_count} reward={reward:.2f} "
-                f"raw={reward_terms.get('reward_raw', 0.0):.2f} ds={reward_terms.get('ds', 0.0):.4f} "
-                f"ey={reward_terms.get('ey', 0.0):.3f} min_dist={min_dist:.3f} "
-                f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f}"
-            )
-
-        if self.cfg.debug_print_episode_end and (terminated or truncated):
-            print(
-                f"[PATCH-END] steps={self.step_count} reason={reason} ep_reward={self.episode_reward:.2f} "
-                f"last_r={reward:.2f} raw={reward_terms.get('reward_raw', 0.0):.2f} "
-                f"ds={reward_terms.get('ds', 0.0):.4f} ey={reward_terms.get('ey', 0.0):.3f} "
-                f"min_dist={min_dist:.3f} clipped={reward_terms.get('reward_was_clipped', False)} "
-                f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f}"
-            )
-
         return obs, reward, terminated, truncated, info
 
     def render(self):
@@ -864,14 +817,7 @@ class PatchEnv(gym.Env):
         self.f110.close()
 
 
-def make_patch_env(
-    rank: int,
-    seed: int = 0,
-    domain_randomize: bool = False,
-    navigation_mode: str = "landmark",
-    debug_print_every_n_steps: int = 0,
-    debug_print_episode_end: bool = True,
-):
+def make_patch_env(rank: int, seed: int = 0, domain_randomize: bool = False, navigation_mode: str = "landmark"):
     """
     Factory function to create patch environments for parallel training.
     
@@ -893,9 +839,7 @@ def make_patch_env(
             domain_randomize=domain_randomize,
             num_agents=2,
             render_mode=None,
-            navigation_mode=navigation_mode,
-            debug_print_every_n_steps=debug_print_every_n_steps,
-            debug_print_episode_end=debug_print_episode_end,
+            navigation_mode=navigation_mode
         )
         env = PatchEnv(cfg)
         env.reset(seed=seed + rank)
