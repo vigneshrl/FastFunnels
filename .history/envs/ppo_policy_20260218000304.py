@@ -123,7 +123,6 @@ class PatchEnvConfig:
     patch_size_cap_enabled: bool = True
     patch_size_cap_reference_agents: int = 6
     patch_size_cap_leeway: float = 1.25
-    patch_size_cap_penalty_weight: float = 80.0
     patch_only_min_b_scale: float = 0.60
     patch_only_speed_floor: float = 0.9
     patch_only_centerline_assist_enabled: bool = True
@@ -1101,15 +1100,6 @@ class PatchEnv(gym.Env):
         # b = min(max(b, min_b_agents), self._safe_init_b)
         a_cap = max(max_a_edge, float(min_a_agents))
         b_cap = max(max_b_edge, float(min_b_agents))
-        if self.cfg.patch_size_cap_enabled:
-            hard_cap_a = float(self._hard_cap_a) if self._hard_cap_a is not None else float(self._safe_init_a)
-            hard_cap_b = float(self._hard_cap_b) if self._hard_cap_b is not None else float(self._safe_init_b)
-            # old: no explicit hard cap tied to equivalent 6-agent envelope.
-            a_cap = min(a_cap, hard_cap_a)
-            b_cap = min(b_cap, hard_cap_b)
-            # Keep feasibility if hard cap is below min required bound.
-            a_cap = max(a_cap, float(min_a_agents))
-            b_cap = max(b_cap, float(min_b_agents))
         a = min(max(a, min_a_agents), a_cap)
         b = min(max(b, min_b_agents), b_cap)
         if self.cfg.patch_only_mode:
@@ -1121,12 +1111,6 @@ class PatchEnv(gym.Env):
             # Cap elongation a/b to avoid pathological "long capsule" corner failures.
             # old: no explicit aspect-ratio cap.
             a = min(a, float(self.cfg.shape_aspect_ratio_cap) * max(b, 1e-3))
-        requested_a = float(a)
-        requested_b = float(b)
-        size_cap_penalty = 0.0
-        size_cap_excess_ratio = 0.0
-        size_cap_excess_a = 0.0
-        size_cap_excess_b = 0.0
         # Temporarily increase shrink/expand rate in corners so policy can reduce size in time.
         orig_shape_rate = float(self.patch.config.size_change_rate)
         if self.cfg.patch_only_mode:
@@ -1134,19 +1118,6 @@ class PatchEnv(gym.Env):
             self.patch.config.size_change_rate = orig_shape_rate * (
                 1.0 + float(self.cfg.corner_shrink_rate_boost) * float(corner_factor_pre)
             )
-        if self.cfg.patch_size_cap_enabled:
-            size_cap_excess_a = max(0.0, requested_a - float(a_cap))
-            size_cap_excess_b = max(0.0, requested_b - float(b_cap))
-            if size_cap_excess_a > 0.0 or size_cap_excess_b > 0.0:
-                size_cap_excess_ratio = (
-                    size_cap_excess_a / max(float(a_cap), 1e-3)
-                    + size_cap_excess_b / max(float(b_cap), 1e-3)
-                )
-                # Penalize attempts to grow past hard cap, even though final size is clamped.
-                # old: cap crossing was silently clamped with no direct reward penalty.
-                size_cap_penalty = float(self.cfg.patch_size_cap_penalty_weight) * float(size_cap_excess_ratio**2)
-        a = min(requested_a, float(a_cap))
-        b = min(requested_b, float(b_cap))
         self.patch.update_shape(a, b, dt, max_a=a_cap, max_b=b_cap)
         self.patch.config.size_change_rate = orig_shape_rate
         self.patch.save_state()
@@ -1360,8 +1331,6 @@ class PatchEnv(gym.Env):
             track_half_width=track_half_width,
         )
         reward = float(np.nan_to_num(reward, nan=-10.0, posinf=100.0, neginf=-100.0))
-        if size_cap_penalty > 0.0:
-            reward -= float(size_cap_penalty)
         self.episode_reward += reward
 
         terminated, truncated, reason = self._check_termination(
@@ -1400,14 +1369,6 @@ class PatchEnv(gym.Env):
             "lap_progress": self.lap_progress,
             "Episode_steps": self.step_count,
             "patch_size": (self.patch.a, self.patch.b),
-            "patch_size_cap": (
-                None if self._hard_cap_a is None else float(self._hard_cap_a),
-                None if self._hard_cap_b is None else float(self._hard_cap_b),
-            ),
-            "patch_size_cap_penalty": float(size_cap_penalty),
-            "patch_size_cap_excess_ratio": float(size_cap_excess_ratio),
-            "patch_size_cap_excess_a": float(size_cap_excess_a),
-            "patch_size_cap_excess_b": float(size_cap_excess_b),
             "patch_velocity": self.patch.v,
             "patch_heading_err_ref": float(patch_heading_err),
             "patch_curvature_ref": float(patch_curv_ref),
@@ -1459,8 +1420,7 @@ class PatchEnv(gym.Env):
                 f"ds={reward_terms.get('ds', 0.0):.4f} ey={reward_terms.get('ey', 0.0):.3f} "
                 f"min_dist={min_dist:.3f} clipped={reward_terms.get('reward_was_clipped', False)} "
                 f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f} "
-                f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f}) "
-                f"sizecap_pen={size_cap_penalty:.2f} excess={size_cap_excess_ratio:.3f}"
+                f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f})"
             )
 
         return obs, reward, terminated, truncated, info

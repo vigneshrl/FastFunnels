@@ -1459,8 +1459,7 @@ class PatchEnv(gym.Env):
                 f"ds={reward_terms.get('ds', 0.0):.4f} ey={reward_terms.get('ey', 0.0):.3f} "
                 f"min_dist={min_dist:.3f} clipped={reward_terms.get('reward_was_clipped', False)} "
                 f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f} "
-                f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f}) "
-                f"sizecap_pen={size_cap_penalty:.2f} excess={size_cap_excess_ratio:.3f}"
+                f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f})"
             )
 
         return obs, reward, terminated, truncated, info
