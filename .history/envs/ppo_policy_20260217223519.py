@@ -114,12 +114,6 @@ class PatchEnvConfig:
     shape_aspect_ratio_cap: float = 3.0
     shape_aspect_ratio_penalty_weight: float = 8.0
     shape_area_penalty_weight: float = 2.0
-    corner_kappa_ref: float = 0.22
-    corner_shrink_rate_boost: float = 3.0
-    corner_b_target_min_scale: float = 0.55
-    corner_a_target_min_scale: float = 0.75
-    corner_b_target_penalty_weight: float = 30.0
-    corner_a_target_penalty_weight: float = 12.0
     patch_only_min_b_scale: float = 0.60
     patch_only_speed_floor: float = 0.9
     patch_only_centerline_assist_enabled: bool = True
@@ -638,36 +632,6 @@ class PatchEnv(gym.Env):
         if track_half_width is not None and track_half_width > 1e-3:
             edge_ratio = float(np.clip(abs(ey) / track_half_width, 0.0, 2.0))
             reward_raw -= self.cfg.frenet_edge_penalty_weight * (edge_ratio**2)
-        else:
-            edge_ratio = 0.0
-
-        # Corner-aware size targets: in tighter turns / larger lateral error, shrink patch more.
-        corner_kappa_abs = 0.0
-        corner_factor = 0.0
-        corner_b_target = float(self._safe_init_b)
-        corner_a_target = float(self._safe_init_a)
-        corner_b_err = 0.0
-        corner_a_err = 0.0
-        if self.track_spline is not None and track_half_width is not None and track_half_width > 1e-3:
-            try:
-                corner_kappa_abs = abs(float(self.track_spline.calc_curvature(float(s))))
-            except Exception:
-                corner_kappa_abs = 0.0
-            corner_from_kappa = float(np.clip(corner_kappa_abs / max(self.cfg.corner_kappa_ref, 1e-4), 0.0, 1.0))
-            corner_from_edge = float(np.clip((edge_ratio - 0.35) / 0.65, 0.0, 1.0))
-            corner_factor = max(corner_from_kappa, corner_from_edge)
-
-            corner_b_target = float(self._safe_init_b) * (
-                1.0 - corner_factor * (1.0 - float(self.cfg.corner_b_target_min_scale))
-            )
-            corner_a_target = float(self._safe_init_a) * (
-                1.0 - corner_factor * (1.0 - float(self.cfg.corner_a_target_min_scale))
-            )
-            corner_b_err = max(0.0, (float(self.patch.b) - corner_b_target) / max(float(self._safe_init_b), 1e-3))
-            corner_a_err = max(0.0, (float(self.patch.a) - corner_a_target) / max(float(self._safe_init_a), 1e-3))
-            # old: no explicit corner-conditioned size target penalty.
-            reward_raw -= float(self.cfg.corner_b_target_penalty_weight) * (corner_b_err**2)
-            reward_raw -= float(self.cfg.corner_a_target_penalty_weight) * (corner_a_err**2)
 
         # Shape regularization: discourage oversized / highly elongated patches
         # that exploit reward but fail at corners.
@@ -705,12 +669,6 @@ class PatchEnv(gym.Env):
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
             "track_half_width": float(track_half_width) if track_half_width is not None else float("nan"),
-            "corner_kappa_abs": float(corner_kappa_abs),
-            "corner_factor": float(corner_factor),
-            "corner_b_target": float(corner_b_target),
-            "corner_a_target": float(corner_a_target),
-            "corner_b_err": float(corner_b_err),
-            "corner_a_err": float(corner_a_err),
             "patch_aspect_ratio": float(aspect_ratio),
             "patch_area_ratio": float(area_ratio),
             "reward_raw": float(reward_raw),
@@ -988,9 +946,6 @@ class PatchEnv(gym.Env):
         # Edge guardrail: when patch center approaches track edge, reduce aggressiveness and bias steering inward.
         edge_ratio_pre = 0.0
         edge_guard_mix = 0.0
-        track_half_pre = 1.0
-        corner_factor_pre = 0.0
-        corner_kappa_abs_pre = 0.0
         if self.cfg.edge_guard_enabled and self.track_spline is not None:
             _, ey_pre = self._patch_to_frenet()
             track_width_pre = self._estimate_current_track_width()
@@ -1008,20 +963,6 @@ class PatchEnv(gym.Env):
                 smooth_steer *= steer_scale
                 # Positive ey => patch is left of centerline in Frenet convention, steer right (negative) to recenter.
                 smooth_steer += -np.sign(float(ey_pre)) * float(self.cfg.edge_guard_centering_steer_gain) * edge_guard_mix
-
-        # Corner factor from Frenet curvature and lateral offset.
-        # Used to encourage "shrink-in-corner" behavior instead of late wall contact.
-        if self.track_spline is not None:
-            try:
-                s_corner, ey_corner = self._patch_to_frenet()
-                corner_kappa_abs_pre = abs(float(self.track_spline.calc_curvature(float(s_corner))))
-                corner_from_kappa = float(np.clip(corner_kappa_abs_pre / max(self.cfg.corner_kappa_ref, 1e-4), 0.0, 1.0))
-                edge_ratio_corner = float(np.clip(abs(float(ey_corner)) / max(track_half_pre, 1e-3), 0.0, 2.0))
-                corner_from_edge = float(np.clip((edge_ratio_corner - 0.35) / 0.65, 0.0, 1.0))
-                corner_factor_pre = max(corner_from_kappa, corner_from_edge)
-            except Exception:
-                corner_factor_pre = 0.0
-                corner_kappa_abs_pre = 0.0
 
         # Patch-only assist: blend policy steer with centerline heading/curvature tracking.
         # This helps turn through corners instead of drifting outward.
@@ -1088,15 +1029,7 @@ class PatchEnv(gym.Env):
             # Cap elongation a/b to avoid pathological "long capsule" corner failures.
             # old: no explicit aspect-ratio cap.
             a = min(a, float(self.cfg.shape_aspect_ratio_cap) * max(b, 1e-3))
-        # Temporarily increase shrink/expand rate in corners so policy can reduce size in time.
-        orig_shape_rate = float(self.patch.config.size_change_rate)
-        if self.cfg.patch_only_mode:
-            # old: shape rate stayed constant regardless of corner difficulty.
-            self.patch.config.size_change_rate = orig_shape_rate * (
-                1.0 + float(self.cfg.corner_shrink_rate_boost) * float(corner_factor_pre)
-            )
         self.patch.update_shape(a, b, dt, max_a=a_cap, max_b=b_cap)
-        self.patch.config.size_change_rate = orig_shape_rate
         self.patch.save_state()
 
         base_obs = self.current_base_obs
@@ -1347,8 +1280,6 @@ class PatchEnv(gym.Env):
             "Episode_steps": self.step_count,
             "patch_size": (self.patch.a, self.patch.b),
             "patch_velocity": self.patch.v,
-            "patch_heading_err_ref": float(patch_heading_err),
-            "patch_curvature_ref": float(patch_curv_ref),
             "step_reward": reward,
             "termination_reason": reason,
             "lidar_safe": lidar_safe,

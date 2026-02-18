@@ -638,36 +638,6 @@ class PatchEnv(gym.Env):
         if track_half_width is not None and track_half_width > 1e-3:
             edge_ratio = float(np.clip(abs(ey) / track_half_width, 0.0, 2.0))
             reward_raw -= self.cfg.frenet_edge_penalty_weight * (edge_ratio**2)
-        else:
-            edge_ratio = 0.0
-
-        # Corner-aware size targets: in tighter turns / larger lateral error, shrink patch more.
-        corner_kappa_abs = 0.0
-        corner_factor = 0.0
-        corner_b_target = float(self._safe_init_b)
-        corner_a_target = float(self._safe_init_a)
-        corner_b_err = 0.0
-        corner_a_err = 0.0
-        if self.track_spline is not None and track_half_width is not None and track_half_width > 1e-3:
-            try:
-                corner_kappa_abs = abs(float(self.track_spline.calc_curvature(float(s))))
-            except Exception:
-                corner_kappa_abs = 0.0
-            corner_from_kappa = float(np.clip(corner_kappa_abs / max(self.cfg.corner_kappa_ref, 1e-4), 0.0, 1.0))
-            corner_from_edge = float(np.clip((edge_ratio - 0.35) / 0.65, 0.0, 1.0))
-            corner_factor = max(corner_from_kappa, corner_from_edge)
-
-            corner_b_target = float(self._safe_init_b) * (
-                1.0 - corner_factor * (1.0 - float(self.cfg.corner_b_target_min_scale))
-            )
-            corner_a_target = float(self._safe_init_a) * (
-                1.0 - corner_factor * (1.0 - float(self.cfg.corner_a_target_min_scale))
-            )
-            corner_b_err = max(0.0, (float(self.patch.b) - corner_b_target) / max(float(self._safe_init_b), 1e-3))
-            corner_a_err = max(0.0, (float(self.patch.a) - corner_a_target) / max(float(self._safe_init_a), 1e-3))
-            # old: no explicit corner-conditioned size target penalty.
-            reward_raw -= float(self.cfg.corner_b_target_penalty_weight) * (corner_b_err**2)
-            reward_raw -= float(self.cfg.corner_a_target_penalty_weight) * (corner_a_err**2)
 
         # Shape regularization: discourage oversized / highly elongated patches
         # that exploit reward but fail at corners.
@@ -705,12 +675,6 @@ class PatchEnv(gym.Env):
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
             "track_half_width": float(track_half_width) if track_half_width is not None else float("nan"),
-            "corner_kappa_abs": float(corner_kappa_abs),
-            "corner_factor": float(corner_factor),
-            "corner_b_target": float(corner_b_target),
-            "corner_a_target": float(corner_a_target),
-            "corner_b_err": float(corner_b_err),
-            "corner_a_err": float(corner_a_err),
             "patch_aspect_ratio": float(aspect_ratio),
             "patch_area_ratio": float(area_ratio),
             "reward_raw": float(reward_raw),
