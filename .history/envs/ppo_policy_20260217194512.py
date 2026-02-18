@@ -905,14 +905,6 @@ class PatchEnv(gym.Env):
             if intervention:
                 self.safety_interventions += 1
             accel, steering = float(u_safe[0]), float(u_safe[1])
-            if not np.isfinite(accel):
-                accel = 0.0
-            if not np.isfinite(steering):
-                steering = 0.0
-            # Keep control increments smooth for simulator stability.
-            prev_steer_i = float(self.prev_agent_steer[i]) if self.prev_agent_steer is not None else 0.0
-            steering = float(np.clip(steering, prev_steer_i - self.cfg.max_steer_delta_per_step, prev_steer_i + self.cfg.max_steer_delta_per_step))
-            steering = float(np.clip(steering, -0.4, 0.4))
             v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
             # Agent-level lidar safety: use each agent's own scan to slow down near obstacles.
             if self.cfg.use_agent_lidar_braking and "scans" in base_obs and i < len(base_obs["scans"]):
@@ -926,26 +918,17 @@ class PatchEnv(gym.Env):
             # Speed-up bias for agents so they can keep up with patch.
             # old: v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, 10.0))
             v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, self.cfg.stable_agent_speed_cap))
-            v_new = float(np.clip(v_new, 0.5, self.cfg.hard_speed_cap))
             self.prev_v[i] = v_new
-            self.prev_agent_steer[i] = steering
-            # Old lines (kept for reference):
+            # Old line (kept for reference):
             # env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
-            # env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
-            # New: semantic packing based on configured control_input names.
-            env_actions[i] = self._pack_base_action(steering_cmd=steering, speed_cmd=v_new)
+            # Diagnostic check shows base env expects [steering, speed].
+            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
 
         # Hard safety clamp before stepping base simulator to avoid integrator overflow.
-        # old:
-        # env_actions = np.nan_to_num(env_actions, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-        # env_actions[:, 0] = np.clip(env_actions[:, 0], -0.4189, 0.4189)
-        # env_actions[:, 1] = np.clip(env_actions[:, 1], 0.5, self.cfg.stable_agent_speed_cap)
-        env_actions = self._clip_base_actions(env_actions)
-        control_names = [str(n).lower() for n in self.f110.config.control_input]
-        steer_idx = control_names.index("steering_angle") if "steering_angle" in control_names else 0
-        speed_idx = control_names.index("speed") if "speed" in control_names else 1
-        mean_abs_steer_cmd = float(np.mean(np.abs(env_actions[:, steer_idx])))
-        mean_speed_cmd = float(np.mean(env_actions[:, speed_idx]))
+        env_actions = np.nan_to_num(env_actions, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        # old: env_actions[:, 1] had upper bound 10.0
+        env_actions[:, 0] = np.clip(env_actions[:, 0], -0.4189, 0.4189)
+        env_actions[:, 1] = np.clip(env_actions[:, 1], 0.5, self.cfg.stable_agent_speed_cap)
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
 
@@ -1097,9 +1080,6 @@ class PatchEnv(gym.Env):
             "mean_agent_step_disp": mean_agent_step_disp,
             "episode_avg_agent_step_disp": float(self.agent_motion_sum / max(1, self.agent_motion_steps)),
             "episode_agent_move_step_ratio": float(self.agent_move_event_steps / max(1, self.agent_motion_steps)),
-            "mean_abs_steer_cmd": mean_abs_steer_cmd,
-            "mean_speed_cmd": mean_speed_cmd,
-            "control_input_order": list(self.f110.config.control_input),
         }
         info.update(reward_terms)
 
@@ -1117,8 +1097,7 @@ class PatchEnv(gym.Env):
                 f"last_r={reward:.2f} raw={reward_terms.get('reward_raw', 0.0):.2f} "
                 f"ds={reward_terms.get('ds', 0.0):.4f} ey={reward_terms.get('ey', 0.0):.3f} "
                 f"min_dist={min_dist:.3f} clipped={reward_terms.get('reward_was_clipped', False)} "
-                f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f} "
-                f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f})"
+                f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f}"
             )
 
         return obs, reward, terminated, truncated, info
