@@ -102,9 +102,6 @@ class PatchEnvConfig:
     stable_agent_speed_cap: float = 8.0
     hard_speed_cap: float = 6.0
     max_steer_delta_per_step: float = 0.12
-    # f1tenth_gym in this setup behaves as if action is [steering, speed].
-    # Keep this default True unless you have verified semantic channel ordering end-to-end.
-    force_legacy_steer_speed_order: bool = True
     nonfinite_state_penalty: float = 500.0
     coupling_enabled: bool = True
     coupling_lag_threshold_m: float = 0.8
@@ -281,21 +278,6 @@ class PatchEnv(gym.Env):
         Build one agent action according to configured base control_input semantics.
         This avoids silent channel swaps when the simulator expects a different order.
         """
-        # Old semantic mapping path kept for reference:
-        # control_names = list(self.f110.config.control_input)
-        # action = np.zeros((2,), dtype=np.float32)
-        # for idx, name in enumerate(control_names):
-        #     key = str(name).lower()
-        #     if key == "speed":
-        #         action[idx] = float(speed_cmd)
-        #     elif key == "steering_angle":
-        #         action[idx] = float(steering_cmd)
-        #     else:
-        #         action[idx] = float(steering_cmd if idx == 0 else speed_cmd)
-        # return action
-        if self.cfg.force_legacy_steer_speed_order:
-            return np.array([float(steering_cmd), float(speed_cmd)], dtype=np.float32)
-
         control_names = list(self.f110.config.control_input)
         action = np.zeros((2,), dtype=np.float32)
         for idx, name in enumerate(control_names):
@@ -314,22 +296,6 @@ class PatchEnv(gym.Env):
         Clip actions by semantics (`speed`, `steering_angle`) instead of fixed column index.
         """
         clipped = np.nan_to_num(actions, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-        # Old semantic clipping path kept for reference:
-        # control_names = list(self.f110.config.control_input)
-        # for idx, name in enumerate(control_names):
-        #     key = str(name).lower()
-        #     if key == "speed":
-        #         speed_cap = min(float(self.cfg.stable_agent_speed_cap), float(self.cfg.hard_speed_cap))
-        #         clipped[:, idx] = np.clip(clipped[:, idx], 0.5, speed_cap)
-        #     elif key == "steering_angle":
-        #         clipped[:, idx] = np.clip(clipped[:, idx], -0.4189, 0.4189)
-        # return clipped
-        if self.cfg.force_legacy_steer_speed_order:
-            speed_cap = min(float(self.cfg.stable_agent_speed_cap), float(self.cfg.hard_speed_cap))
-            clipped[:, 0] = np.clip(clipped[:, 0], -0.4189, 0.4189)  # steering
-            clipped[:, 1] = np.clip(clipped[:, 1], 0.5, speed_cap)    # speed
-            return clipped
-
         control_names = list(self.f110.config.control_input)
         for idx, name in enumerate(control_names):
             key = str(name).lower()
@@ -343,17 +309,6 @@ class PatchEnv(gym.Env):
                 # Unknown channel: keep unchanged.
                 clipped[:, idx] = clipped[:, idx]
         return clipped
-
-    def _effective_action_indices(self) -> tuple[int, int]:
-        """
-        Returns (steer_idx, speed_idx) for the action array actually sent to base env.
-        """
-        if self.cfg.force_legacy_steer_speed_order:
-            return 0, 1
-        control_names = [str(n).lower() for n in self.f110.config.control_input]
-        steer_idx = control_names.index("steering_angle") if "steering_angle" in control_names else 0
-        speed_idx = control_names.index("speed") if "speed" in control_names else 1
-        return steer_idx, speed_idx
 
     def _calculate_min_patch_size_for_agents(self):
         if self.agent_states is None:
@@ -986,7 +941,9 @@ class PatchEnv(gym.Env):
         # env_actions[:, 0] = np.clip(env_actions[:, 0], -0.4189, 0.4189)
         # env_actions[:, 1] = np.clip(env_actions[:, 1], 0.5, self.cfg.stable_agent_speed_cap)
         env_actions = self._clip_base_actions(env_actions)
-        steer_idx, speed_idx = self._effective_action_indices()
+        control_names = [str(n).lower() for n in self.f110.config.control_input]
+        steer_idx = control_names.index("steering_angle") if "steering_angle" in control_names else 0
+        speed_idx = control_names.index("speed") if "speed" in control_names else 1
         mean_abs_steer_cmd = float(np.mean(np.abs(env_actions[:, steer_idx])))
         mean_speed_cmd = float(np.mean(env_actions[:, speed_idx]))
 
@@ -1142,11 +1099,7 @@ class PatchEnv(gym.Env):
             "episode_agent_move_step_ratio": float(self.agent_move_event_steps / max(1, self.agent_motion_steps)),
             "mean_abs_steer_cmd": mean_abs_steer_cmd,
             "mean_speed_cmd": mean_speed_cmd,
-            "control_input_order": (
-                "[steering_angle, speed] (forced_legacy)"
-                if self.cfg.force_legacy_steer_speed_order
-                else list(self.f110.config.control_input)
-            ),
+            "control_input_order": list(self.f110.config.control_input),
         }
         info.update(reward_terms)
 

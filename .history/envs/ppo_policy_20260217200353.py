@@ -986,7 +986,9 @@ class PatchEnv(gym.Env):
         # env_actions[:, 0] = np.clip(env_actions[:, 0], -0.4189, 0.4189)
         # env_actions[:, 1] = np.clip(env_actions[:, 1], 0.5, self.cfg.stable_agent_speed_cap)
         env_actions = self._clip_base_actions(env_actions)
-        steer_idx, speed_idx = self._effective_action_indices()
+        control_names = [str(n).lower() for n in self.f110.config.control_input]
+        steer_idx = control_names.index("steering_angle") if "steering_angle" in control_names else 0
+        speed_idx = control_names.index("speed") if "speed" in control_names else 1
         mean_abs_steer_cmd = float(np.mean(np.abs(env_actions[:, steer_idx])))
         mean_speed_cmd = float(np.mean(env_actions[:, speed_idx]))
 
@@ -1142,11 +1144,7 @@ class PatchEnv(gym.Env):
             "episode_agent_move_step_ratio": float(self.agent_move_event_steps / max(1, self.agent_motion_steps)),
             "mean_abs_steer_cmd": mean_abs_steer_cmd,
             "mean_speed_cmd": mean_speed_cmd,
-            "control_input_order": (
-                "[steering_angle, speed] (forced_legacy)"
-                if self.cfg.force_legacy_steer_speed_order
-                else list(self.f110.config.control_input)
-            ),
+            "control_input_order": list(self.f110.config.control_input),
         }
         info.update(reward_terms)
 
