@@ -622,20 +622,6 @@ class PatchEnv(gym.Env):
             edge_ratio = float(np.clip(abs(ey) / track_half_width, 0.0, 2.0))
             reward_raw -= self.cfg.frenet_edge_penalty_weight * (edge_ratio**2)
 
-        # Shape regularization: discourage oversized / highly elongated patches
-        # that exploit reward but fail at corners.
-        a_now = float(max(self.patch.a, 1e-3))
-        b_now = float(max(self.patch.b, 1e-3))
-        aspect_ratio = float(max(a_now, b_now) / max(min(a_now, b_now), 1e-3))
-        aspect_excess = max(0.0, aspect_ratio - float(self.cfg.shape_aspect_ratio_cap))
-        ref_area = max(float(self._safe_init_a) * float(self._safe_init_b), 1e-3)
-        area_ratio = float((a_now * b_now) / ref_area)
-        area_excess = max(0.0, area_ratio - 1.0)
-        shape_penalty_scale = 1.5 if self.cfg.patch_only_mode else 1.0
-        # old: no explicit shape penalty terms.
-        reward_raw -= shape_penalty_scale * float(self.cfg.shape_aspect_ratio_penalty_weight) * (aspect_excess**2)
-        reward_raw -= shape_penalty_scale * float(self.cfg.shape_area_penalty_weight) * (area_excess**2)
-
         # Per-step time penalty
         reward_raw -= self.cfg.time_penalty_per_sec * dt
 
@@ -658,8 +644,6 @@ class PatchEnv(gym.Env):
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
             "track_half_width": float(track_half_width) if track_half_width is not None else float("nan"),
-            "patch_aspect_ratio": float(aspect_ratio),
-            "patch_area_ratio": float(area_ratio),
             "reward_raw": float(reward_raw),
             "reward_clipped": float(reward_clipped),
             "reward_was_clipped": bool(abs(reward_raw) > 100.0),

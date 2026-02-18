@@ -622,20 +622,6 @@ class PatchEnv(gym.Env):
             edge_ratio = float(np.clip(abs(ey) / track_half_width, 0.0, 2.0))
             reward_raw -= self.cfg.frenet_edge_penalty_weight * (edge_ratio**2)
 
-        # Shape regularization: discourage oversized / highly elongated patches
-        # that exploit reward but fail at corners.
-        a_now = float(max(self.patch.a, 1e-3))
-        b_now = float(max(self.patch.b, 1e-3))
-        aspect_ratio = float(max(a_now, b_now) / max(min(a_now, b_now), 1e-3))
-        aspect_excess = max(0.0, aspect_ratio - float(self.cfg.shape_aspect_ratio_cap))
-        ref_area = max(float(self._safe_init_a) * float(self._safe_init_b), 1e-3)
-        area_ratio = float((a_now * b_now) / ref_area)
-        area_excess = max(0.0, area_ratio - 1.0)
-        shape_penalty_scale = 1.5 if self.cfg.patch_only_mode else 1.0
-        # old: no explicit shape penalty terms.
-        reward_raw -= shape_penalty_scale * float(self.cfg.shape_aspect_ratio_penalty_weight) * (aspect_excess**2)
-        reward_raw -= shape_penalty_scale * float(self.cfg.shape_area_penalty_weight) * (area_excess**2)
-
         # Per-step time penalty
         reward_raw -= self.cfg.time_penalty_per_sec * dt
 
@@ -658,8 +644,6 @@ class PatchEnv(gym.Env):
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
             "track_half_width": float(track_half_width) if track_half_width is not None else float("nan"),
-            "patch_aspect_ratio": float(aspect_ratio),
-            "patch_area_ratio": float(area_ratio),
             "reward_raw": float(reward_raw),
             "reward_clipped": float(reward_clipped),
             "reward_was_clipped": bool(abs(reward_raw) > 100.0),
@@ -959,10 +943,6 @@ class PatchEnv(gym.Env):
         self.patch.accel = smooth_accel
         self.patch.steering = smooth_steer
         self.patch.step(smooth_accel, smooth_steer, dt)
-        if self.cfg.patch_only_mode:
-            # Keep enough forward speed in patch-only mode so heading can evolve through corners.
-            # old: patch.v relied only on DynamicPatch v_min (0.5).
-            self.patch.v = float(max(self.patch.v, self.cfg.patch_only_speed_floor))
 
         if self.cfg.patch_only_mode:
             # old: always constrained by agent positions.
@@ -984,15 +964,6 @@ class PatchEnv(gym.Env):
         b_cap = max(max_b_edge, float(min_b_agents))
         a = min(max(a, min_a_agents), a_cap)
         b = min(max(b, min_b_agents), b_cap)
-        if self.cfg.patch_only_mode:
-            # Prevent collapse to a needle-like ellipse in patch-only debugging.
-            b_min_patch_only = max(float(self._safe_min_b), float(self.cfg.patch_only_min_b_scale) * float(self._safe_init_b))
-            # old: no extra lower bound for b in patch-only mode.
-            b = max(b, b_min_patch_only)
-        if self.cfg.shape_aspect_ratio_cap > 0.0:
-            # Cap elongation a/b to avoid pathological "long capsule" corner failures.
-            # old: no explicit aspect-ratio cap.
-            a = min(a, float(self.cfg.shape_aspect_ratio_cap) * max(b, 1e-3))
         self.patch.update_shape(a, b, dt, max_a=a_cap, max_b=b_cap)
         self.patch.save_state()
 
