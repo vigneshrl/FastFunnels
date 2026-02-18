@@ -957,8 +957,6 @@ class PatchEnv(gym.Env):
                 accel = 0.0
             if not np.isfinite(steering):
                 steering = 0.0
-            # old: accel from safety layer used directly.
-            accel = float(np.clip(accel, -self.cfg.agent_accel_clip, self.cfg.agent_accel_clip))
             # Keep control increments smooth for simulator stability.
             prev_steer_i = float(self.prev_agent_steer[i]) if self.prev_agent_steer is not None else 0.0
             steering = float(np.clip(steering, prev_steer_i - self.cfg.max_steer_delta_per_step, prev_steer_i + self.cfg.max_steer_delta_per_step))
@@ -977,15 +975,6 @@ class PatchEnv(gym.Env):
             # old: v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, 10.0))
             v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, self.cfg.stable_agent_speed_cap))
             v_new = float(np.clip(v_new, 0.5, self.cfg.hard_speed_cap))
-            # Runtime speed floor so agents do not collapse to near-standstill.
-            # Increase floor when an agent lags behind patch longitudinally.
-            min_speed_floor = float(self.cfg.agent_min_speed_cmd)
-            if self.cfg.coupling_enabled:
-                lag_i = max(0.0, -float(x_local) - float(self.cfg.coupling_lag_threshold_m))
-                min_speed_floor += float(self.cfg.agent_lag_speed_gain) * lag_i
-            min_speed_floor = float(np.clip(min_speed_floor, 0.5, self.cfg.hard_speed_cap))
-            # old: no explicit minimum speed floor.
-            v_new = max(v_new, min_speed_floor)
             self.prev_v[i] = v_new
             self.prev_agent_steer[i] = steering
             # Old lines (kept for reference):
