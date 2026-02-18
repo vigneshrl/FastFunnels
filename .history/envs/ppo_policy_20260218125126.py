@@ -135,7 +135,7 @@ class PatchEnvConfig:
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
-    ey_termination_enabled: bool = True
+    ey_termination_enabled: bool = False
     # old: patch_only_centerline_assist_enabled: bool = True
     patch_only_centerline_assist_enabled: bool = False
     patch_only_assist_blend: float = 0.55
@@ -1151,8 +1151,8 @@ class PatchEnv(gym.Env):
         # old:
         # a = min(max(a, min_a_agents), self._safe_init_a)
         # b = min(max(b, min_b_agents), self._safe_init_b)
-        a_cap = max(max_a_edge, float(min_a_agents))
-        b_cap = max(max_b_edge, float(min_b_agents))
+        # a_cap = max(max_a_edge, float(min_a_agents))
+        # b_cap = max(max_b_edge, float(min_b_agents))
         # Keep patch from growing beyond spawn size.
         a_cap = min(a_cap, float(self._safe_init_a))
         b_cap = min(b_cap, float(self._safe_init_b))
@@ -1162,26 +1162,22 @@ class PatchEnv(gym.Env):
             # old: no explicit hard cap tied to equivalent 6-agent envelope.
             a_cap = min(a_cap, hard_cap_a)
             b_cap = min(b_cap, hard_cap_b)
-        # Keep feasibility if hard cap is below min required bound.
-        a_cap = max(a_cap, float(min_a_agents))
-        b_cap = max(b_cap, float(min_b_agents))
-        requested_a = float(a)
-        requested_b = float(b)
-        # old:
-        # a = min(a, a_cap)
-        # b = min(b, b_cap)
-        # Correct clamp includes both lower and upper bounds.
-        a = min(max(a, float(min_a_agents)), float(a_cap))
-        b = min(max(b, float(min_b_agents)), float(b_cap))
+            # Keep feasibility if hard cap is below min required bound.
+            a_cap = max(a_cap, float(min_a_agents))
+            b_cap = max(b_cap, float(min_b_agents))
+        # a = min(max(a, min_a_agents), a_cap)
+        # b = min(max(b, min_b_agents), b_cap)
         if self.cfg.patch_only_mode:
             # Prevent collapse to a needle-like ellipse in patch-only debugging.
             b_min_patch_only = max(float(self._safe_min_b), float(self.cfg.patch_only_min_b_scale) * float(self._safe_init_b))
             # old: no extra lower bound for b in patch-only mode.
-            b = min(max(b, b_min_patch_only), float(b_cap))
+            b = max(b, b_min_patch_only)
         if self.cfg.shape_aspect_ratio_cap > 0.0:
             # Cap elongation a/b to avoid pathological "long capsule" corner failures.
             # old: no explicit aspect-ratio cap.
             a = min(a, float(self.cfg.shape_aspect_ratio_cap) * max(b, 1e-3))
+        requested_a = float(a)
+        requested_b = float(b)
         size_cap_penalty = 0.0
         size_cap_excess_ratio = 0.0
         size_cap_excess_a = 0.0
@@ -1204,10 +1200,8 @@ class PatchEnv(gym.Env):
                 # Penalize attempts to grow past hard cap, even though final size is clamped.
                 # old: cap crossing was silently clamped with no direct reward penalty.
                 size_cap_penalty = float(self.cfg.patch_size_cap_penalty_weight) * float(size_cap_excess_ratio**2)
-        # old:
-        # a = min(requested_a, float(a_cap))
-        # b = min(requested_b, float(b_cap))
-        # Keep clamped values computed above.
+        a = min(requested_a, float(a_cap))
+        b = min(requested_b, float(b_cap))
         self.patch.update_shape(a, b, dt, max_a=a_cap, max_b=b_cap)
         self.patch.config.size_change_rate = orig_shape_rate
         self.patch.save_state()

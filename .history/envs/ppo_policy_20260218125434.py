@@ -135,7 +135,7 @@ class PatchEnvConfig:
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
-    ey_termination_enabled: bool = True
+    ey_termination_enabled: bool = False
     # old: patch_only_centerline_assist_enabled: bool = True
     patch_only_centerline_assist_enabled: bool = False
     patch_only_assist_blend: float = 0.55
