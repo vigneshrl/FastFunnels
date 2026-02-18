@@ -134,7 +134,6 @@ class PatchEnvConfig:
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
-    ey_termination_enabled: bool = False
     patch_only_centerline_assist_enabled: bool = True
     patch_only_assist_blend: float = 0.55
     patch_only_heading_gain: float = 1.0
@@ -781,25 +780,15 @@ class PatchEnv(gym.Env):
 
         # 4) Off-track guard: cut hopeless episodes with very large lateral error.
         _, ey = self._patch_to_frenet()
-        # old:
-        # if self.cfg.patch_only_mode and track_half_width is not None:
-        #     ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
-        #     if abs(float(ey)) > max(ey_limit, 1e-3):
-        #         return True, False, "patch_only_centerline_ey_limit"
-        # if track_half_width is not None and abs(float(ey)) > track_half_width:
-        #     return True, False, "patch_center_outside_trackwidth_half"
-        # if abs(float(ey)) > self.cfg.offtrack_ey_termination:
-        #     return True, False, "offtrack_ey"
-        if self.cfg.ey_termination_enabled:
-            if self.cfg.patch_only_mode and track_half_width is not None:
-                # Optional early centerline termination in patch-only mode.
-                ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
-                if abs(float(ey)) > max(ey_limit, 1e-3):
-                    return True, False, "patch_only_centerline_ey_limit"
-            if track_half_width is not None and abs(float(ey)) > track_half_width:
-                return True, False, "patch_center_outside_trackwidth_half"
-            if abs(float(ey)) > self.cfg.offtrack_ey_termination:
-                return True, False, "offtrack_ey"
+        if self.cfg.patch_only_mode and track_half_width is not None:
+            # Early centerline termination in patch-only mode (single-agent-like guardrail).
+            ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
+            if abs(float(ey)) > max(ey_limit, 1e-3):
+                return True, False, "patch_only_centerline_ey_limit"
+        if track_half_width is not None and abs(float(ey)) > track_half_width:
+            return True, False, "patch_center_outside_trackwidth_half"
+        if abs(float(ey)) > self.cfg.offtrack_ey_termination:
+            return True, False, "offtrack_ey"
 
         # 5) Stuck termination (aligned with frenet reward bookkeeping)
         if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:

@@ -134,7 +134,6 @@ class PatchEnvConfig:
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
-    ey_termination_enabled: bool = False
     patch_only_centerline_assist_enabled: bool = True
     patch_only_assist_blend: float = 0.55
     patch_only_heading_gain: float = 1.0
@@ -684,20 +683,6 @@ class PatchEnv(gym.Env):
             reward_raw -= float(self.cfg.corner_b_target_penalty_weight) * (corner_b_err**2)
             reward_raw -= float(self.cfg.corner_a_target_penalty_weight) * (corner_a_err**2)
 
-        # Soft cap penalty: discourage sitting near the hard size cap even without crossing it.
-        softcap_penalty = 0.0
-        softcap_a_ratio = 0.0
-        softcap_b_ratio = 0.0
-        if self.cfg.patch_size_cap_enabled and self._hard_cap_a is not None and self._hard_cap_b is not None:
-            softcap_a_ratio = float(self.patch.a) / max(float(self._hard_cap_a), 1e-3)
-            softcap_b_ratio = float(self.patch.b) / max(float(self._hard_cap_b), 1e-3)
-            start = float(self.cfg.patch_size_softcap_start_ratio)
-            excess_a = max(0.0, softcap_a_ratio - start)
-            excess_b = max(0.0, softcap_b_ratio - start)
-            softcap_penalty = float(self.cfg.patch_size_softcap_penalty_weight) * (excess_a**2 + excess_b**2)
-            # old: only hard-cap crossing had direct penalty.
-            reward_raw -= softcap_penalty
-
         # Shape regularization: discourage oversized / highly elongated patches
         # that exploit reward but fail at corners.
         a_now = float(max(self.patch.a, 1e-3))
@@ -740,9 +725,6 @@ class PatchEnv(gym.Env):
             "corner_a_target": float(corner_a_target),
             "corner_b_err": float(corner_b_err),
             "corner_a_err": float(corner_a_err),
-            "softcap_penalty": float(softcap_penalty),
-            "softcap_a_ratio": float(softcap_a_ratio),
-            "softcap_b_ratio": float(softcap_b_ratio),
             "patch_aspect_ratio": float(aspect_ratio),
             "patch_area_ratio": float(area_ratio),
             "reward_raw": float(reward_raw),
@@ -781,25 +763,10 @@ class PatchEnv(gym.Env):
 
         # 4) Off-track guard: cut hopeless episodes with very large lateral error.
         _, ey = self._patch_to_frenet()
-        # old:
-        # if self.cfg.patch_only_mode and track_half_width is not None:
-        #     ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
-        #     if abs(float(ey)) > max(ey_limit, 1e-3):
-        #         return True, False, "patch_only_centerline_ey_limit"
-        # if track_half_width is not None and abs(float(ey)) > track_half_width:
-        #     return True, False, "patch_center_outside_trackwidth_half"
-        # if abs(float(ey)) > self.cfg.offtrack_ey_termination:
-        #     return True, False, "offtrack_ey"
-        if self.cfg.ey_termination_enabled:
-            if self.cfg.patch_only_mode and track_half_width is not None:
-                # Optional early centerline termination in patch-only mode.
-                ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
-                if abs(float(ey)) > max(ey_limit, 1e-3):
-                    return True, False, "patch_only_centerline_ey_limit"
-            if track_half_width is not None and abs(float(ey)) > track_half_width:
-                return True, False, "patch_center_outside_trackwidth_half"
-            if abs(float(ey)) > self.cfg.offtrack_ey_termination:
-                return True, False, "offtrack_ey"
+        if track_half_width is not None and abs(float(ey)) > track_half_width:
+            return True, False, "patch_center_outside_trackwidth_half"
+        if abs(float(ey)) > self.cfg.offtrack_ey_termination:
+            return True, False, "offtrack_ey"
 
         # 5) Stuck termination (aligned with frenet reward bookkeeping)
         if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
