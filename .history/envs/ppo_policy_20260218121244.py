@@ -100,7 +100,6 @@ class PatchEnvConfig:
     # old: patch_wall_collision_penalty: float = 250.0
     patch_wall_collision_penalty: float = 1000.0
     edge_guard_enabled: bool = True
-    lidar_min_dist_termination = False
     # old: edge_guard_start_ratio: float = 0.55
     edge_guard_start_ratio: float = 0.35
     # old: edge_guard_full_ratio: float = 0.90
@@ -113,7 +112,7 @@ class PatchEnvConfig:
     edge_guard_min_max_a_scale: float = 0.75
     edge_guard_min_max_b_scale: float = 0.65
     # old: shape_aspect_ratio_cap: float = 3.0
-    shape_aspect_ratio_cap: float = 1.2
+    shape_aspect_ratio_cap: float = 2.0
     shape_aspect_ratio_penalty_weight: float = 8.0
     shape_area_penalty_weight: float = 2.0
     corner_kappa_ref: float = 0.22
@@ -130,14 +129,13 @@ class PatchEnvConfig:
     patch_size_softcap_start_ratio: float = 0.90
     patch_size_softcap_penalty_weight: float = 40.0
     # old: patch_only_min_b_scale: float = 0.60
-    patch_only_min_b_scale: float = 0.95
+    patch_only_min_b_scale: float = 0.75
     patch_only_speed_floor: float = 0.9
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
     ey_termination_enabled: bool = False
-    # old: patch_only_centerline_assist_enabled: bool = True
-    patch_only_centerline_assist_enabled: bool = False
+    patch_only_centerline_assist_enabled: bool = True
     patch_only_assist_blend: float = 0.55
     patch_only_heading_gain: float = 1.0
     patch_only_ey_gain: float = 0.45
@@ -773,10 +771,10 @@ class PatchEnv(gym.Env):
             return True, False, f"patch_wall_collision ({len(violated)} points)"
 
         # 2) Lidar safety collision proxy (ellipse-normalized metric)
-        if self.cfg.lidar_min_dist_termination:
-            min_dist = float(lidar_info["min_dist"])
-            if self.cfg.enable_lidar_termination and ((not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)):
-                return True, False, "patch_wall_collision_lidar"
+        if lidar_min_dist
+        min_dist = float(lidar_info["min_dist"])
+        if self.cfg.enable_lidar_termination and ((not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)):
+            return True, False, "patch_wall_collision_lidar"
 
         # 3) Optional shape-failure termination (keep if you want shape safety)
         if self.patch.a < self._safe_min_a or self.patch.b < self._safe_min_b:

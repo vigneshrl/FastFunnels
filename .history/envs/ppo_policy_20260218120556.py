@@ -100,7 +100,6 @@ class PatchEnvConfig:
     # old: patch_wall_collision_penalty: float = 250.0
     patch_wall_collision_penalty: float = 1000.0
     edge_guard_enabled: bool = True
-    lidar_min_dist_termination = False
     # old: edge_guard_start_ratio: float = 0.55
     edge_guard_start_ratio: float = 0.35
     # old: edge_guard_full_ratio: float = 0.90
@@ -113,7 +112,7 @@ class PatchEnvConfig:
     edge_guard_min_max_a_scale: float = 0.75
     edge_guard_min_max_b_scale: float = 0.65
     # old: shape_aspect_ratio_cap: float = 3.0
-    shape_aspect_ratio_cap: float = 1.2
+    shape_aspect_ratio_cap: float = 2.0
     shape_aspect_ratio_penalty_weight: float = 8.0
     shape_area_penalty_weight: float = 2.0
     corner_kappa_ref: float = 0.22
@@ -126,18 +125,17 @@ class PatchEnvConfig:
     patch_size_cap_reference_agents: int = 6
     # old: patch_size_cap_leeway: float = 1.25
     patch_size_cap_leeway: float = 0.85
-    patch_size_cap_penalty_weight: float = 200.0
+    patch_size_cap_penalty_weight: float = 0.0
     patch_size_softcap_start_ratio: float = 0.90
     patch_size_softcap_penalty_weight: float = 40.0
     # old: patch_only_min_b_scale: float = 0.60
-    patch_only_min_b_scale: float = 0.95
+    patch_only_min_b_scale: float = 0.75
     patch_only_speed_floor: float = 0.9
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
     ey_termination_enabled: bool = False
-    # old: patch_only_centerline_assist_enabled: bool = True
-    patch_only_centerline_assist_enabled: bool = False
+    patch_only_centerline_assist_enabled: bool = True
     patch_only_assist_blend: float = 0.55
     patch_only_heading_gain: float = 1.0
     patch_only_ey_gain: float = 0.45
@@ -555,64 +553,64 @@ class PatchEnv(gym.Env):
         proxy = np.ones(n_sectors, dtype=np.float32) * edge_dist
         return proxy
 
-    # def _compute_reward_w_o_frenet(self, lidar_info: dict) -> float:
-    #     reward = 0.0
-    #     min_dist = float(lidar_info["min_dist"])
-    #     if self.patch.v > 0.1:
-    #         v_norm = min(self.patch.v / 5.0, 1.0)
-    #         reward += 7.0 * v_norm
-    #         if self.patch.v >= 3.0:
-    #             reward += 5.0 * (self.patch.v - 3.0) / 2.0
-    #     else:
-    #         reward -= 5.0
+    def _compute_reward_w_o_frenet(self, lidar_info: dict) -> float:
+        reward = 0.0
+        min_dist = float(lidar_info["min_dist"])
+        if self.patch.v > 0.1:
+            v_norm = min(self.patch.v / 5.0, 1.0)
+            reward += 7.0 * v_norm
+            if self.patch.v >= 3.0:
+                reward += 5.0 * (self.patch.v - 3.0) / 2.0
+        else:
+            reward -= 5.0
 
-    #     current_pos = np.array([self.patch.x, self.patch.y], dtype=np.float32)
-    #     if self._prev_patch_pos is None:
-    #         self._prev_patch_pos = current_pos.copy()
-    #     moved = float(np.linalg.norm(current_pos - self._prev_patch_pos))
-    #     if moved > 1e-3:
-    #         heading_vec = np.array([np.cos(self.patch.theta), np.sin(self.patch.theta)])
-    #         forward_component = float(np.dot(current_pos - self._prev_patch_pos, heading_vec))
-    #         if forward_component > 0:
-    #             reward += 5.0 * forward_component
-    #         elif forward_component < -0.05:
-    #             reward -= 3.0 * abs(forward_component)
-    #     self._prev_patch_pos = current_pos.copy()
+        current_pos = np.array([self.patch.x, self.patch.y], dtype=np.float32)
+        if self._prev_patch_pos is None:
+            self._prev_patch_pos = current_pos.copy()
+        moved = float(np.linalg.norm(current_pos - self._prev_patch_pos))
+        if moved > 1e-3:
+            heading_vec = np.array([np.cos(self.patch.theta), np.sin(self.patch.theta)])
+            forward_component = float(np.dot(current_pos - self._prev_patch_pos, heading_vec))
+            if forward_component > 0:
+                reward += 5.0 * forward_component
+            elif forward_component < -0.05:
+                reward -= 3.0 * abs(forward_component)
+        self._prev_patch_pos = current_pos.copy()
 
-    #     reward += 5.0 * (min_dist / 2.0)
-    #     if min_dist < 1.5:
-    #         reward -= 8.0 * (1.5 - min_dist)
+        reward += 5.0 * (min_dist / 2.0)
+        if min_dist < 1.5:
+            reward -= 8.0 * (1.5 - min_dist)
 
-    #     # Goal distance calculation based on navigation mode
-    #     if self.navigation_mode == "landmark":
-    #         _, _, goal_dist = self.obs_builder.goal_direction_and_distance(self.patch, self.goal_xy)
-    #         if self._prev_goal_dist is None:
-    #             self._prev_goal_dist = goal_dist
-    #         dist_improve = self._prev_goal_dist - goal_dist
-    #         reward += 8.0 * dist_improve
-    #         self._prev_goal_dist = goal_dist
-    #     elif self.navigation_mode == "centerline" and self.waypoints is not None:
-    #         _, _, goal_dist, self._current_waypoint_idx = self.obs_builder.goal_direction_and_distance_centerline(
-    #             self.patch, self.waypoints, self._current_waypoint_idx, self.look_ahead, self.search_window
-    #         )
-    #         if self._prev_goal_dist is None:
-    #             self._prev_goal_dist = goal_dist
-    #         dist_improve = self._prev_goal_dist - goal_dist
-    #         reward += 8.0 * dist_improve
-    #         self._prev_goal_dist = goal_dist
+        # Goal distance calculation based on navigation mode
+        if self.navigation_mode == "landmark":
+            _, _, goal_dist = self.obs_builder.goal_direction_and_distance(self.patch, self.goal_xy)
+            if self._prev_goal_dist is None:
+                self._prev_goal_dist = goal_dist
+            dist_improve = self._prev_goal_dist - goal_dist
+            reward += 8.0 * dist_improve
+            self._prev_goal_dist = goal_dist
+        elif self.navigation_mode == "centerline" and self.waypoints is not None:
+            _, _, goal_dist, self._current_waypoint_idx = self.obs_builder.goal_direction_and_distance_centerline(
+                self.patch, self.waypoints, self._current_waypoint_idx, self.look_ahead, self.search_window
+            )
+            if self._prev_goal_dist is None:
+                self._prev_goal_dist = goal_dist
+            dist_improve = self._prev_goal_dist - goal_dist
+            reward += 8.0 * dist_improve
+            self._prev_goal_dist = goal_dist
 
-    #     if self.mpc_attempts > 0:
-    #         feas = self.mpc_successes / self.mpc_attempts
-    #         reward += 10.0 * (feas - 0.5)
-    #         if feas >= 0.95:
-    #             reward += 3.0
+        if self.mpc_attempts > 0:
+            feas = self.mpc_successes / self.mpc_attempts
+            reward += 10.0 * (feas - 0.5)
+            if feas >= 0.95:
+                reward += 3.0
 
-    #     safety_rate = self.safety_interventions / max(1, self.step_count * self.num_agents)
-    #     if safety_rate > 0.2:
-    #         reward -= 5.0 * (safety_rate - 0.2)
+        safety_rate = self.safety_interventions / max(1, self.step_count * self.num_agents)
+        if safety_rate > 0.2:
+            reward -= 5.0 * (safety_rate - 0.2)
 
-    #     reward += 0.05
-    #     return float(np.clip(reward, -50.0, 50.0))
+        reward += 0.05
+        return float(np.clip(reward, -50.0, 50.0))
 
     def _compute_reward_w_frenet(
         self,
@@ -773,10 +771,9 @@ class PatchEnv(gym.Env):
             return True, False, f"patch_wall_collision ({len(violated)} points)"
 
         # 2) Lidar safety collision proxy (ellipse-normalized metric)
-        if self.cfg.lidar_min_dist_termination:
-            min_dist = float(lidar_info["min_dist"])
-            if self.cfg.enable_lidar_termination and ((not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)):
-                return True, False, "patch_wall_collision_lidar"
+        min_dist = float(lidar_info["min_dist"])
+        if self.cfg.enable_lidar_termination and ((not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)):
+            return True, False, "patch_wall_collision_lidar"
 
         # 3) Optional shape-failure termination (keep if you want shape safety)
         if self.patch.a < self._safe_min_a or self.patch.b < self._safe_min_b:

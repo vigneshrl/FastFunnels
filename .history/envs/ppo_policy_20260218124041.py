@@ -113,7 +113,7 @@ class PatchEnvConfig:
     edge_guard_min_max_a_scale: float = 0.75
     edge_guard_min_max_b_scale: float = 0.65
     # old: shape_aspect_ratio_cap: float = 3.0
-    shape_aspect_ratio_cap: float = 1.2
+    shape_aspect_ratio_cap: float = 2.
     shape_aspect_ratio_penalty_weight: float = 8.0
     shape_area_penalty_weight: float = 2.0
     corner_kappa_ref: float = 0.22
@@ -130,7 +130,7 @@ class PatchEnvConfig:
     patch_size_softcap_start_ratio: float = 0.90
     patch_size_softcap_penalty_weight: float = 40.0
     # old: patch_only_min_b_scale: float = 0.60
-    patch_only_min_b_scale: float = 0.95
+    patch_only_min_b_scale: float = 0.75
     patch_only_speed_floor: float = 0.9
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
