@@ -875,9 +875,9 @@ class PatchEnv(gym.Env):
             v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, 10.0))
             self.prev_v[i] = v_new
             # Old line (kept for reference):
-            # env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
-            # Diagnostic check shows base env expects [steering, speed].
-            env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            # env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            # Base env control_input is ("speed", "steering_angle"), so order is [speed, steering].
+            env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
 
         base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
         self.current_base_obs = base_obs
