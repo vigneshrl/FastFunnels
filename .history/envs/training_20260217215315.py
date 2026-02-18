@@ -247,7 +247,6 @@ def train_patch_policy(
                 "num_envs": num_envs,
                 "checkpoint_freq": checkpoint_freq,
                 "domain_randomize": domain_randomize,
-                "patch_only_mode": patch_only_mode,
                 "run_dir": run_dir,
             },
             sync_tensorboard=True,

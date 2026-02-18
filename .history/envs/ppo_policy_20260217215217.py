@@ -974,146 +974,133 @@ class PatchEnv(gym.Env):
             sin_t=self.patch.sin_t,
         )
 
-        if self.cfg.patch_only_mode:
-            # Patch-only debug mode: skip MPC/safety/agent stepping for faster iteration.
-            # Old full agent block remains below in the `else` branch.
-            mean_abs_steer_cmd = 0.0
-            mean_speed_cmd = 0.0
-            base_done = False
-            base_truncated = False
-            nonfinite_base_state = False
-            mean_agent_step_disp = 0.0
-            self.agent_motion_sum += mean_agent_step_disp
-            self.agent_motion_steps += 1
-            self.current_base_obs = base_obs
-        else:
-            positions_world = [
-                [base_obs["poses_x"][i], base_obs["poses_y"][i]] for i in range(self.num_agents)
+        positions_world = [
+            [base_obs["poses_x"][i], base_obs["poses_y"][i]] for i in range(self.num_agents)
+        ]
+        positions_local = [[p[0] - self.patch.x, p[1] - self.patch.y] for p in positions_world]
+
+        env_actions = np.zeros((self.num_agents, 2), dtype=np.float32)
+        solve_mpc = True
+        for i in range(self.num_agents):
+            x_local = positions_local[i][0]
+            y_local = positions_local[i][1]
+            theta_i = base_obs["poses_theta"][i]
+            v_i = self.prev_v[i]
+            x0_local = np.array([x_local, y_local, theta_i, v_i], dtype=np.float32)
+            neighbors_local = [positions_local[j] for j in range(self.num_agents) if j != i]
+
+            if solve_mpc:
+                self.mpc_attempts += 1
+                u_opt, feasible = self.mpc_solvers[i].solve(x0_local, patch_for_mpc, neighbors_local)
+                self.cached_controls[i] = u_opt
+                self.cached_feasible[i] = feasible
+                if feasible:
+                    self.mpc_successes += 1
+            else:
+                u_opt = self.cached_controls[i]
+                feasible = self.cached_feasible[i]
+
+            u_safe, intervention = self.safety_layer.filter_control(
+                u_opt if feasible else None, x0_local, patch_for_mpc, neighbors_local, dt=dt
+            )
+            if intervention:
+                self.safety_interventions += 1
+            accel, steering = float(u_safe[0]), float(u_safe[1])
+            if not np.isfinite(accel):
+                accel = 0.0
+            if not np.isfinite(steering):
+                steering = 0.0
+            # old: accel from safety layer used directly.
+            accel = float(np.clip(accel, -self.cfg.agent_accel_clip, self.cfg.agent_accel_clip))
+            # Keep control increments smooth for simulator stability.
+            prev_steer_i = float(self.prev_agent_steer[i]) if self.prev_agent_steer is not None else 0.0
+            steering = float(np.clip(steering, prev_steer_i - self.cfg.max_steer_delta_per_step, prev_steer_i + self.cfg.max_steer_delta_per_step))
+            steering = float(np.clip(steering, -0.4, 0.4))
+            v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
+            # Agent-level lidar safety: use each agent's own scan to slow down near obstacles.
+            if self.cfg.use_agent_lidar_braking and "scans" in base_obs and i < len(base_obs["scans"]):
+                scan_i = np.asarray(base_obs["scans"][i], dtype=np.float32)
+                scan_i = np.nan_to_num(scan_i, nan=10.0, posinf=10.0, neginf=0.0)
+                min_scan_i = float(np.min(scan_i))
+                if min_scan_i <= self.cfg.agent_lidar_brake_dist:
+                    scale = float(np.clip(min_scan_i / max(self.cfg.agent_lidar_brake_dist, 1e-3), 0.2, 1.0))
+                    v_new = max(0.5, v_new * scale)
+
+            # Speed-up bias for agents so they can keep up with patch.
+            # old: v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, 10.0))
+            v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, self.cfg.stable_agent_speed_cap))
+            v_new = float(np.clip(v_new, 0.5, self.cfg.hard_speed_cap))
+            # Runtime speed floor so agents do not collapse to near-standstill.
+            # Increase floor when an agent lags behind patch longitudinally.
+            min_speed_floor = float(self.cfg.agent_min_speed_cmd)
+            if self.cfg.coupling_enabled:
+                lag_i = max(0.0, -float(x_local) - float(self.cfg.coupling_lag_threshold_m))
+                min_speed_floor += float(self.cfg.agent_lag_speed_gain) * lag_i
+            min_speed_floor = float(np.clip(min_speed_floor, 0.5, self.cfg.hard_speed_cap))
+            # old: no explicit minimum speed floor.
+            v_new = max(v_new, min_speed_floor)
+            self.prev_v[i] = v_new
+            self.prev_agent_steer[i] = steering
+            # Old lines (kept for reference):
+            # env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
+            # env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
+            # New: semantic packing based on configured control_input names.
+            env_actions[i] = self._pack_base_action(steering_cmd=steering, speed_cmd=v_new)
+
+        # Hard safety clamp before stepping base simulator to avoid integrator overflow.
+        # old:
+        # env_actions = np.nan_to_num(env_actions, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        # env_actions[:, 0] = np.clip(env_actions[:, 0], -0.4189, 0.4189)
+        # env_actions[:, 1] = np.clip(env_actions[:, 1], 0.5, self.cfg.stable_agent_speed_cap)
+        env_actions = self._clip_base_actions(env_actions)
+        steer_idx, speed_idx = self._effective_action_indices()
+        mean_abs_steer_cmd = float(np.mean(np.abs(env_actions[:, steer_idx])))
+        mean_speed_cmd = float(np.mean(env_actions[:, speed_idx]))
+
+        base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
+
+        nonfinite_base_state = False
+        try:
+            nonfinite_base_state = (
+                not np.all(np.isfinite(np.asarray(base_obs["poses_x"], dtype=np.float32)))
+                or not np.all(np.isfinite(np.asarray(base_obs["poses_y"], dtype=np.float32)))
+                or not np.all(np.isfinite(np.asarray(base_obs["poses_theta"], dtype=np.float32)))
+                or not np.all(np.isfinite(np.asarray(base_obs["linear_vels_x"], dtype=np.float32)))
+                or not np.all(np.isfinite(np.asarray(base_obs["linear_vels_y"], dtype=np.float32)))
+            )
+        except Exception:
+            nonfinite_base_state = True
+        if nonfinite_base_state:
+            # Keep previous valid observation to avoid propagating NaNs into RL buffers.
+            base_obs = prev_base_obs
+        self.current_base_obs = base_obs
+
+        # Agent-motion debug metrics: how much agents actually move per env step.
+        agent_step_disps = []
+        for i in range(self.num_agents):
+            prev_x, prev_y = float(positions_world[i][0]), float(positions_world[i][1])
+            new_x, new_y = float(base_obs["poses_x"][i]), float(base_obs["poses_y"][i])
+            d = float(np.hypot(new_x - prev_x, new_y - prev_y))
+            agent_step_disps.append(d)
+        mean_agent_step_disp = float(np.mean(agent_step_disps)) if agent_step_disps else 0.0
+        self.agent_motion_sum += mean_agent_step_disp
+        self.agent_motion_steps += 1
+        if mean_agent_step_disp > self.agent_move_eps:
+            self.agent_move_event_steps += 1
+
+        for i in range(self.num_agents):
+            v_sim = float(
+                np.sqrt(
+                    base_obs["linear_vels_x"][i] ** 2
+                    + base_obs["linear_vels_y"][i] ** 2
+                )
+            )
+            self.agent_states[i] = [
+                float(base_obs["poses_x"][i]),
+                float(base_obs["poses_y"][i]),
+                float(base_obs["poses_theta"][i]),
+                max(v_sim, 0.5),
             ]
-            positions_local = [[p[0] - self.patch.x, p[1] - self.patch.y] for p in positions_world]
-
-            env_actions = np.zeros((self.num_agents, 2), dtype=np.float32)
-            solve_mpc = True
-            for i in range(self.num_agents):
-                x_local = positions_local[i][0]
-                y_local = positions_local[i][1]
-                theta_i = base_obs["poses_theta"][i]
-                v_i = self.prev_v[i]
-                x0_local = np.array([x_local, y_local, theta_i, v_i], dtype=np.float32)
-                neighbors_local = [positions_local[j] for j in range(self.num_agents) if j != i]
-
-                if solve_mpc:
-                    self.mpc_attempts += 1
-                    u_opt, feasible = self.mpc_solvers[i].solve(x0_local, patch_for_mpc, neighbors_local)
-                    self.cached_controls[i] = u_opt
-                    self.cached_feasible[i] = feasible
-                    if feasible:
-                        self.mpc_successes += 1
-                else:
-                    u_opt = self.cached_controls[i]
-                    feasible = self.cached_feasible[i]
-
-                u_safe, intervention = self.safety_layer.filter_control(
-                    u_opt if feasible else None, x0_local, patch_for_mpc, neighbors_local, dt=dt
-                )
-                if intervention:
-                    self.safety_interventions += 1
-                accel, steering = float(u_safe[0]), float(u_safe[1])
-                if not np.isfinite(accel):
-                    accel = 0.0
-                if not np.isfinite(steering):
-                    steering = 0.0
-                # old: accel from safety layer used directly.
-                accel = float(np.clip(accel, -self.cfg.agent_accel_clip, self.cfg.agent_accel_clip))
-                # Keep control increments smooth for simulator stability.
-                prev_steer_i = float(self.prev_agent_steer[i]) if self.prev_agent_steer is not None else 0.0
-                steering = float(np.clip(steering, prev_steer_i - self.cfg.max_steer_delta_per_step, prev_steer_i + self.cfg.max_steer_delta_per_step))
-                steering = float(np.clip(steering, -0.4, 0.4))
-                v_new = float(np.clip(v_i + accel * dt, 0.5, 10.0))
-                # Agent-level lidar safety: use each agent's own scan to slow down near obstacles.
-                if self.cfg.use_agent_lidar_braking and "scans" in base_obs and i < len(base_obs["scans"]):
-                    scan_i = np.asarray(base_obs["scans"][i], dtype=np.float32)
-                    scan_i = np.nan_to_num(scan_i, nan=10.0, posinf=10.0, neginf=0.0)
-                    min_scan_i = float(np.min(scan_i))
-                    if min_scan_i <= self.cfg.agent_lidar_brake_dist:
-                        scale = float(np.clip(min_scan_i / max(self.cfg.agent_lidar_brake_dist, 1e-3), 0.2, 1.0))
-                        v_new = max(0.5, v_new * scale)
-
-                # Speed-up bias for agents so they can keep up with patch.
-                # old: v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, 10.0))
-                v_new = float(np.clip(v_new * self.cfg.agent_speed_boost, 0.5, self.cfg.stable_agent_speed_cap))
-                v_new = float(np.clip(v_new, 0.5, self.cfg.hard_speed_cap))
-                # Runtime speed floor so agents do not collapse to near-standstill.
-                # Increase floor when an agent lags behind patch longitudinally.
-                min_speed_floor = float(self.cfg.agent_min_speed_cmd)
-                if self.cfg.coupling_enabled:
-                    lag_i = max(0.0, -float(x_local) - float(self.cfg.coupling_lag_threshold_m))
-                    min_speed_floor += float(self.cfg.agent_lag_speed_gain) * lag_i
-                min_speed_floor = float(np.clip(min_speed_floor, 0.5, self.cfg.hard_speed_cap))
-                # old: no explicit minimum speed floor.
-                v_new = max(v_new, min_speed_floor)
-                self.prev_v[i] = v_new
-                self.prev_agent_steer[i] = steering
-                # Old lines (kept for reference):
-                # env_actions[i] = [v_new, float(np.clip(steering, -0.4, 0.4))]
-                # env_actions[i] = [float(np.clip(steering, -0.4, 0.4)), v_new]
-                # New: semantic packing based on configured control_input names.
-                env_actions[i] = self._pack_base_action(steering_cmd=steering, speed_cmd=v_new)
-
-            # Hard safety clamp before stepping base simulator to avoid integrator overflow.
-            # old:
-            # env_actions = np.nan_to_num(env_actions, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-            # env_actions[:, 0] = np.clip(env_actions[:, 0], -0.4189, 0.4189)
-            # env_actions[:, 1] = np.clip(env_actions[:, 1], 0.5, self.cfg.stable_agent_speed_cap)
-            env_actions = self._clip_base_actions(env_actions)
-            steer_idx, speed_idx = self._effective_action_indices()
-            mean_abs_steer_cmd = float(np.mean(np.abs(env_actions[:, steer_idx])))
-            mean_speed_cmd = float(np.mean(env_actions[:, speed_idx]))
-
-            base_obs, _, base_done, base_truncated, _ = self.f110.step(env_actions)
-
-            nonfinite_base_state = False
-            try:
-                nonfinite_base_state = (
-                    not np.all(np.isfinite(np.asarray(base_obs["poses_x"], dtype=np.float32)))
-                    or not np.all(np.isfinite(np.asarray(base_obs["poses_y"], dtype=np.float32)))
-                    or not np.all(np.isfinite(np.asarray(base_obs["poses_theta"], dtype=np.float32)))
-                    or not np.all(np.isfinite(np.asarray(base_obs["linear_vels_x"], dtype=np.float32)))
-                    or not np.all(np.isfinite(np.asarray(base_obs["linear_vels_y"], dtype=np.float32)))
-                )
-            except Exception:
-                nonfinite_base_state = True
-            if nonfinite_base_state:
-                # Keep previous valid observation to avoid propagating NaNs into RL buffers.
-                base_obs = prev_base_obs
-            self.current_base_obs = base_obs
-
-            # Agent-motion debug metrics: how much agents actually move per env step.
-            agent_step_disps = []
-            for i in range(self.num_agents):
-                prev_x, prev_y = float(positions_world[i][0]), float(positions_world[i][1])
-                new_x, new_y = float(base_obs["poses_x"][i]), float(base_obs["poses_y"][i])
-                d = float(np.hypot(new_x - prev_x, new_y - prev_y))
-                agent_step_disps.append(d)
-            mean_agent_step_disp = float(np.mean(agent_step_disps)) if agent_step_disps else 0.0
-            self.agent_motion_sum += mean_agent_step_disp
-            self.agent_motion_steps += 1
-            if mean_agent_step_disp > self.agent_move_eps:
-                self.agent_move_event_steps += 1
-
-            for i in range(self.num_agents):
-                v_sim = float(
-                    np.sqrt(
-                        base_obs["linear_vels_x"][i] ** 2
-                        + base_obs["linear_vels_y"][i] ** 2
-                    )
-                )
-                self.agent_states[i] = [
-                    float(base_obs["poses_x"][i]),
-                    float(base_obs["poses_y"][i]),
-                    float(base_obs["poses_theta"][i]),
-                    max(v_sim, 0.5),
-                ]
 
         # Old real lidar aggregation kept commented by request:
         # lidar_distances = self.lidar_model.aggregate(base_obs, self.patch)
@@ -1227,7 +1214,6 @@ class PatchEnv(gym.Env):
             "episode_agent_move_step_ratio": float(self.agent_move_event_steps / max(1, self.agent_motion_steps)),
             "mean_abs_steer_cmd": mean_abs_steer_cmd,
             "mean_speed_cmd": mean_speed_cmd,
-            "patch_only_mode": bool(self.cfg.patch_only_mode),
             "control_input_order": (
                 "[steering_angle, speed] (forced_legacy)"
                 if self.cfg.force_legacy_steer_speed_order
@@ -1504,7 +1490,6 @@ def make_patch_env(
     debug_print_episode_end: bool = True,
     base_reset_type: str = "rl_random_static",
     use_base_done_termination: bool = False,
-    patch_only_mode: bool = False,
 ):
     """
     Factory function to create patch environments for parallel training.
@@ -1532,7 +1517,6 @@ def make_patch_env(
             debug_print_episode_end=debug_print_episode_end,
             base_reset_type=base_reset_type,
             use_base_done_termination=use_base_done_termination,
-            patch_only_mode=patch_only_mode,
         )
         env = PatchEnv(cfg)
         env.reset(seed=seed + rank)

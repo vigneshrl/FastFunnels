@@ -1227,7 +1227,6 @@ class PatchEnv(gym.Env):
             "episode_agent_move_step_ratio": float(self.agent_move_event_steps / max(1, self.agent_motion_steps)),
             "mean_abs_steer_cmd": mean_abs_steer_cmd,
             "mean_speed_cmd": mean_speed_cmd,
-            "patch_only_mode": bool(self.cfg.patch_only_mode),
             "control_input_order": (
                 "[steering_angle, speed] (forced_legacy)"
                 if self.cfg.force_legacy_steer_speed_order
@@ -1504,7 +1503,6 @@ def make_patch_env(
     debug_print_episode_end: bool = True,
     base_reset_type: str = "rl_random_static",
     use_base_done_termination: bool = False,
-    patch_only_mode: bool = False,
 ):
     """
     Factory function to create patch environments for parallel training.
@@ -1532,7 +1530,6 @@ def make_patch_env(
             debug_print_episode_end=debug_print_episode_end,
             base_reset_type=base_reset_type,
             use_base_done_termination=use_base_done_termination,
-            patch_only_mode=patch_only_mode,
         )
         env = PatchEnv(cfg)
         env.reset(seed=seed + rank)
