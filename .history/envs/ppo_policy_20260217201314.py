@@ -1105,11 +1105,6 @@ class PatchEnv(gym.Env):
             lidar_info,
             track_half_width=track_half_width,
         )
-        if isinstance(reason, str) and reason.startswith("patch_wall_collision"):
-            self.patch_wall_collisions += 1
-            # old: no explicit wall-collision terminal penalty.
-            reward -= float(self.cfg.patch_wall_collision_penalty)
-            self.episode_reward -= float(self.cfg.patch_wall_collision_penalty)
         if reason == "patch_center_outside_trackwidth_half":
             reward -= float(self.cfg.trackwidth_violation_penalty)
             self.episode_reward -= float(self.cfg.trackwidth_violation_penalty)
