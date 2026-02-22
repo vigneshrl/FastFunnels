@@ -37,3 +37,4 @@ def get_landmark(name: str = "spielberg_default") -> LandmarkGoal:
         raise KeyError(f"Unknown landmark '{name}'. Valid options: {valid}")
     return DEFAULT_LANDMARKS[name]
 
+

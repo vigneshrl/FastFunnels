@@ -304,11 +304,11 @@ def train_patch_policy(
     )
 
     rollout_steps = 2048
-    # total_rollout = rollout_steps * max(1, NUM_ENVS)
+    total_rollout = rollout_steps * max(1, num_envs)
     batch_size = NUM_ENVS *  rollout_steps //4 #max(64, total_rollout // 4)
-    # if total_rollout % batch_size != 0:
-    #     # Keep PPO minibatches exact to avoid partial batches.
-    #     batch_size = 256 if total_rollout % 256 == 0 else 128
+    if total_rollout % batch_size != 0:
+        # Keep PPO minibatches exact to avoid partial batches.
+        batch_size = 256 if total_rollout % 256 == 0 else 128
 
     if resume_from and os.path.exists(resume_from + ".zip"):
         model = PPO.load(resume_from, env=env)
@@ -330,10 +330,9 @@ def train_patch_policy(
             max_grad_norm=0.5,
             verbose=1,
             use_sde=False,
-            policy_kwargs= dict(net_arch=dict(pi=[256, 256], vf=[256, 256]))
-            # policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False,
-            # "activation_fn": nn.ReLU,
-            # }
+            policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False,
+            "activation_fn": nn.ReLU,
+            }
         )
 
     callbacks = [callback]

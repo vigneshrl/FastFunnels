@@ -67,7 +67,7 @@ except ImportError:
 
 @dataclass
 class PatchEnvConfig:
-    num_agents: int = 0
+    num_agents: int = 2
     control_dt = 0.05
     mpc_horizon_steps: int = 10
     base_reset_type: str = "rl_random_static"
@@ -208,7 +208,7 @@ class PatchEnv(gym.Env):
     def __init__(self, config: Optional[PatchEnvConfig] = None):
         super().__init__()
         self.cfg = config or PatchEnvConfig()
-        self.num_agents = self.cfg.num_agents
+        # self.num_agents = self.cfg.num_agents
         self.render_mode = self.cfg.render_mode
         self.domain_randomize = self.cfg.domain_randomize
 
@@ -223,7 +223,7 @@ class PatchEnv(gym.Env):
 
         self.f110 = F110EnvAdapter(
             F110Config(
-                num_agents=self.num_agents,
+                # num_agents=self.num_agents,
                 reset_type=self.cfg.base_reset_type,
                 control_input=("speed", "steering_angle"),
                 # timesteps = self.cfg.control_dt,  # old (invalid key)
@@ -1029,7 +1029,7 @@ class PatchEnv(gym.Env):
         lap_bonus = 0.0
         lap_time = None
 
-        raw_accel, raw_steer = self.action_model.denormalize(np.asarray(patch_action))
+        a, b, raw_accel, raw_steer = self.action_model.denormalize(np.asarray(patch_action))
         # old smoothing path kept commented by request:
         # smooth_accel = self.action_model.smooth(self.patch.accel, raw_accel, self.cfg.alpha)
         # smooth_steer = self.action_model.smooth(self.patch.steering, raw_steer, self.cfg.alpha)

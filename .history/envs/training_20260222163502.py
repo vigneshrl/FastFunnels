@@ -213,7 +213,7 @@ def train_patch_policy(
     total_timesteps: int = 500000,
     save_path: str = "patch_policy_models",
     checkpoint_freq: int = 2000,
-    NUM_ENVS: int = 4,
+    num_envs: int = 4,
     resume_from: Optional[str] = None,
     domain_randomize: bool = False,
     norm_reward: bool = True,
@@ -244,7 +244,7 @@ def train_patch_policy(
             name=wandb_run_name or f"patch_envs_{run_id}",
             config={
                 "total_timesteps": total_timesteps,
-                "num_envs": NUM_ENVS,
+                "num_envs": num_envs,
                 "checkpoint_freq": checkpoint_freq,
                 "domain_randomize": domain_randomize,
                 "patch_only_mode": patch_only_mode,
@@ -255,7 +255,7 @@ def train_patch_policy(
             save_code=True,
         )
 
-    if NUM_ENVS > 1:
+    if num_envs > 1:
         env = SubprocVecEnv(
             [
                 make_patch_env(
@@ -269,7 +269,7 @@ def train_patch_policy(
                     use_base_done_termination=use_base_done_termination,
                     patch_only_mode=patch_only_mode,
                 )
-                for i in range(NUM_ENVS)
+                for i in range(num_envs)
             ]
         )
     else:
@@ -304,11 +304,11 @@ def train_patch_policy(
     )
 
     rollout_steps = 2048
-    # total_rollout = rollout_steps * max(1, NUM_ENVS)
-    batch_size = NUM_ENVS *  rollout_steps //4 #max(64, total_rollout // 4)
-    # if total_rollout % batch_size != 0:
-    #     # Keep PPO minibatches exact to avoid partial batches.
-    #     batch_size = 256 if total_rollout % 256 == 0 else 128
+    total_rollout = rollout_steps * max(1, num_envs)
+    batch_size = max(64, total_rollout // 4)
+    if total_rollout % batch_size != 0:
+        # Keep PPO minibatches exact to avoid partial batches.
+        batch_size = 517 if total_rollout % 256 == 0 else 128
 
     if resume_from and os.path.exists(resume_from + ".zip"):
         model = PPO.load(resume_from, env=env)
@@ -330,10 +330,9 @@ def train_patch_policy(
             max_grad_norm=0.5,
             verbose=1,
             use_sde=False,
-            policy_kwargs= dict(net_arch=dict(pi=[256, 256], vf=[256, 256]))
-            # policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False,
-            # "activation_fn": nn.ReLU,
-            # }
+            policy_kwargs={"net_arch": dict(pi=[256, 256], vf=[256, 256]), "squash_output": False,
+            "activation_fn": nn.ReLU,
+            }
         )
 
     callbacks = [callback]

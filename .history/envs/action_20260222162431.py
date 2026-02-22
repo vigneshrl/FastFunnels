@@ -55,7 +55,7 @@ class PatchAction:
     @property
     def space(self) -> gym.Space:
         """Normalized policy action space expected by PPO."""
-        return gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
+        return gym.spaces.Box(low=-1.0, high=1.0, shape=(4,), dtype=np.float32)
 
     @staticmethod
     def _scale_from_unit(action_value: float, min_value: float, max_value: float) -> float:
@@ -63,7 +63,7 @@ class PatchAction:
 
     def denormalize(self, action: np.ndarray) -> Tuple[float, float, float, float]:
         """Map normalized action to (a, b, accel, steering)."""
-        if np.asarray(action).shape != (2,):
+        if np.asarray(action).shape != (4,):
             raise ValueError(f"Expected action shape (4,), got {np.asarray(action).shape}")
 
         # a = self._scale_from_unit(
@@ -76,8 +76,8 @@ class PatchAction:
         #     self.config.patch_b_range[0],
         #     self.config.patch_b_range[1],
         # )
-        accel = float(action[0]) * self.config.patch_accel_max
-        steering = float(action[1]) * self.config.patch_steering_max
+        accel = float(action[2]) * self.config.patch_accel_max
+        steering = float(action[3]) * self.config.patch_steering_max
         return accel, steering
 
     @staticmethod

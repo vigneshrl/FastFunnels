@@ -77,7 +77,7 @@ class PatchAction:
         #     self.config.patch_b_range[1],
         # )
         accel = float(action[0]) * self.config.patch_accel_max
-        steering = float(action[1]) * self.config.patch_steering_max
+        steering = float(action[3]) * self.config.patch_steering_max
         return accel, steering
 
     @staticmethod

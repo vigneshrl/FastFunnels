@@ -67,7 +67,7 @@ except ImportError:
 
 @dataclass
 class PatchEnvConfig:
-    num_agents: int = 0
+    num_agents: int = 2
     control_dt = 0.05
     mpc_horizon_steps: int = 10
     base_reset_type: str = "rl_random_static"
