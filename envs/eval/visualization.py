@@ -116,8 +116,7 @@ def evaluate_patch_policy(
             num_agents=2,
             render_mode="human" if render else None,
             domain_randomize=False,
-            patch_only_mode = True,
-                # patch_only_mode=patch_only_mode,
+            patch_only_mode=True,
         )
     )
     
@@ -138,71 +137,76 @@ def evaluate_patch_policy(
     termination_reasons = defaultdict(int)
     all_episodes = []
     
-    for ep in range(num_episodes):
-        obs = vec_env.reset()
-        total_reward = 0
-        step = 0
+    # for ep in range(num_episodes):
+    obs = vec_env.reset()
+    total_reward = 0
+    step = 0
         
-        # Collect metrics for this episode
-        metrics = {
-            'timestep': [],
-            'patch_velocity': [],
-            'patch_x': [],
-            'patch_y': [],
-            'patch_a': [],
-            'patch_b': [],
-            'lap_progress': [],
-            'cumulative_reward': [],
-        }
+    # Collect metrics for this episode
+    metrics = {
+        'timestep': [],
+        'patch_velocity': [],
+        'patch_x': [],
+        'patch_y': [],
+        'patch_a': [],
+        'patch_b': [],
+        'lap_progress': [],
+        'cumulative_reward': [],
+    }
         
-        inner_env = vec_env.envs[0]
-        if hasattr(inner_env, 'env'):
-            inner_env = inner_env.env
+    inner_env = vec_env.envs[0]
+    if hasattr(inner_env, 'env'):
+        inner_env = inner_env.env
+    
+    while True:
+        action, _ = patch_policy.predict(obs, deterministic=False)
+        obs, reward, done, info = vec_env.step(action)
+        total_reward += reward[0]
+        step += 1
         
-        while True:
-            action, _ = patch_policy.predict(obs, deterministic=True)
-            obs, reward, done, info = vec_env.step(action)
-            total_reward += reward[0]
-            step += 1
-            
-            if render and hasattr(inner_env, 'render'):
-                inner_env.render()
+        if render and hasattr(inner_env, 'render'):
+            inner_env.render()
 
-            if visualise and hasattr(inner_env, '_visualize'):
-                inner_env._visualize()
+        if visualise and hasattr(inner_env, '_visualize'):
+            inner_env._visualize()
 
-            # Collect metrics
-            metrics['timestep'].append(step)
-            if hasattr(inner_env, 'patch'):
-                metrics['patch_velocity'].append(inner_env.patch.v)
-                metrics['patch_x'].append(inner_env.patch.x)
-                metrics['patch_y'].append(inner_env.patch.y)
-                patch_size = info[0].get("patch_size", (inner_env.patch.a, inner_env.patch.b))
-                metrics['patch_a'].append(patch_size[0] if isinstance(patch_size, (list, tuple)) else inner_env.patch.a)
-                metrics['patch_b'].append(patch_size[1] if isinstance(patch_size, (list, tuple)) else inner_env.patch.b)
-            else:
-                metrics['patch_velocity'].append(info[0].get("patch_velocity", 0))
-                metrics['patch_x'].append(0)
-                metrics['patch_y'].append(0)
-                patch_size = info[0].get("patch_size", (3.0, 2.5))
-                metrics['patch_a'].append(patch_size[0] if isinstance(patch_size, (list, tuple)) else 3.0)
-                metrics['patch_b'].append(patch_size[1] if isinstance(patch_size, (list, tuple)) else 2.5)
+        # # Collect metrics
+        # metrics['timestep'].append(step)
+        # if hasattr(inner_env, 'patch'):
+        #     metrics['patch_velocity'].append(inner_env.patch.v)
+        #     metrics['patch_x'].append(inner_env.patch.x)
+        #     metrics['patch_y'].append(inner_env.patch.y)
+        #     patch_size = info[0].get("patch_size", (inner_env.patch.a, inner_env.patch.b))
+        #     metrics['patch_a'].append(patch_size[0] if isinstance(patch_size, (list, tuple)) else inner_env.patch.a)
+        #     metrics['patch_b'].append(patch_size[1] if isinstance(patch_size, (list, tuple)) else inner_env.patch.b)
+        # else:
+        #     metrics['patch_velocity'].append(info[0].get("patch_velocity", 0))
+        #     metrics['patch_x'].append(0)
+        #     metrics['patch_y'].append(0)
+        #     patch_size = info[0].get("patch_size", (3.0, 2.5))
+        #     metrics['patch_a'].append(patch_size[0] if isinstance(patch_size, (list, tuple)) else 3.0)
+        #     metrics['patch_b'].append(patch_size[1] if isinstance(patch_size, (list, tuple)) else 2.5)
+        
+        # metrics['lap_progress'].append(info[0].get("lap_progress", 0) * 100)  # As percentage
+        # metrics['cumulative_reward'].append(total_reward)
+        
+        if done[0]:
+        #     progress = info[0].get("lap_progress", 0)
+        #     reason = info[0].get("termination_reason", "truncated")
             
-            metrics['lap_progress'].append(info[0].get("lap_progress", 0) * 100)  # As percentage
-            metrics['cumulative_reward'].append(total_reward)
+        #     all_rewards.append(total_reward)
+        #     all_progress.append(progress)
+        #     termination_reasons[reason] += 1
+        #     all_episodes.append(metrics)
             
-            if done[0]:
-                progress = info[0].get("lap_progress", 0)
-                reason = info[0].get("termination_reason", "truncated")
-                
-                all_rewards.append(total_reward)
-                all_progress.append(progress)
-                termination_reasons[reason] += 1
-                all_episodes.append(metrics)
-                
-                print(f"\nEpisode {ep+1}/{num_episodes} finished at step {step}")
-                print(f"  Reward: {total_reward:.1f} | Progress: {progress:.1%} | Reason: {reason}")
-                break
+            # print(f"\nEpisode {ep+1}/{num_episodes} finished at step {step}")
+            # print(f"  Reward: {total_reward:.1f} | Progress: {progress:.1%} | Reason: {reason}")
+            progress = info[0].get("lap_progress", 0)
+            total_reward = 0
+            step = 0 
+            reason = info[0].get("termination_reason", "truncated")
+            print(f"  Reward: {total_reward:.1f} | Progress: {progress:.1%} | Reason: {reason} | Steps: {step}")
+            obs = vec_env.reset()
     
     # Summary
     print(f"\n{'='*70}")

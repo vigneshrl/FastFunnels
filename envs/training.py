@@ -18,6 +18,7 @@ except ImportError:
 try:
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
+    from stable_baselines3.common.monitor import Monitor
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecCheckNan, VecNormalize
 
     SB3_AVAILABLE = True
@@ -26,20 +27,55 @@ except ImportError:
 
 try:
     import wandb
-    from wandb.integration.sb3 import WandbCallback
 
     WANDB_AVAILABLE = True
 except ImportError:
     WANDB_AVAILABLE = False
 
+######################################################
+# Save best model + VecNormalize stats
+######################################################
+class SaveBestWithVecNormalize(BaseCallback):
+    """
+    Periodically checks recent episode rewards and saves:
+      - the best PPO model checkpoint
+      - VecNormalize statistics (critical for consistent eval)
+    """
+
+    def __init__(self, save_dir: str, check_freq: int = 2048, verbose: int = 1):
+        super().__init__(verbose)
+        self.save_dir = save_dir
+        self.check_freq = int(check_freq)
+        self.best_model_path = os.path.join(save_dir, "best_model")
+        self.best_vecnorm_path = os.path.join(save_dir, "best_vecnormalize.pkl")
+        self.best_mean_reward = -1e18
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.check_freq != 0:
+            return True
+
+        if len(self.model.ep_info_buffer) == 0:
+            return True
+
+        mean_reward = float(np.mean([ep["r"] for ep in self.model.ep_info_buffer]))
+        print(f"Num timesteps: {self.num_timesteps} | Mean train reward: {mean_reward:.2f}")
+
+        if mean_reward > self.best_mean_reward:
+            self.best_mean_reward = mean_reward
+            print(f"Saving new best: {mean_reward:.2f}")
+            self.model.save(self.best_model_path)
+
+            if isinstance(self.training_env, VecNormalize):
+                self.training_env.save(self.best_vecnorm_path)
+
+        return True
 
 class TrainingCallback(BaseCallback):
-    def __init__(self, save_dir: str, save_freq: int, policy_name: str, use_wandb: bool = True, verbose: int = 1):
+    def __init__(self, save_dir: str, save_freq: int, policy_name: str, verbose: int = 1):
         super().__init__(verbose)
         self.save_dir = save_dir
         self.save_freq = save_freq
         self.policy_name = policy_name
-        self.use_wandb = use_wandb and WANDB_AVAILABLE
         self.episode_rewards = []
         self.episode_count = 0
         self.start_time = time.time()
@@ -136,29 +172,6 @@ class TrainingCallback(BaseCallback):
                     f"mean_abs_steer={avg_cmd_abs_steer:.3f} "
                     f"control_order={control_order_sample}"
                 )
-                if self.use_wandb:
-                    # old:
-                    # wandb.log({...}, step=self.num_timesteps)
-                    # With sync_tensorboard=True, explicit step causes a warning.
-                    wandb.log(
-                        {
-                            "train/avg_reward_50": avg_r,
-                            "train/avg_len_50": avg_len,
-                            "train/avg_min_dist_50": avg_min_dist,
-                            "train/avg_last_ds_50": avg_last_ds,
-                            "train/avg_last_ey_50": avg_last_ey,
-                            "train/avg_mpc_feas_50": avg_mpc_feas,
-                            "train/avg_safety_rate_50": avg_safety,
-                            "train/reward_clip_frac_50": clip_frac,
-                            "train/avg_agent_step_disp_50": avg_agent_step_disp,
-                            "train/avg_agent_move_ratio_50": avg_agent_move_ratio,
-                            "train/avg_cmd_speed_50": avg_cmd_speed,
-                            "train/avg_cmd_abs_steer_50": avg_cmd_abs_steer,
-                            "train/episodes": self.episode_count,
-                            "train/timesteps": self.num_timesteps,
-                            "train/timesteps_per_sec": tps,
-                        }
-                    )
                 if avg_len < 5.0:
                     print("  WARNING: Very short episodes. Focus on termination reasons and min_dist.")
                 with open(self.log_file, "a", encoding="utf-8") as f:
@@ -179,13 +192,6 @@ class TrainingCallback(BaseCallback):
                     if hasattr(self.training_env, "save"):
                         self.training_env.save(os.path.join(self.save_dir, "best_vecnormalize.pkl"))
                     print(f"  New best model: {avg_r:.2f}")
-                    if self.use_wandb:
-                        # old: wandb.log(..., step=self.num_timesteps)
-                        wandb.log(
-                            {
-                                "train/best_avg_reward_50": self.best_reward,
-                            }
-                        )
                 self.last_log_time = now
                 self.last_log_timesteps = self.num_timesteps
 
@@ -219,7 +225,7 @@ def train_patch_policy(
     norm_reward: bool = True,
     base_reset_type: str = "rl_random_static",
     use_base_done_termination: bool = False,
-    patch_only_mode: bool = False,
+    patch_only_mode: bool = True,
     debug_print_every_n_steps: int = 0,
     debug_print_episode_end: bool = True,
     wandb_project: str = "patch_sempc_training",
@@ -240,25 +246,17 @@ def train_patch_policy(
     if WANDB_AVAILABLE:
         wandb_run = wandb.init(
             project=wandb_project,
-            entity=wandb_entity,
-            name=wandb_run_name or f"patch_envs_{run_id}",
-            config={
-                "total_timesteps": total_timesteps,
-                "num_envs": NUM_ENVS,
-                "checkpoint_freq": checkpoint_freq,
-                "domain_randomize": domain_randomize,
-                "patch_only_mode": patch_only_mode,
-                "run_dir": run_dir,
-            },
             sync_tensorboard=True,
-            monitor_gym=True,
             save_code=True,
         )
+
+    def _monitored(thunk):
+        return lambda: Monitor(thunk())
 
     if NUM_ENVS > 1:
         env = SubprocVecEnv(
             [
-                make_patch_env(
+                _monitored(make_patch_env(
                     i,
                     seed=42,
                     domain_randomize=domain_randomize,
@@ -268,14 +266,14 @@ def train_patch_policy(
                     base_reset_type=base_reset_type,
                     use_base_done_termination=use_base_done_termination,
                     patch_only_mode=patch_only_mode,
-                )
+                ))
                 for i in range(NUM_ENVS)
             ]
         )
     else:
         env = DummyVecEnv(
             [
-                make_patch_env(
+                _monitored(make_patch_env(
                     0,
                     seed=42,
                     domain_randomize=domain_randomize,
@@ -285,7 +283,7 @@ def train_patch_policy(
                     base_reset_type=base_reset_type,
                     use_base_done_termination=use_base_done_termination,
                     patch_only_mode=patch_only_mode,
-                )
+                ))
             ]
         )
 
@@ -299,9 +297,7 @@ def train_patch_policy(
         gamma=0.99,
     )
 
-    callback = TrainingCallback(
-        run_dir, checkpoint_freq, "PATCH", use_wandb=WANDB_AVAILABLE
-    )
+    callback = TrainingCallback(run_dir, checkpoint_freq, "PATCH")
 
     rollout_steps = 2048
     # total_rollout = rollout_steps * max(1, NUM_ENVS)
@@ -336,16 +332,8 @@ def train_patch_policy(
             # }
         )
 
-    callbacks = [callback]
-    if WANDB_AVAILABLE:
-        callbacks.append(
-            WandbCallback(
-                gradient_save_freq=0,
-                model_save_path=run_dir,
-                model_save_freq=checkpoint_freq,
-                verbose=0,
-            )
-        )
+    save_best_cb = SaveBestWithVecNormalize(save_dir=run_dir, check_freq=rollout_steps)
+    callbacks = [callback, save_best_cb]
 
     model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
     model.save(os.path.join(run_dir, "final_model"))
@@ -360,7 +348,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train patch policy with modular envs stack.")
     parser.add_argument("--timesteps", type=int, default=500000)
     parser.add_argument("--checkpoint-freq", type=int, default=10000)
-    parser.add_argument("--num-envs", type=int, default=8)
+    parser.add_argument("--num-envs", type=int, default=4)
     parser.add_argument("--save-path", type=str, default="patch_policy_models")
     parser.add_argument("--resume", type=str, default=None)
     parser.add_argument("--domain-randomize", action="store_true")
@@ -379,7 +367,7 @@ if __name__ == "__main__":
         total_timesteps=args.timesteps,
         save_path=args.save_path,
         checkpoint_freq=args.checkpoint_freq,
-        num_envs=args.num_envs,
+        NUM_ENVS=args.num_envs,
         resume_from=args.resume,
         domain_randomize=args.domain_randomize,
         norm_reward=not args.no_norm_reward,

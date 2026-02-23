@@ -22,8 +22,8 @@ class PatchActionConfig:
 
     # patch_a_range: Tuple[float, float] = (1.5, 2.0)
     # patch_b_range: Tuple[float, float] = (1.5, 2.0)
-    patch_accel_max: float = 50.0
-    patch_steering_max: float = 0.5
+    patch_accel_max: float = 60.0
+    patch_steering_max: float = 0.4189 #this is the max a f1tenth car can physically steer 
 
     # Optional step-1 conservative clamp.
     first_step_accel_limit: float = 1.0
