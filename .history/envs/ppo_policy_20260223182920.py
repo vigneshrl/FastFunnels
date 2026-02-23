@@ -83,7 +83,7 @@ class PatchEnvConfig:
     # Frenet-style reward - which is very similar to the single-agent PPO 
     # old: reward_progress_scale: float = 40.0
     reward_progress_scale: float = 40.0
-    reward_crosstrack_weight: float = 2.0
+    reward_crosstrack_weight: float = 0.5
     reward_steer_bias_weight: float = 0.0
     reward_steer_rate_weight: float = 0.0
     spin_yawrate_threshold: float = 0.0

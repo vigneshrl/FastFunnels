@@ -82,13 +82,13 @@ class PatchEnvConfig:
 
     # Frenet-style reward - which is very similar to the single-agent PPO 
     # old: reward_progress_scale: float = 40.0
-    reward_progress_scale: float = 40.0
-    reward_crosstrack_weight: float = 2.0
+    reward_progress_scale: float = 25.0
+    reward_crosstrack_weight: float = 0.5
     reward_steer_bias_weight: float = 0.0
     reward_steer_rate_weight: float = 0.0
     spin_yawrate_threshold: float = 0.0
     reward_spin_weight: float = 0.0
-    collision_penalty: float = 150.0 #High penalty make the policy more conservative
+    collision_penalty: float = 300.0
     collision_min_dist: float = 0.25
     enable_lidar_termination: bool = False
     patch_boundary_violation_threshold: float = 0.05
@@ -98,7 +98,7 @@ class PatchEnvConfig:
     frenet_edge_penalty_weight: float = 80.0
     trackwidth_violation_penalty: float = 500.0
     # old: patch_wall_collision_penalty: float = 250.0
-    patch_wall_collision_penalty: float = 1500.0
+    patch_wall_collision_penalty: float = 1000.0
     edge_guard_enabled: bool = True
     lidar_min_dist_termination = False
     # old: edge_guard_start_ratio: float = 0.55
@@ -131,11 +131,11 @@ class PatchEnvConfig:
     patch_size_softcap_penalty_weight: float = 40.0
     # old: patch_only_min_b_scale: float = 0.60
     patch_only_min_b_scale: float = 0.95
-    patch_only_speed_floor: float = 0.9 # decrease if you want to make the car to move at slow speeds at corners
+    patch_only_speed_floor: float = 0.9
     patch_only_ey_termination_ratio: float = 0.75
     patch_only_corner_speed_reduction_gain: float = 0.45
     patch_only_corner_speed_min: float = 0.8
-    ey_termination_enabled: bool = False
+    ey_termination_enabled: bool = True
     # old: patch_only_centerline_assist_enabled: bool = True
     patch_only_centerline_assist_enabled: bool = False
     patch_only_assist_blend: float = 0.55
@@ -162,10 +162,10 @@ class PatchEnvConfig:
     coupling_lag_threshold_m: float = 0.8
     coupling_patch_speed_scale: float = 0.35
 
-    stuck_no_progress_steps: int = 100 #It was 60, increased that the agent gets more steps to find the right steering 
+    stuck_no_progress_steps: int = 60
     stuck_progress_eps: float = 1e-3
     stuck_penalty: float = 10.0
-    lap_finish_bonus: float = 4000.0
+    lap_finish_bonus: float = 2000.0
     lap_bonus_tau = 200.0
     time_penalty_per_sec: float = 0.0
     compact_observation: bool = True
@@ -182,8 +182,8 @@ class PatchEnvConfig:
     goal_xy: tuple[float, float] = (-52.8, 19.33)
     
     # Centerline-based setup (used when navigation_mode="centerline")
-    look_ahead_waypoints: int = 20  # How many waypoints ahead to look for goal direction
-    search_window: int = 150  # Window size for finding nearest waypoint
+    look_ahead_waypoints: int = 10  # How many waypoints ahead to look for goal direction
+    search_window: int = 30  # Window size for finding nearest waypoint
 
 
 class PatchEnv(gym.Env):
@@ -241,30 +241,34 @@ class PatchEnv(gym.Env):
             # old: MPC/Safety objects were always created.
             self.mpc_solvers = []
             self.safety_layer = None
-        # else:  # NOT USED: patch_only_mode=True, MPC/Safety never created
-        #     self.mpc_solvers = [
-        #         SEMPCSolver(
-        #             MPCConfig(
-        #                 robot_radius=self.cfg.robot_radius,
-        #                 wheelbase=self.cfg.wheelbase,
-        #                 num_neighbors=self.num_agents - 1,
-        #                 containment_margin=self.cfg.robot_radius,
-        #                 min_agent_dist=2 * self.cfg.robot_radius + 0.1,
-        #                 horizon_steps=self.cfg.mpc_horizon_steps,
-        #                 horizon_seconds=self.cfg.control_dt * self.cfg.mpc_horizon_steps,
-        #             )
-        #         )
-        #         for _ in range(self.num_agents)
-        #     ]
-        #     self.safety_layer = SafetyLayer(
-        #         SafetyConfig(
-        #             robot_radius=self.cfg.robot_radius,
-        #             wheelbase=self.cfg.wheelbase,
-        #             min_agent_dist=2 * self.cfg.robot_radius + 0.12,
-        #             alpha_contain=1.0,
-        #             alpha_collision=1.0,
-        #         )
-        #     )
+        else:
+            self.mpc_solvers = [
+                SEMPCSolver(
+                    MPCConfig(
+                        robot_radius=self.cfg.robot_radius,
+                        wheelbase=self.cfg.wheelbase,
+                        num_neighbors=self.num_agents - 1,
+                        containment_margin=self.cfg.robot_radius,
+                        # old: min_agent_dist=2 * self.cfg.robot_radius + 0.2,
+                        # slightly less conservative separation to reduce unnecessary braking.
+                        min_agent_dist=2 * self.cfg.robot_radius + 0.1,
+                        horizon_steps= self.cfg.mpc_horizon_steps,
+                        horizon_seconds=self.cfg.control_dt * self.cfg.mpc_horizon_steps,
+                    )
+                )
+                for _ in range(self.num_agents)
+            ]
+            self.safety_layer = SafetyLayer(
+                SafetyConfig(
+                    robot_radius=self.cfg.robot_radius,
+                    wheelbase=self.cfg.wheelbase,
+                    # old: min_agent_dist=2 * self.cfg.robot_radius + 0.25,
+                    min_agent_dist=2 * self.cfg.robot_radius + 0.12,
+                    # old defaults in SafetyConfig were aggressive (alpha_contain=2.0, alpha_collision=2.0).
+                    alpha_contain=1.0,
+                    alpha_collision=1.0,
+                )
+            )
 
         self.current_base_obs = None
         self.agent_states = None
@@ -302,10 +306,10 @@ class PatchEnv(gym.Env):
         else:
             raise ValueError(f"Unknown navigation_mode: {self.navigation_mode}. Must be 'landmark' or 'centerline'")
 
-        self._safe_init_a = 1.5
-        self._safe_init_b = 1.0
+        self._safe_init_a = 2.0
+        self._safe_init_b = 1.5
         self._safe_min_a = 1.0
-        self._safe_min_b = 0.25
+        self._safe_min_b = 0.75
         self.patch_a_range = (self._safe_min_a, self._safe_init_a)
         self.patch_b_range = (self._safe_min_b, self._safe_init_b)
 
@@ -464,32 +468,35 @@ class PatchEnv(gym.Env):
             compact = np.nan_to_num(compact, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
             return np.clip(compact, -10.0, 10.0).astype(np.float32)
 
-        # NOT USED: compact_observation=True, full obs builder path never reached
-        # clearance_obs = self.lidar_model.compute_clearance_observation(self.patch, lidar_distances)
-        # best_heading, best_clearance = self.lidar_model.get_best_heading(self.current_base_obs, self.patch)
-        # obs = self.obs_builder.build(
-        #     patch=self.patch,
-        #     start_xy=self.start_xy,
-        #     goal_xy=self.goal_xy if self.navigation_mode == "landmark" else None,
-        #     waypoints=self.waypoints if self.navigation_mode == "centerline" else None,
-        #     current_waypoint_idx=self._current_waypoint_idx if self.navigation_mode == "centerline" else 0,
-        #     look_ahead=self.look_ahead if self.navigation_mode == "centerline" else 10,
-        #     search_window=self.search_window if self.navigation_mode == "centerline" else 30,
-        #     navigation_mode=self.navigation_mode,
-        #     lidar_distances=lidar_distances,
-        #     clearance_obs=clearance_obs,
-        #     best_heading=best_heading,
-        #     best_clearance=best_clearance,
-        #     mpc_attempts=self.mpc_attempts,
-        #     mpc_successes=self.mpc_successes,
-        #     safety_interventions=self.safety_interventions,
-        #     step_count=self.step_count,
-        #     num_agents=self.num_agents,
-        #     alpha=self.cfg.alpha,
-        #     size_change_rate=self.patch.config.size_change_rate,
-        # )
-        # obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        # return np.clip(obs, -10.0, 10.0).astype(np.float32)
+        clearance_obs = self.lidar_model.compute_clearance_observation(
+            self.patch, lidar_distances
+        )
+        best_heading, best_clearance = self.lidar_model.get_best_heading(
+            self.current_base_obs, self.patch
+        )
+        obs = self.obs_builder.build(
+            patch=self.patch,
+            start_xy=self.start_xy,
+            goal_xy=self.goal_xy if self.navigation_mode == "landmark" else None,
+            waypoints=self.waypoints if self.navigation_mode == "centerline" else None,
+            current_waypoint_idx=self._current_waypoint_idx if self.navigation_mode == "centerline" else 0,
+            look_ahead=self.look_ahead if self.navigation_mode == "centerline" else 10,
+            search_window=self.search_window if self.navigation_mode == "centerline" else 30,
+            navigation_mode=self.navigation_mode,
+            lidar_distances=lidar_distances,
+            clearance_obs=clearance_obs,
+            best_heading=best_heading,
+            best_clearance=best_clearance,
+            mpc_attempts=self.mpc_attempts,
+            mpc_successes=self.mpc_successes,
+            safety_interventions=self.safety_interventions,
+            step_count=self.step_count,
+            num_agents=self.num_agents,
+            alpha=self.cfg.alpha,
+            size_change_rate=self.patch.config.size_change_rate,
+        )
+        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+        return np.clip(obs, -10.0, 10.0).astype(np.float32)
 
     # Freenet helper functions 
     def _wrap_ds(self, ds: float) -> float:
@@ -786,16 +793,16 @@ class PatchEnv(gym.Env):
         #     return True, False, "patch_center_outside_trackwidth_half"
         # if abs(float(ey)) > self.cfg.offtrack_ey_termination:
         #     return True, False, "offtrack_ey"
-        # NOT USED: ey_termination_enabled=False
-        # if self.cfg.ey_termination_enabled:
-        #     if self.cfg.patch_only_mode and track_half_width is not None:
-        #         ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
-        #         if abs(float(ey)) > max(ey_limit, 1e-3):
-        #             return True, False, "patch_only_centerline_ey_limit"
-        #     if track_half_width is not None and abs(float(ey)) > track_half_width:
-        #         return True, False, "patch_center_outside_trackwidth_half"
-        #     if abs(float(ey)) > self.cfg.offtrack_ey_termination:
-        #         return True, False, "offtrack_ey"
+        if self.cfg.ey_termination_enabled:
+            if self.cfg.patch_only_mode and track_half_width is not None:
+                # Optional early centerline termination in patch-only mode.
+                ey_limit = float(self.cfg.patch_only_ey_termination_ratio) * float(track_half_width)
+                if abs(float(ey)) > max(ey_limit, 1e-3):
+                    return True, False, "patch_only_centerline_ey_limit"
+            if track_half_width is not None and abs(float(ey)) > track_half_width:
+                return True, False, "patch_center_outside_trackwidth_half"
+            if abs(float(ey)) > self.cfg.offtrack_ey_termination:
+                return True, False, "offtrack_ey"
 
         # 5) Stuck termination (aligned with frenet reward bookkeeping)
         if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
@@ -901,23 +908,14 @@ class PatchEnv(gym.Env):
                 #     patch_theta = 0.0
                 # self.start_xy = (patch_x, patch_y)
 
-                # New centerline spawn logic + Frenet initialization (waypoint-free runtime logic)
-                # self.waypoints = np.column_stack([track.centerline.xs, track.centerline.ys]).astype(np.float32)
-                # self._current_waypoint_idx = 0
-                # self.prev_waypoint_idx = self._current_waypoint_idx
-                # patch_x, patch_y = float(self.waypoints[0, 0]), float(self.waypoints[0, 1])
-                # if len(self.waypoints) > 1:
-                #     dx = self.waypoints[1, 0] - self.waypoints[0, 0]
-                #     dy = self.waypoints[1, 1] - self.waypoints[0, 1]
-                xs = np.asarray(track.centerline.xs, dtype=np.float32)
-                ys = np.asarray(track.centerline.ys, dtype=np.float32)
-                self.waypoints = None
+                # New centerline spawn logic + Frenet initialization
+                self.waypoints = np.column_stack([track.centerline.xs, track.centerline.ys]).astype(np.float32)
                 self._current_waypoint_idx = 0
-                self.prev_waypoint_idx = 0
-                patch_x, patch_y = float(xs[0]), float(ys[0])
-                if xs.shape[0] > 1:
-                    dx = float(xs[1] - xs[0])
-                    dy = float(ys[1] - ys[0])
+                self.prev_waypoint_idx = self._current_waypoint_idx
+                patch_x, patch_y = float(self.waypoints[0, 0]), float(self.waypoints[0, 1])
+                if len(self.waypoints) > 1:
+                    dx = self.waypoints[1, 0] - self.waypoints[0, 0]
+                    dy = self.waypoints[1, 1] - self.waypoints[0, 1]
                     patch_theta = float(np.arctan2(dy, dx))
                 else:
                     patch_theta = 0.0
@@ -949,8 +947,8 @@ class PatchEnv(gym.Env):
         track_width = self.map_reset.estimate_track_width(
             occ_map, resolution, origin, patch_x, patch_y, patch_theta
         )
-        #Previously the init_a and init_b were being calculated using the compute_safe_patch method and that was overwriting safe_init_a and safe_init_b with the track derived values
-        init_a, init_b = self._safe_init_a, self._safe_init_b
+        init_a, init_b = self.map_reset.compute_safe_patch_size(track_width)
+        self._safe_init_a, self._safe_init_b = init_a, init_b
         self._safe_min_a, self._safe_min_b = init_a * 0.5, init_b * 0.5
         self.patch_a_range = (self._safe_min_a, self._safe_init_a)
         self.patch_b_range = (self._safe_min_b, self._safe_init_b)
@@ -1032,12 +1030,6 @@ class PatchEnv(gym.Env):
         lap_time = None
 
         raw_accel, raw_steer = self.action_model.denormalize(np.asarray(patch_action))
-
-        a = float(self.patch.a)
-        b = float(self.patch.b)
-	    # Patch-only: keep size fixed (no size action)
-	    # a = float(self.patch.a)
-	    # b = float(self.patch.b)
         # old smoothing path kept commented by request:
         # smooth_accel = self.action_model.smooth(self.patch.accel, raw_accel, self.cfg.alpha)
         # smooth_steer = self.action_model.smooth(self.patch.steering, raw_steer, self.cfg.alpha)
@@ -1047,18 +1039,19 @@ class PatchEnv(gym.Env):
         # Disable smoothing to keep patch response sharp at corners.
         smooth_accel, smooth_steer = raw_accel, raw_steer
 
-        # NOT USED: patch_only_mode=True, coupling never activates
-        # if (not self.cfg.patch_only_mode) and self.cfg.coupling_enabled and self.agent_states is not None:
-        #     local_x = []
-        #     for i in range(self.num_agents):
-        #         ax, ay, _, _ = self.agent_states[i]
-        #         x_rel, _ = self.patch.world_to_patch_frame(ax, ay)
-        #         local_x.append(float(x_rel))
-        #     if local_x:
-        #         mean_x = float(np.mean(local_x))
-        #         lag = max(0.0, -mean_x - self.cfg.coupling_lag_threshold_m)
-        #         if lag > 0.0:
-        #             smooth_accel -= self.cfg.coupling_patch_speed_scale * lag
+        # Coupling: if agents lag behind patch centerline direction, reduce patch aggressiveness.
+        if (not self.cfg.patch_only_mode) and self.cfg.coupling_enabled and self.agent_states is not None:
+            local_x = []
+            for i in range(self.num_agents):
+                ax, ay, _, _ = self.agent_states[i]
+                x_rel, _ = self.patch.world_to_patch_frame(ax, ay)
+                local_x.append(float(x_rel))
+            if local_x:
+                mean_x = float(np.mean(local_x))
+                lag = max(0.0, -mean_x - self.cfg.coupling_lag_threshold_m)
+                if lag > 0.0:
+                    # old: no patch-speed coupling.
+                    smooth_accel -= self.cfg.coupling_patch_speed_scale * lag
 
         # Edge guardrail: when patch center approaches track edge, reduce aggressiveness and bias steering inward.
         edge_ratio_pre = 0.0
@@ -1098,27 +1091,30 @@ class PatchEnv(gym.Env):
                 corner_factor_pre = 0.0
                 corner_kappa_abs_pre = 0.0
 
-        # NOT USED: patch_only_centerline_assist_enabled=False
-        # if self.cfg.patch_only_mode and self.cfg.patch_only_centerline_assist_enabled and self.track_spline is not None:
-        #     try:
-        #         s_pre, ey_pre_assist = self._patch_to_frenet()
-        #         yaw_ref = float(self.track_spline.calc_yaw(float(s_pre)))
-        #         patch_curv_ref = float(self.track_spline.calc_curvature(float(s_pre)))
-        #         patch_heading_err = self._wrap_angle(yaw_ref - float(self.patch.theta))
-        #         delta_ff = float(np.arctan(float(self.cfg.wheelbase) * patch_curv_ref))
-        #         steer_fb = (
-        #             float(self.cfg.patch_only_heading_gain) * patch_heading_err
-        #             - float(self.cfg.patch_only_ey_gain) * (float(ey_pre_assist) / max(track_half_pre, 1e-3))
-        #         )
-        #         steer_assist = float(self.cfg.patch_only_curvature_ff_gain) * delta_ff + steer_fb
-        #         assist_blend = float(np.clip(self.cfg.patch_only_assist_blend + 0.35 * edge_guard_mix, 0.0, 1.0))
-        #         smooth_steer = (1.0 - assist_blend) * smooth_steer + assist_blend * steer_assist
-        #         if abs(patch_heading_err) > float(self.cfg.patch_only_corner_heading_thresh) and smooth_accel > 0.0:
-        #             smooth_accel -= float(self.cfg.patch_only_corner_slowdown_gain) * abs(patch_heading_err)
-        #     except Exception:
-        #         pass
+        # Patch-only assist: blend policy steer with centerline heading/curvature tracking.
+        # This helps turn through corners instead of drifting outward.
         patch_heading_err = 0.0
         patch_curv_ref = 0.0
+        if self.cfg.patch_only_mode and self.cfg.patch_only_centerline_assist_enabled and self.track_spline is not None:
+            try:
+                s_pre, ey_pre_assist = self._patch_to_frenet()
+                yaw_ref = float(self.track_spline.calc_yaw(float(s_pre)))
+                patch_curv_ref = float(self.track_spline.calc_curvature(float(s_pre)))
+                patch_heading_err = self._wrap_angle(yaw_ref - float(self.patch.theta))
+                delta_ff = float(np.arctan(float(self.cfg.wheelbase) * patch_curv_ref))
+                steer_fb = (
+                    float(self.cfg.patch_only_heading_gain) * patch_heading_err
+                    - float(self.cfg.patch_only_ey_gain) * (float(ey_pre_assist) / max(track_half_pre, 1e-3))
+                )
+                steer_assist = float(self.cfg.patch_only_curvature_ff_gain) * delta_ff + steer_fb
+                assist_blend = float(np.clip(self.cfg.patch_only_assist_blend + 0.35 * edge_guard_mix, 0.0, 1.0))
+                # old: smooth_steer came only from policy (+ edge guard).
+                smooth_steer = (1.0 - assist_blend) * smooth_steer + assist_blend * steer_assist
+                if abs(patch_heading_err) > float(self.cfg.patch_only_corner_heading_thresh) and smooth_accel > 0.0:
+                    # Slow down when heading error is large to improve corner capture.
+                    smooth_accel -= float(self.cfg.patch_only_corner_slowdown_gain) * abs(patch_heading_err)
+            except Exception:
+                pass
 
         smooth_accel, smooth_steer = self.action_model.conservative_first_step(
             smooth_accel, smooth_steer, self.step_count
@@ -1141,7 +1137,8 @@ class PatchEnv(gym.Env):
 
         if self.cfg.patch_only_mode:
             # old: always constrained by agent positions.
-            min_a_agents, min_b_agents = float(self._safe_min_a), float(self._safe_min_b)
+            # min_a_agents, min_b_agents = float(self._safe_min_a), float(self._safe_min_b)
+            print()
         else:
             min_a_agents, min_b_agents = self._calculate_min_patch_size_for_agents()
         max_a_edge = float(self._safe_init_a)
@@ -1398,41 +1395,25 @@ class PatchEnv(gym.Env):
             self.lap_progress, _, self._init_goal_dist = self.obs_builder.lap_progress(
                 self.patch, self.goal_xy, self._init_goal_dist
             )
-        elif self.navigation_mode == "centerline":
-            # Waypoint-based lap/progress is disabled; use Frenet-only progress/lap detection.
-            # old:
-            # if self.navigation_mode == "centerline" and self.waypoints is not None:
-            #     n_waypoints = len(self.waypoints)
-            #     prev_idx = int(self._current_waypoint_idx)
-            #     self.lap_progress, _, self._current_waypoint_idx = self.obs_builder.lap_progress_centerline(
-            #         self.patch, self.waypoints, self._current_waypoint_idx, n_waypoints, self.search_window
-            #     )
-            #     if (
-            #         prev_idx > int(0.8 * n_waypoints)
-            #         and int(self._current_waypoint_idx) < int(0.2 * n_waypoints)
-            #     ):
-            #         self.lap_count += 1
-            #         lap_time = (self.step_count - self.lap_start_step) * dt
-            #         lap_time = max(float(lap_time), 1e-3)
-            #         lap_bonus = self.cfg.lap_finish_bonus * float(
-            #             np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
-            #         )
-            #         self.lap_start_step = self.step_count
-            #     self.prev_waypoint_idx = int(self._current_waypoint_idx)
-            if self.track_spline is not None and self.track_length is not None and self.track_length > 0.0:
-                s_now, _ey_now = self._patch_to_frenet()
-                self.lap_progress = float(np.clip(s_now / self.track_length, 0.0, 1.0))
-                if self.prev_s is not None:
-                    raw_ds = float(s_now - self.prev_s)
-                    wrapped_ds = float(self._wrap_ds(raw_ds))
-                    if raw_ds < -0.5 * float(self.track_length) and wrapped_ds > 0.0:
-                        self.lap_count += 1
-                        lap_time = (self.step_count - self.lap_start_step) * dt
-                        lap_time = max(float(lap_time), 1e-3)
-                        lap_bonus = self.cfg.lap_finish_bonus * float(
-                            np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
-                        )
-                        self.lap_start_step = self.step_count
+        elif self.navigation_mode == "centerline" and self.waypoints is not None:
+            n_waypoints = len(self.waypoints)
+            prev_idx = int(self._current_waypoint_idx)
+            self.lap_progress, _, self._current_waypoint_idx = self.obs_builder.lap_progress_centerline(
+                self.patch, self.waypoints, self._current_waypoint_idx, n_waypoints, self.search_window
+            )
+            if (
+                prev_idx > int(0.8 * n_waypoints)
+                and int(self._current_waypoint_idx) < int(0.2 * n_waypoints)
+            ):
+                self.lap_count += 1
+                lap_time = (self.step_count - self.lap_start_step) * dt
+                lap_time = max(float(lap_time), 1e-3)
+                lap_bonus = self.cfg.lap_finish_bonus * float(
+                    np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
+                )
+                self.lap_start_step = self.step_count
+
+            self.prev_waypoint_idx = int(self._current_waypoint_idx)
         
         reward = self._compute_reward_w_frenet(
             lidar_info,
@@ -1525,26 +1506,24 @@ class PatchEnv(gym.Env):
         }
         info.update(reward_terms)
 
-        # if self.cfg.debug_print_every_n_steps > 0 and (self.step_count % self.cfg.debug_print_every_n_steps == 0):
-            
-            # print(
-            #     f"[PATCH-DEBUG] step={self.step_count} reward={reward:.2f} "
-            #     f"raw={reward_terms.get('reward_raw', 0.0):.2f} ds={reward_terms.get('ds', 0.0):.4f} "
-            #     f"ey={reward_terms.get('ey', 0.0):.3f} min_dist={min_dist:.3f} "
-            #     f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f}"
-            # )
+        if self.cfg.debug_print_every_n_steps > 0 and (self.step_count % self.cfg.debug_print_every_n_steps == 0):
+            print(
+                f"[PATCH-DEBUG] step={self.step_count} reward={reward:.2f} "
+                f"raw={reward_terms.get('reward_raw', 0.0):.2f} ds={reward_terms.get('ds', 0.0):.4f} "
+                f"ey={reward_terms.get('ey', 0.0):.3f} min_dist={min_dist:.3f} "
+                f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f}"
+            )
 
-        # if self.cfg.debug_print_episode_end and (terminated or truncated):
-            
-            # print(
-            #     f"[PATCH-END] steps={self.step_count} reason={reason} ep_reward={self.episode_reward:.2f} "
-            #     f"last_r={reward:.2f} raw={reward_terms.get('reward_raw', 0.0):.2f} "
-            #     f"ds={reward_terms.get('ds', 0.0):.4f} ey={reward_terms.get('ey', 0.0):.3f} "
-            #     f"min_dist={min_dist:.3f} clipped={reward_terms.get('reward_was_clipped', False)} "
-            #     f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f} "
-            #     f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f}) "
-            #     f"sizecap_pen={size_cap_penalty:.2f} excess={size_cap_excess_ratio:.3f}"
-            # )
+        if self.cfg.debug_print_episode_end and (terminated or truncated):
+            print(
+                f"[PATCH-END] steps={self.step_count} reason={reason} ep_reward={self.episode_reward:.2f} "
+                f"last_r={reward:.2f} raw={reward_terms.get('reward_raw', 0.0):.2f} "
+                f"ds={reward_terms.get('ds', 0.0):.4f} ey={reward_terms.get('ey', 0.0):.3f} "
+                f"min_dist={min_dist:.3f} clipped={reward_terms.get('reward_was_clipped', False)} "
+                f"mpc_feas={info['mpc_feasibility_rate']:.3f} safety_rate={info['safety_intervention_rate']:.3f} "
+                f"cmd(v={mean_speed_cmd:.2f},|st|={mean_abs_steer_cmd:.3f}) "
+                f"sizecap_pen={size_cap_penalty:.2f} excess={size_cap_excess_ratio:.3f}"
+            )
 
         return obs, reward, terminated, truncated, info
 
@@ -1746,14 +1725,14 @@ class PatchEnv(gym.Env):
             self._ax.text(x + 0.3, y + 0.3, f'R{i}', fontsize=8, fontweight='bold')
         
         # Draw next waypoint if available
-        # if self.waypoints is not None and len(self.waypoints) > 0:
-        #     # Find nearest waypoint
-        #     patch_pos = np.array([self.patch.x, self.patch.y])
-        #     dists = np.linalg.norm(self.waypoints - patch_pos, axis=1)
-        #     nearest_idx = np.argmin(dists)
-        #     next_idx = (nearest_idx + 10) % len(self.waypoints)
-        #     self._ax.plot(self.waypoints[next_idx, 0], self.waypoints[next_idx, 1],
-        #                  'g*', markersize=20, markeredgecolor='black', markeredgewidth=1)
+        if self.waypoints is not None and len(self.waypoints) > 0:
+            # Find nearest waypoint
+            patch_pos = np.array([self.patch.x, self.patch.y])
+            dists = np.linalg.norm(self.waypoints - patch_pos, axis=1)
+            nearest_idx = np.argmin(dists)
+            next_idx = (nearest_idx + 10) % len(self.waypoints)
+            self._ax.plot(self.waypoints[next_idx, 0], self.waypoints[next_idx, 1],
+                         'g*', markersize=20, markeredgecolor='black', markeredgewidth=1)
         
         # Info box
         info_text = (
