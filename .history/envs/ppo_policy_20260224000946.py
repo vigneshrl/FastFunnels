@@ -890,8 +890,6 @@ class PatchEnv(gym.Env):
             "yaw_rate_proxy": float(yaw_rate),
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
-            "collision_lidar": bool(collision_lidar),
-            "collision_patch_boundary": bool(patch_boundary_collision),
             "reward_raw": float(reward_raw),
             "reward_clipped": float(reward_clipped),
             "reward_was_clipped": bool(abs(reward_raw) > 100.0),

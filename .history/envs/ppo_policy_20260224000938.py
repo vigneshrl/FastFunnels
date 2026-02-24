@@ -839,13 +839,7 @@ class PatchEnv(gym.Env):
 
         # Collision proxy from lidar (same as single-agent)
         min_dist = float(lidar_info["min_dist"])
-        collision_lidar = (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)
-        
-        # Collision from patch boundary discretization
-        patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
-        
-        # Combined collision flag (either lidar or patch boundary collision)
-        collision = collision_lidar or patch_boundary_collision
+        collision = (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)
 
         # Stuck counter (same as single-agent)
         if abs(ds) < self.cfg.stuck_progress_eps:
@@ -854,7 +848,6 @@ class PatchEnv(gym.Env):
             self.no_progress_counter = 0
 
         # Core reward (same as single-agent)
-        # Apply heavy penalty (1500) for any collision (lidar or patch boundary)
         reward_raw = (
             self.cfg.reward_progress_scale * ds
             - self.cfg.reward_crosstrack_weight * abs(ey)
@@ -890,8 +883,6 @@ class PatchEnv(gym.Env):
             "yaw_rate_proxy": float(yaw_rate),
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
-            "collision_lidar": bool(collision_lidar),
-            "collision_patch_boundary": bool(patch_boundary_collision),
             "reward_raw": float(reward_raw),
             "reward_clipped": float(reward_clipped),
             "reward_was_clipped": bool(abs(reward_raw) > 100.0),

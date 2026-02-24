@@ -379,9 +379,6 @@ class PatchEnvConfig:
     patch_a: float = 1.5  # Fixed size (semi-major axis)
     patch_b: float = 1.0  # Fixed size (semi-minor axis)
     
-    # Patch boundary collision detection (using discretization)
-    patch_boundary_violation_threshold: float = 0.05  # Fraction of boundary points that must be in wall to trigger collision
-    
     # OLD COMPLEX CONFIG (commented out - not used in simplified version)
     # domain_randomize: bool = False
     # alpha: float = 0.1
@@ -839,13 +836,7 @@ class PatchEnv(gym.Env):
 
         # Collision proxy from lidar (same as single-agent)
         min_dist = float(lidar_info["min_dist"])
-        collision_lidar = (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)
-        
-        # Collision from patch boundary discretization
-        patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
-        
-        # Combined collision flag (either lidar or patch boundary collision)
-        collision = collision_lidar or patch_boundary_collision
+        collision = (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)
 
         # Stuck counter (same as single-agent)
         if abs(ds) < self.cfg.stuck_progress_eps:
@@ -854,7 +845,6 @@ class PatchEnv(gym.Env):
             self.no_progress_counter = 0
 
         # Core reward (same as single-agent)
-        # Apply heavy penalty (1500) for any collision (lidar or patch boundary)
         reward_raw = (
             self.cfg.reward_progress_scale * ds
             - self.cfg.reward_crosstrack_weight * abs(ey)
@@ -890,8 +880,6 @@ class PatchEnv(gym.Env):
             "yaw_rate_proxy": float(yaw_rate),
             "spin_excess": float(spin_excess),
             "collision_proxy": bool(collision),
-            "collision_lidar": bool(collision_lidar),
-            "collision_patch_boundary": bool(patch_boundary_collision),
             "reward_raw": float(reward_raw),
             "reward_clipped": float(reward_clipped),
             "reward_was_clipped": bool(abs(reward_raw) > 100.0),
@@ -956,7 +944,7 @@ class PatchEnv(gym.Env):
     def _check_termination(self, lidar_info: dict):
         """
         Simplified termination matching single-agent PPO exactly.
-        Only: collision (lidar or patch boundary), stuck, max_steps.
+        Only: collision, stuck, max_steps.
         """
         terminated = False
         truncated = False
@@ -965,18 +953,13 @@ class PatchEnv(gym.Env):
         # 1) Collision from lidar (same as single-agent)
         min_dist = float(lidar_info["min_dist"])
         if (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist):
-            return True, False, "collision_lidar"
+            return True, False, "collision"
 
-        # 2) Collision from patch boundary discretization
-        patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
-        if patch_boundary_collision:
-            return True, False, "collision_patch_boundary"
-
-        # 3) Stuck termination (same as single-agent)
+        # 2) Stuck termination (same as single-agent)
         if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
             return True, False, "stuck_no_progress"
 
-        # 4) Time limit (same as single-agent)
+        # 3) Time limit (same as single-agent)
         if self.step_count >= self.cfg.max_steps:
             truncated = True
             reason = "max_steps"
@@ -1192,28 +1175,7 @@ class PatchEnv(gym.Env):
         scan = self._get_scan(base_obs, self.cfg.num_beams, i=0)
         min_dist = float(np.min(scan))
         min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
-        
-        # Check patch boundary collision using discretization
-        patch_boundary_collision = False
-        try:
-            _, occ_map, resolution, origin = self.f110.get_track_data()
-            patch_collision, violated = self.patch.check_patch_boundary_wall_collision(
-                occ_map,
-                resolution,
-                origin,
-                n_points=32,
-                violation_threshold=self.cfg.patch_boundary_violation_threshold,
-            )
-            patch_boundary_collision = patch_collision
-        except Exception:
-            # If track data unavailable, skip patch boundary check
-            patch_boundary_collision = False
-        
-        lidar_info = {
-            "is_safe": min_dist >= self.cfg.collision_min_dist,
-            "min_dist": min_dist,
-            "patch_boundary_collision": patch_boundary_collision,
-        }
+        lidar_info = {"is_safe": min_dist >= self.cfg.collision_min_dist, "min_dist": min_dist}
         
         # OLD: Proxy lidar (Frenet-based) - commented out, using real lidar instead
         # # Base env not stepped - agents will be controlled by MPC later
@@ -1887,8 +1849,8 @@ class PatchEnv(gym.Env):
         # Title with wall collision warning
         wall_status = (
             f"⚠️ WALL! ({len(violated)} pts)"
-            # if patch_wall_collision
-            # else f"Clear: {clearance:.2f}m"
+            if patch_wall_collision
+            else f"Clear: {clearance:.2f}m"
         )
         self._ax.set_title(
             f'Patch Funnel V1 | Step {self.step_count} | Progress: {self.lap_progress:.1%}\n'
@@ -1942,36 +1904,36 @@ class PatchEnv(gym.Env):
         )
         
         # Draw agents
-        # colors = ['red', 'orange', 'purple', 'green']
-        # for i in range(self.num_agents):
-        #     x, y, theta, v = self.agent_states[i]
-        #     inside = self.patch.is_inside(x, y)
-        #     collision = self.current_base_obs["collisions"][i] > 0.5
+        colors = ['red', 'orange', 'purple', 'green']
+        for i in range(self.num_agents):
+            x, y, theta, v = self.agent_states[i]
+            inside = self.patch.is_inside(x, y)
+            collision = self.current_base_obs["collisions"][i] > 0.5
             
-        #     color = colors[i % len(colors)]
-        #     if collision:
-        #         marker = 'X'
-        #         size = 18
-        #     elif inside:
-        #         marker = 'o'
-        #         size = 12
-        #     else:
-        #         marker = 's'  # Square if outside patch
-        #         size = 14
+            color = colors[i % len(colors)]
+            if collision:
+                marker = 'X'
+                size = 18
+            elif inside:
+                marker = 'o'
+                size = 12
+            else:
+                marker = 's'  # Square if outside patch
+                size = 14
             
-        #     self._ax.plot(x, y, marker, color=color, markersize=size,
-        #                  markeredgecolor='black', markeredgewidth=2)
+            self._ax.plot(x, y, marker, color=color, markersize=size,
+                         markeredgecolor='black', markeredgewidth=2)
             
-        #     # Agent velocity arrow
-        #     self._ax.arrow(
-        #         x, y,
-        #         v * np.cos(theta) * 0.2, v * np.sin(theta) * 0.2,
-        #         head_width=0.1, head_length=0.05,
-        #         fc=color, ec=color, alpha=0.7
-        #     )
+            # Agent velocity arrow
+            self._ax.arrow(
+                x, y,
+                v * np.cos(theta) * 0.2, v * np.sin(theta) * 0.2,
+                head_width=0.1, head_length=0.05,
+                fc=color, ec=color, alpha=0.7
+            )
             
             # Label agents
-            # self._ax.text(x + 0.3, y + 0.3, f'R{i}', fontsize=8, fontweight='bold')
+            self._ax.text(x + 0.3, y + 0.3, f'R{i}', fontsize=8, fontweight='bold')
         
         # Draw next waypoint if available
         # if self.waypoints is not None and len(self.waypoints) > 0:
@@ -1986,8 +1948,8 @@ class PatchEnv(gym.Env):
         # Info box
         info_text = (
             f'Reward: {self.episode_reward:.1f}\n'
-            # f'Patch collisions: {self.patch_wall_collisions}\n'
-            # f'Min clearance: {self.patch_min_clearance:.2f}m'
+            f'Patch collisions: {self.patch_wall_collisions}\n'
+            f'Min clearance: {self.patch_min_clearance:.2f}m'
         )
         self._ax.text(0.02, 0.98, info_text, transform=self._ax.transAxes,
                      fontsize=10, verticalalignment='top',
