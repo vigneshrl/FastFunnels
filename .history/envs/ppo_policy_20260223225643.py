@@ -1086,15 +1086,15 @@ class PatchEnv(gym.Env):
         self.no_progress_counter = 0
         self.prev_s, _ = self._patch_to_frenet()
         
-        # Reset base env with agent at patch position (same as single-agent - 1 agent for lidar)
-        base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
-        self.current_base_obs = base_obs
+        # Reset base env (same as single-agent - 1 agent for lidar)
+        # Reset base env (with num_agents=0, use empty poses)
+        # Agents will be controlled by MPC later, not base env
+        base_obs, _ = self.f110.reset(poses=[])
+        self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
         
-        # OLD: Reset with empty poses for proxy lidar (commented out - using real lidar instead)
-        # # Reset base env (with num_agents=0, use empty poses)
-        # # Agents will be controlled by MPC later, not base env
-        # base_obs, _ = self.f110.reset(poses=[])
-        # self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
+        # OLD: Reset with agent at patch position (commented out - using proxy lidar instead)
+        # base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
+        # self.current_base_obs = base_obs
         
         # Build and return observation (same as single-agent)
         obs = self._build_obs()
@@ -1183,8 +1183,7 @@ class PatchEnv(gym.Env):
         # min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
         # lidar_info = {"is_safe": min_dist >= self.cfg.collision_min_dist, "min_dist": min_dist}
         
-        # Lap detection (same as single-agent)
-        s_now, ey_now = self._patch_to_frenet()
+        # Lap detection (same as single-agent) - s_now, ey_now already computed above for lidar
         if self.track_spline is not None and self.track_length is not None and self.track_length > 0.0:
             self.lap_progress = float(np.clip(s_now / self.track_length, 0.0, 1.0))
             if self.prev_s is not None:

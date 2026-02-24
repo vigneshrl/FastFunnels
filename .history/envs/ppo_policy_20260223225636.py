@@ -1086,15 +1086,15 @@ class PatchEnv(gym.Env):
         self.no_progress_counter = 0
         self.prev_s, _ = self._patch_to_frenet()
         
-        # Reset base env with agent at patch position (same as single-agent - 1 agent for lidar)
-        base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
-        self.current_base_obs = base_obs
+        # Reset base env (same as single-agent - 1 agent for lidar)
+        # Reset base env (with num_agents=0, use empty poses)
+        # Agents will be controlled by MPC later, not base env
+        base_obs, _ = self.f110.reset(poses=[])
+        self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
         
-        # OLD: Reset with empty poses for proxy lidar (commented out - using real lidar instead)
-        # # Reset base env (with num_agents=0, use empty poses)
-        # # Agents will be controlled by MPC later, not base env
-        # base_obs, _ = self.f110.reset(poses=[])
-        # self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
+        # OLD: Reset with agent at patch position (commented out - using proxy lidar instead)
+        # base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
+        # self.current_base_obs = base_obs
         
         # Build and return observation (same as single-agent)
         obs = self._build_obs()
@@ -1153,38 +1153,40 @@ class PatchEnv(gym.Env):
         self.patch.steering = steering_cmd
         self.patch.step(accel_cmd, steering_cmd, dt)
         
-        # Step base env with agent at patch position for lidar (like single-agent)
-        # Agent follows patch with same action to provide lidar
-        # Note: Agent is NOT trained - it's just a sensor that follows the patch
-        agent_action = np.array([[steering_cmd, speed_cmd]], dtype=np.float32)
-        base_obs, _, base_done, base_truncated, _ = self.f110.step(agent_action)
-        self.current_base_obs = base_obs
+        # Base env not stepped - agents will be controlled by MPC later
+        # For now, we don't need to step base env since num_agents=0
+        # When you add MPC agents later, you'll step them separately
+        base_done = False
+        base_truncated = False
         
-        # Get lidar info from agent (same as single-agent)
-        scan = self._get_scan(base_obs, self.cfg.num_beams, i=0)
-        min_dist = float(np.min(scan))
+        # Get lidar info from proxy (Frenet-based) like single-agent code
+        s_now, ey_now = self._patch_to_frenet()
+        track_width_now = self._estimate_current_track_width()
+        if track_width_now is not None:
+            proxy_lidar = self._frenet_proxy_lidar(ey=ey_now, track_width=track_width_now)
+            min_dist = float(np.min(proxy_lidar))
+        else:
+            min_dist = 10.0  # Max range if no track width
         min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
         lidar_info = {"is_safe": min_dist >= self.cfg.collision_min_dist, "min_dist": min_dist}
         
-        # OLD: Proxy lidar (Frenet-based) - commented out, using real lidar instead
-        # # Base env not stepped - agents will be controlled by MPC later
-        # # For now, we don't need to step base env since num_agents=0
-        # # When you add MPC agents later, you'll step them separately
-        # base_done = False
-        # base_truncated = False
-        # # Get lidar info from proxy (Frenet-based) like single-agent code
-        # s_now, ey_now = self._patch_to_frenet()
-        # track_width_now = self._estimate_current_track_width()
-        # if track_width_now is not None:
-        #     proxy_lidar = self._frenet_proxy_lidar(ey=ey_now, track_width=track_width_now)
-        #     min_dist = float(np.min(proxy_lidar))
-        # else:
-        #     min_dist = 10.0  # Max range if no track width
+        # OLD: Step base env with agent for real lidar (commented out - using proxy lidar instead)
+        # # Step base env with agent at patch position for lidar (like single-agent)
+        # # For simplified version: agent follows patch position to provide lidar
+        # # Note: In single-agent, the agent IS the thing being controlled, so this is simpler there
+        # agent_action = np.array([[steering_cmd, speed_cmd]], dtype=np.float32)
+        # base_obs, _, base_done, base_truncated, _ = self.f110.step(agent_action)
+        # # Sync agent position with patch (for lidar to be at patch location)
+        # # In single-agent, this isn't needed because agent=robot, but here patch≠agent
+        # # For now, we'll use lidar from agent position (which should be close after step)
+        # self.current_base_obs = base_obs
+        # # Get lidar info (same as single-agent)
+        # scan = self._get_scan(base_obs, self.cfg.num_beams, i=0)
+        # min_dist = float(np.min(scan))
         # min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
         # lidar_info = {"is_safe": min_dist >= self.cfg.collision_min_dist, "min_dist": min_dist}
         
-        # Lap detection (same as single-agent)
-        s_now, ey_now = self._patch_to_frenet()
+        # Lap detection (same as single-agent) - s_now, ey_now already computed above for lidar
         if self.track_spline is not None and self.track_length is not None and self.track_length > 0.0:
             self.lap_progress = float(np.clip(s_now / self.track_length, 0.0, 1.0))
             if self.prev_s is not None:

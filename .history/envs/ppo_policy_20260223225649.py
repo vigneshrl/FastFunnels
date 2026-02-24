@@ -1086,15 +1086,15 @@ class PatchEnv(gym.Env):
         self.no_progress_counter = 0
         self.prev_s, _ = self._patch_to_frenet()
         
-        # Reset base env with agent at patch position (same as single-agent - 1 agent for lidar)
-        base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
-        self.current_base_obs = base_obs
+        # Reset base env (same as single-agent - 1 agent for lidar)
+        # Reset base env (with num_agents=0, use empty poses)
+        # Agents will be controlled by MPC later, not base env
+        base_obs, _ = self.f110.reset(poses=[])
+        self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
         
-        # OLD: Reset with empty poses for proxy lidar (commented out - using real lidar instead)
-        # # Reset base env (with num_agents=0, use empty poses)
-        # # Agents will be controlled by MPC later, not base env
-        # base_obs, _ = self.f110.reset(poses=[])
-        # self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
+        # OLD: Reset with agent at patch position (commented out - using proxy lidar instead)
+        # base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
+        # self.current_base_obs = base_obs
         
         # Build and return observation (same as single-agent)
         obs = self._build_obs()

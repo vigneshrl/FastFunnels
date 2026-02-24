@@ -454,32 +454,18 @@ class PatchEnv(gym.Env):
         )
         
         # Base environment (simplified - like single-agent)
-        # num_agents=1 for real lidar (like single-agent code)
-        # Agent follows patch to provide lidar, but agent is NOT trained (only patch is trained)
+        # NOTE: We need num_agents=1 for lidar scans (like single-agent uses num_agents=1)
+        # The agent will be positioned at patch location to provide lidar, but we control the patch, not the agent directly
         self.f110 = F110EnvAdapter(
             F110Config(
-                num_agents=1,  # Need 1 agent for real lidar (like single-agent), positioned at patch location
+                num_agents=1,  # Need 1 agent for lidar (like single-agent), positioned at patch location
                 reset_type=self.cfg.base_reset_type,
                 control_input=("speed", "steering_angle"),
                 timestep=self.cfg.control_dt,
             ),
             render_mode=self.cfg.render_mode,
         )
-        # OLD: num_agents=0 with proxy lidar (commented out - using real lidar instead)
-        # self.f110 = F110EnvAdapter(
-        #     F110Config(
-        #         num_agents=0,  # No agents in base env - agents controlled by MPC later
-        #         reset_type=self.cfg.base_reset_type,
-        #         control_input=("speed", "steering_angle"),
-        #         timestep=self.cfg.control_dt,
-        #     ),
-        #     render_mode=self.cfg.render_mode,
-        # )
         self.base_env = self.f110  # Alias for compatibility
-        
-        # Map reset helper (needed for track width estimation and other utilities)
-        self.map_reset = MapResetHelper()
-        # OLD: Comment said "for proxy lidar" but it's also used for other things
         
         # Patch with FIXED size (like single-agent has fixed robot size)
         self.patch = DynamicPatch()
@@ -630,7 +616,6 @@ class PatchEnv(gym.Env):
     def _build_obs(self) -> np.ndarray:
         """
         Build observation exactly like single-agent: [s, ey, v, yaw] + lidar.
-        Uses real lidar from agent (like single-agent code).
         NO normalization applied (raw values like single-agent).
         """
         if self.track_spline is None:
@@ -643,7 +628,7 @@ class PatchEnv(gym.Env):
         speed = float(self.patch.v)
         yaw = float(self.patch.theta)
         
-        # Get lidar scan from agent (same as single-agent - full scan, not aggregated sectors)
+        # Get lidar scan (same as single-agent - full scan, not aggregated sectors)
         scan = self._get_scan(self.current_base_obs, self.cfg.num_beams, i=0)
         
         # Concatenate WITHOUT normalization (match single-agent exactly)
@@ -653,19 +638,6 @@ class PatchEnv(gym.Env):
         ], axis=0).astype(np.float32)
         
         return obs
-        
-        # OLD: Proxy lidar (Frenet-based) - commented out, using real lidar instead
-        # # Use proxy lidar (Frenet-based) like single-agent code
-        # track_width = self._estimate_current_track_width()
-        # if track_width is not None:
-        #     proxy_lidar = self._frenet_proxy_lidar(ey=ey, track_width=track_width)
-        #     # Expand from n_sectors (16) to num_beams (108) by repeating/interpolating
-        #     scan = np.repeat(proxy_lidar, self.cfg.num_beams // len(proxy_lidar))[:self.cfg.num_beams]
-        #     if len(scan) < self.cfg.num_beams:
-        #         scan = np.pad(scan, (0, self.cfg.num_beams - len(scan)), constant_values=scan[-1] if len(scan) > 0 else 10.0)
-        # else:
-        #     # Fallback: max range if no track width available
-        #     scan = np.ones(self.cfg.num_beams, dtype=np.float32) * 10.0
         
         # OLD COMPLEX OBSERVATION CODE (commented out - not used in simplified version)
         # # track_width = self._estimate_current_track_width()
@@ -1036,98 +1008,182 @@ class PatchEnv(gym.Env):
     #     return terminated, truncated, reason
 
     def reset(self, seed=None, options=None):
-        """
-        Simplified reset matching single-agent PPO exactly.
-        Initialize Frenet spline, spawn patch at centerline start, reset base env.
-        """
         super().reset(seed=seed)
         self._np_random = np.random.RandomState(seed if seed is not None else None)
-        
-        # Basic episode tracking (same as single-agent)
         self.step_count = 0
         self.episode_reward = 0.0
         self.lap_progress = 0.0
-        self.lap_count = 0
-        self.lap_start_step = 0
-        
-        # Initialize Frenet spline from track centerline (same as single-agent)
-        self.f110.ensure_initialized()
-        track, _, _, _ = self.f110.get_track_data()
-        if track.centerline is None or track.centerline.spline is None:
-            raise ValueError("Track centerline/spline missing for Frenet reward.")
-        
-        self.track_spline = track.centerline.spline
-        self.track_length = float(self.track_spline.s[-1])
-        
-        # Spawn patch at first centerline waypoint (same as single-agent spawns at start)
-        xs = np.asarray(track.centerline.xs, dtype=np.float32)
-        ys = np.asarray(track.centerline.ys, dtype=np.float32)
-        patch_x, patch_y = float(xs[0]), float(ys[0])
-        if xs.shape[0] > 1:
-            dx = float(xs[1] - xs[0])
-            dy = float(ys[1] - ys[0])
-            patch_theta = float(np.arctan2(dy, dx))
-        else:
-            patch_theta = 0.0
-        self.start_xy = (patch_x, patch_y)
-        
-        # Create patch with fixed size (same as single-agent has fixed robot size)
-        self.patch = DynamicPatch(
-            x=patch_x, 
-            y=patch_y, 
-            theta=patch_theta, 
-            v=0.5,  # Initial speed
-            a=self.cfg.patch_a,  # Fixed size
-            b=self.cfg.patch_b   # Fixed size
-        )
-        
-        # Initialize Frenet bookkeeping (same as single-agent)
-        self.prev_steer = 0.0
-        self.no_progress_counter = 0
-        self.prev_s, _ = self._patch_to_frenet()
-        
-        # Reset base env with agent at patch position (same as single-agent - 1 agent for lidar)
-        base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
-        self.current_base_obs = base_obs
-        
-        # OLD: Reset with empty poses for proxy lidar (commented out - using real lidar instead)
-        # # Reset base env (with num_agents=0, use empty poses)
-        # # Agents will be controlled by MPC later, not base env
-        # base_obs, _ = self.f110.reset(poses=[])
-        # self.current_base_obs = base_obs  # May be None/empty, that's OK for proxy lidar
-        
-        # Build and return observation (same as single-agent)
-        obs = self._build_obs()
-        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        return obs, {}
-        
-        # OLD COMPLEX RESET CODE (commented out - not used in simplified version)
-        # self.patch_min_clearance = float("inf")
-        # self.patch_wall_collisions = 0
-        # self.mpc_successes = 0
-        # self.mpc_attempts = 0
-        # self.safety_interventions = 0
-        # self.cached_controls = []
-        # self.cached_feasible = []
-        # self._last_reward_terms = {}
+        # NOT USED: landmark/goal-based progress tracking (using Frenet-only)
+        # self._prev_goal_dist = None
+        # self._init_goal_dist = None
+        # self._prev_patch_pos = None
+        self.patch_min_clearance = float("inf")
+        self.patch_wall_collisions = 0
+        # NOT USED: agent/MPC-related metrics (patch_only_mode=True, num_agents=0)
+        # Initialize to avoid AttributeError in info dict
+        self.mpc_successes = 0
+        self.mpc_attempts = 0
+        self.safety_interventions = 0
+        self.cached_controls = []
+        self.cached_feasible = []
+        self._last_reward_terms = {}
+        # NOT USED: agent motion tracking (patch_only_mode=True, num_agents=0)
         # self.agent_motion_sum = 0.0
         # self.agent_motion_steps = 0
         # self.agent_move_event_steps = 0
         # self.agent_move_eps = 0.01
-        # track_width = self.map_reset.estimate_track_width(...)
-        # init_a, init_b = self._safe_init_a, self._safe_init_b
-        # self._safe_min_a, self._safe_min_b = init_a * 0.5, init_b * 0.5
-        # self.patch_a_range = (self._safe_min_a, self._safe_init_a)
-        # self.patch_b_range = (self._safe_min_b, self._safe_init_b)
-        # self.action_model.config.patch_a_range = self.patch_a_range
-        # self.action_model.config.patch_b_range = self.patch_b_range
-        # if self.domain_randomize:
-        #     self.patch.randomize_dynamics(self._np_random)
-        # self.agent_states = []
-        # self.prev_v = []
-        # self.prev_agent_steer = []
-        # self._hard_cap_a = float(self._safe_init_a)
-        # self._hard_cap_b = float(self._safe_init_b)
+        # Initialize to avoid AttributeError in info dict
+        self.agent_motion_sum = 0.0
+        self.agent_motion_steps = 0
+        self.agent_move_event_steps = 0
+        self.agent_move_eps = 0.01
+
+        #lap bookkepping reset 
+        self.lap_count = 0
+        # NOT USED: waypoint-based lap tracking (using Frenet-only)
+        # self.prev_waypoint_idx = 0
+        self.lap_start_step = 0
+
+        # Initialize navigation based on mode
+        # NOT USED: landmark navigation mode
+        # if self.navigation_mode == "landmark":
+        #     if options is not None and "spawn_pose" in options:
+        #         self.spawn_pose = np.array(options["spawn_pose"], dtype=np.float32)
+        #     if options is not None and "goal_xy" in options:
+        #         self.goal_xy = np.array(options["goal_xy"], dtype=np.float32)
+        #     
+        #     patch_x, patch_y, patch_theta = map(float, self.spawn_pose)
+        #     self.start_xy = (patch_x, patch_y)
+        if self.navigation_mode == "centerline":
+            # Load waypoints from track centerline
+            self.f110.ensure_initialized()
+            track, _, _, _ = self.f110.get_track_data()
+            if track.centerline is not None:
+                # Original centerline spawn logic (kept commented as requested):
+                # self.waypoints = np.column_stack([track.centerline.xs, track.centerline.ys]).astype(np.float32)
+                # self._current_waypoint_idx = 0
+                # patch_x, patch_y = float(self.waypoints[0, 0]), float(self.waypoints[0, 1])
+                # if len(self.waypoints) > 1:
+                #     dx = self.waypoints[1, 0] - self.waypoints[0, 0]
+                #     dy = self.waypoints[1, 1] - self.waypoints[0, 1]
+                #     patch_theta = float(np.arctan2(dy, dx))
+                # else:
+                #     patch_theta = 0.0
+                # self.start_xy = (patch_x, patch_y)
+
+                # New centerline spawn logic + Frenet initialization (waypoint-free runtime logic)
+                # self.waypoints = np.column_stack([track.centerline.xs, track.centerline.ys]).astype(np.float32)
+                # self._current_waypoint_idx = 0
+                # self.prev_waypoint_idx = self._current_waypoint_idx
+                # patch_x, patch_y = float(self.waypoints[0, 0]), float(self.waypoints[0, 1])
+                # if len(self.waypoints) > 1:
+                #     dx = self.waypoints[1, 0] - self.waypoints[0, 0]
+                #     dy = self.waypoints[1, 1] - self.waypoints[0, 1]
+                xs = np.asarray(track.centerline.xs, dtype=np.float32)
+                ys = np.asarray(track.centerline.ys, dtype=np.float32)
+                # NOT USED: waypoint-based navigation (using Frenet-only)
+                # self.waypoints = None
+                # self._current_waypoint_idx = 0
+                # self.prev_waypoint_idx = 0
+                patch_x, patch_y = float(xs[0]), float(ys[0])
+                if xs.shape[0] > 1:
+                    dx = float(xs[1] - xs[0])
+                    dy = float(ys[1] - ys[0])
+                    patch_theta = float(np.arctan2(dy, dx))
+                else:
+                    patch_theta = 0.0
+                self.start_xy = (patch_x, patch_y)
+                if track.centerline is None or track.centerline.spline is None:
+                    raise ValueError("Track centerline/spline missing for Frenet reward.")
+
+                self.track_spline = track.centerline.spline
+                self.track_length = float(self.track_spline.s[-1])
+
+                # Stale Frenet init removed here; final init is done after patch state is created.
+                # self.prev_steer = 0.0
+                # self.no_progress_counter = 0
+                # s0, _ = self._patch_to_frenet()
+                # self.prev_s = s0
+            else:
+                raise ValueError("Track has no centerline! Cannot use centerline navigation mode.")
+
+        # For centerline mode, we already initialized f110 above
+        # NOT USED: landmark navigation mode
+        # if self.navigation_mode == "landmark":
+        #     self.f110.ensure_initialized()
+        
+        # _, occ_map, resolution, origin = self.f110.get_track_data()
+        track, occ_map, resolution, origin = self.f110.get_track_data()
+        # Keep Frenet data initialized for all navigation modes when centerline exists.
+        if track.centerline is not None and track.centerline.spline is not None:
+            self.track_spline = track.centerline.spline
+            self.track_length = float(self.track_spline.s[-1])
+        track_width = self.map_reset.estimate_track_width(
+            occ_map, resolution, origin, patch_x, patch_y, patch_theta
+        )
+        #Previously the init_a and init_b were being calculated using the compute_safe_patch method and that was overwriting safe_init_a and safe_init_b with the track derived values
+        init_a, init_b = self._safe_init_a, self._safe_init_b
+        self._safe_min_a, self._safe_min_b = init_a * 0.5, init_b * 0.5
+        self.patch_a_range = (self._safe_min_a, self._safe_init_a)
+        self.patch_b_range = (self._safe_min_b, self._safe_init_b)
+
+        self.action_model.config.patch_a_range = self.patch_a_range
+        self.action_model.config.patch_b_range = self.patch_b_range
+
+        self.patch = DynamicPatch(x=patch_x, y=patch_y, theta=patch_theta, v=0.5, a=init_a, b=init_b)
+        if self.domain_randomize:
+            self.patch.randomize_dynamics(self._np_random)
+            self.patch.a = init_a
+            self.patch.b = init_b
+
+        # Initialize Frenet bookkeeping after patch state is available.
+        if self.track_spline is not None:
+            self.prev_steer = 0.0
+            self.no_progress_counter = 0
+            self.prev_s, _ = self._patch_to_frenet()
+
+        # NOT USED: agent pose generation (patch_only_mode=True, num_agents=0)
+        # agent_poses = self.map_reset.generate_safe_agent_poses(
+        #     num_agents=self.num_agents,
+        #     patch_x=patch_x,
+        #     patch_y=patch_y,
+        #     patch_theta=patch_theta,
+        #     patch_a=init_a,
+        #     patch_b=init_b,
+        #     domain_randomize=self.domain_randomize,
+        #     np_random=self._np_random,
+        # )
+        # For patch_only_mode with num_agents=0, reset with empty poses
+        base_obs, _ = self.f110.reset(poses=[])
+        self.current_base_obs = base_obs
+
+        # NOT USED: agent state tracking (patch_only_mode=True, num_agents=0)
+        # Initialize to avoid AttributeError
+        self.agent_states = []
+        self.prev_v = []
+        self.prev_agent_steer = []
+
+        # Hard size cap for easier learning: limit patch growth to an equivalent
+        # "6 agents + leeway" envelope (scaled from current agent footprint).
+        self._hard_cap_a = float(self._safe_init_a)
+        self._hard_cap_b = float(self._safe_init_b)
+        if self.cfg.patch_size_cap_enabled and self.num_agents > 0:
+            base_a_now, base_b_now = self._calculate_min_patch_size_for_agents()
+            # Area-like scaling by sqrt(N_ref / N_current), then add configured leeway.
+            scale_n = np.sqrt(
+                float(max(1, self.cfg.patch_size_cap_reference_agents))
+                / float(max(1, self.num_agents))
+            )
+            cap_scale = float(scale_n * float(self.cfg.patch_size_cap_leeway))
+            cap_a = float(base_a_now * cap_scale)
+            cap_b = float(base_b_now * cap_scale)
+            # old: only safe_init track-width cap existed.
+            self._hard_cap_a = float(np.clip(cap_a, self._safe_min_a, self._safe_init_a))
+            self._hard_cap_b = float(np.clip(cap_b, self._safe_min_b, self._safe_init_b))
+
+        obs = self._build_obs()
+        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+        return obs, {}
 
     def step(self, action):
         """
@@ -1154,34 +1210,17 @@ class PatchEnv(gym.Env):
         self.patch.step(accel_cmd, steering_cmd, dt)
         
         # Step base env with agent at patch position for lidar (like single-agent)
-        # Agent follows patch with same action to provide lidar
-        # Note: Agent is NOT trained - it's just a sensor that follows the patch
+        # Position agent at patch location to get lidar scan
+        agent_pose = np.array([[self.patch.x, self.patch.y, self.patch.theta]], dtype=np.float32)
         agent_action = np.array([[steering_cmd, speed_cmd]], dtype=np.float32)
         base_obs, _, base_done, base_truncated, _ = self.f110.step(agent_action)
         self.current_base_obs = base_obs
         
-        # Get lidar info from agent (same as single-agent)
+        # Get lidar info (same as single-agent)
         scan = self._get_scan(base_obs, self.cfg.num_beams, i=0)
         min_dist = float(np.min(scan))
         min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
         lidar_info = {"is_safe": min_dist >= self.cfg.collision_min_dist, "min_dist": min_dist}
-        
-        # OLD: Proxy lidar (Frenet-based) - commented out, using real lidar instead
-        # # Base env not stepped - agents will be controlled by MPC later
-        # # For now, we don't need to step base env since num_agents=0
-        # # When you add MPC agents later, you'll step them separately
-        # base_done = False
-        # base_truncated = False
-        # # Get lidar info from proxy (Frenet-based) like single-agent code
-        # s_now, ey_now = self._patch_to_frenet()
-        # track_width_now = self._estimate_current_track_width()
-        # if track_width_now is not None:
-        #     proxy_lidar = self._frenet_proxy_lidar(ey=ey_now, track_width=track_width_now)
-        #     min_dist = float(np.min(proxy_lidar))
-        # else:
-        #     min_dist = 10.0  # Max range if no track width
-        # min_dist = float(np.nan_to_num(min_dist, nan=0.0, posinf=10.0, neginf=0.0))
-        # lidar_info = {"is_safe": min_dist >= self.cfg.collision_min_dist, "min_dist": min_dist}
         
         # Lap detection (same as single-agent)
         s_now, ey_now = self._patch_to_frenet()

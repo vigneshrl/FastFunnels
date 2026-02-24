@@ -133,96 +133,100 @@ class PatchObservationBuilder:
     #
     #     return progress, direction.astype(np.float32), current_idx
 
-    # NOT USED: full observation builder (using compact_observation=True)
-    # def build(
-    #     self,
-    #     patch,
-    #     start_xy: Tuple[float, float],
-    #     goal_xy: np.ndarray | None = None,
-    #     waypoints: np.ndarray | None = None,
-    #     current_waypoint_idx: int = 0,
-    #     look_ahead: int = 10,
-    #     search_window: int = 30,
-    #     navigation_mode: str = "landmark",
-    #     lidar_distances: np.ndarray | None = None,
-    #     clearance_obs: np.ndarray | None = None,
-    #     best_heading: float = 0.0,
-    #     best_clearance: float = 0.0,
-    #     mpc_attempts: int = 0,
-    #     mpc_successes: int = 0,
-    #     safety_interventions: int = 0,
-    #     step_count: int = 0,
-    #     num_agents: int = 2,
-    #     alpha: float = 0.1,
-    #     size_change_rate: float = 1.0,
-    # ) -> np.ndarray:
-    #     patch_state = patch.get_state()
-    #     patch_x, patch_y, patch_theta, patch_v = patch_state
-    #     patch_v = max(float(patch_v), 0.1)
-    #
-    #     rel_x = patch_x - float(start_xy[0])
-    #     rel_y = patch_y - float(start_xy[1])
-    #
-    #     patch_obs = np.array(
-    #         [
-    #             rel_x / self.config.track_scale,
-    #             rel_y / self.config.track_scale,
-    #             patch_theta / np.pi,
-    #             patch_v / self.config.max_speed_norm,
-    #         ],
-    #         dtype=np.float32,
-    #     )
-    #     shape_obs = np.array(
-    #         [
-    #             patch.a / self.config.max_size_norm,
-    #             patch.b / self.config.max_size_norm,
-    #         ],
-    #         dtype=np.float32,
-    #     )
-    #     lidar_obs = np.clip(lidar_distances / 10.0, 0.0, 1.0).astype(np.float32)
-    #     heading_obs = np.array([best_heading, best_clearance], dtype=np.float32)
-    #     
-    #     # Goal direction based on navigation mode
-    #     # Waypoint goal-direction is disabled in centerline/Frenet mode to match
-    #     # single-agent behavior driven by (s, ey, ds) rather than waypoint chasing.
-    #     if navigation_mode == "centerline":
-    #         local_goal_dir = np.array([0.0, 0.0], dtype=np.float32)
-    #         goal_dist = 0.0
-    #     elif goal_xy is not None:
-    #         _, local_goal_dir, goal_dist = self.goal_direction_and_distance(patch, goal_xy)
-    #     else:
-    #         # Fallback
-    #         local_goal_dir = np.array([1.0, 0.0], dtype=np.float32)
-    #         goal_dist = 50.0
-    #     
-    #     goal_obs = np.array(
-    #         [
-    #             local_goal_dir[0],
-    #             local_goal_dir[1],
-    #             min(goal_dist / self.config.max_goal_dist_norm, 1.0),
-    #         ],
-    #         dtype=np.float32,
-    #     )
-    #     wall_dist_obs = np.array([float(np.min(lidar_distances)) / self.config.max_wall_dist_norm], dtype=np.float32)
-    #     domain_obs = np.array([size_change_rate / 2.0], dtype=np.float32)
-    #     alpha_obs = np.array([alpha], dtype=np.float32)
-    #
-    #     feasibility_rate = 1.0 if mpc_attempts <= 0 else float(mpc_successes / mpc_attempts)
-    #     safety_rate = float(safety_interventions / max(1, step_count * num_agents))
-    #     mpc_obs = np.array([feasibility_rate, safety_rate], dtype=np.float32)
-    #
-    #     return np.concatenate(
-    #         [
-    #             patch_obs,
-    #             shape_obs,
-    #             lidar_obs,
-    #             heading_obs,
-    #             goal_obs,
-    #             clearance_obs.astype(np.float32),
-    #             wall_dist_obs,
-    #             domain_obs,
-    #             alpha_obs,
-    #             mpc_obs,
-    #         ]
-    #     ).astype(np.float32)
+    def build(
+        self,
+        patch,
+        start_xy: Tuple[float, float],
+        goal_xy: np.ndarray | None = None,
+        waypoints: np.ndarray | None = None,
+        current_waypoint_idx: int = 0,
+        look_ahead: int = 10,
+        search_window: int = 30,
+        navigation_mode: str = "landmark",
+        lidar_distances: np.ndarray | None = None,
+        clearance_obs: np.ndarray | None = None,
+        best_heading: float = 0.0,
+        best_clearance: float = 0.0,
+        mpc_attempts: int = 0,
+        mpc_successes: int = 0,
+        safety_interventions: int = 0,
+        step_count: int = 0,
+        num_agents: int = 2,
+        alpha: float = 0.1,
+        size_change_rate: float = 1.0,
+    ) -> np.ndarray:
+        patch_state = patch.get_state()
+        patch_x, patch_y, patch_theta, patch_v = patch_state
+        patch_v = max(float(patch_v), 0.1)
+
+        rel_x = patch_x - float(start_xy[0])
+        rel_y = patch_y - float(start_xy[1])
+
+        patch_obs = np.array(
+            [
+                rel_x / self.config.track_scale,
+                rel_y / self.config.track_scale,
+                patch_theta / np.pi,
+                patch_v / self.config.max_speed_norm,
+            ],
+            dtype=np.float32,
+        )
+        shape_obs = np.array(
+            [
+                patch.a / self.config.max_size_norm,
+                patch.b / self.config.max_size_norm,
+            ],
+            dtype=np.float32,
+        )
+        lidar_obs = np.clip(lidar_distances / 10.0, 0.0, 1.0).astype(np.float32)
+        heading_obs = np.array([best_heading, best_clearance], dtype=np.float32)
+        
+        # Goal direction based on navigation mode
+        # Waypoint goal-direction is disabled in centerline/Frenet mode to match
+        # single-agent behavior driven by (s, ey, ds) rather than waypoint chasing.
+        if navigation_mode == "centerline":
+            # old:
+            # if navigation_mode == "centerline" and waypoints is not None:
+            #     _, local_goal_dir, goal_dist, _ = self.goal_direction_and_distance_centerline(
+            #         patch, waypoints, current_waypoint_idx, look_ahead, search_window
+            #     )
+            local_goal_dir = np.array([0.0, 0.0], dtype=np.float32)
+            goal_dist = 0.0
+        elif goal_xy is not None:
+            _, local_goal_dir, goal_dist = self.goal_direction_and_distance(patch, goal_xy)
+        else:
+            # Fallback
+            local_goal_dir = np.array([1.0, 0.0], dtype=np.float32)
+            goal_dist = 50.0
+        
+        goal_obs = np.array(
+            [
+                local_goal_dir[0],
+                local_goal_dir[1],
+                min(goal_dist / self.config.max_goal_dist_norm, 1.0),
+            ],
+            dtype=np.float32,
+        )
+        wall_dist_obs = np.array([float(np.min(lidar_distances)) / self.config.max_wall_dist_norm], dtype=np.float32)
+        domain_obs = np.array([size_change_rate / 2.0], dtype=np.float32)
+        alpha_obs = np.array([alpha], dtype=np.float32)
+
+        feasibility_rate = 1.0 if mpc_attempts <= 0 else float(mpc_successes / mpc_attempts)
+        safety_rate = float(safety_interventions / max(1, step_count * num_agents))
+        mpc_obs = np.array([feasibility_rate, safety_rate], dtype=np.float32)
+
+        return np.concatenate(
+            [
+                patch_obs,
+                shape_obs,
+                lidar_obs,
+                heading_obs,
+                goal_obs,
+                clearance_obs.astype(np.float32),
+                wall_dist_obs,
+                domain_obs,
+                alpha_obs,
+                mpc_obs,
+            ]
+        ).astype(np.float32)
 
