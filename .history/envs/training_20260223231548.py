@@ -354,10 +354,10 @@ if __name__ == "__main__":
     parser.add_argument("--domain-randomize", action="store_true")
     parser.add_argument("--no-norm-reward", action="store_true")
     parser.add_argument("--base-reset-type", type=str, default="rl_random_static")
-    # parser.add_argument("--use-base-done-termination", action="store_true")
-    # parser.add_argument("--patch-only-mode", action="store_true")
-    # parser.add_argument("--debug-step-print-every", type=int, default=0)
-    # parser.add_argument("--no-debug-episode-end", action="store_true")
+    parser.add_argument("--use-base-done-termination", action="store_true")
+    parser.add_argument("--patch-only-mode", action="store_true")
+    parser.add_argument("--debug-step-print-every", type=int, default=0)
+    parser.add_argument("--no-debug-episode-end", action="store_true")
     parser.add_argument("--wandb-project", type=str, default="patch_sempc_training")
     parser.add_argument("--wandb-entity", type=str, default=None)
     parser.add_argument("--wandb-run-name", type=str, default=None)
@@ -372,7 +372,7 @@ if __name__ == "__main__":
         domain_randomize=args.domain_randomize,
         norm_reward=not args.no_norm_reward,
         base_reset_type=args.base_reset_type,
-        # use_base_done_termination=args.use_base_done_termination,
+        use_base_done_termination=args.use_base_done_termination,
         # patch_only_mode=args.patch_only_mode,
         # debug_print_every_n_steps=args.debug_step_print_every,
         # debug_print_episode_end=not args.no_debug_episode_end,

@@ -1151,21 +1151,16 @@ class PatchEnv(gym.Env):
         # accel_cmd = (speed_cmd - current_speed) / max(dt, 1e-6)
         # accel_cmd = float(np.clip(accel_cmd, -3.0, 3.0))  # Reasonable accel limits
 
-        steering_cmd = float(np.nan_to_num(steering_cmd, nan=0.0, posinf=0.4189, neginf=-0.4189))
-        speed_cmd = float(np.nan_to_num(speed_cmd, nan=0.5, posinf=10.0, neginf=0.5))
-        steering_cmd = float(np.clip(steering_cmd, -0.4189, 0.4189))
-        speed_cmd = float(np.clip(speed_cmd, 0.5, 10.0))
+        
         
         # Update patch state (fixed size, only position/velocity change)
         self.patch.steering = steering_cmd
-        self.patch.step(steering_cmd, steering_cmd, dt)
+        self.patch.step(accel_cmd, steering_cmd, dt)
         
         # Step base env with agent at patch position for lidar (like single-agent)
         # Agent follows patch with same action to provide lidar
         # Note: Agent is NOT trained - it's just a sensor that follows the patch
-        agent_action = np.array([[speed_cmd, steering_cmd]], dtype=np.float32)
-        agent_action = np.nan_to_num(agent_action, nan=0.0, posinf=10.0, neginf=0.0)
-        agent_action = np.clip(agent_action, [[0.5, -0.4189]], [[10.0, 0.4189]])
+        agent_action = np.array([[steering_cmd, speed_cmd]], dtype=np.float32)
         base_obs, _, base_done, base_truncated, _ = self.f110.step(agent_action)
         self.current_base_obs = base_obs
         
