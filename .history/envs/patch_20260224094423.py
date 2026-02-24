@@ -19,7 +19,7 @@ class PatchDynamicsConfig:
     wheelbase: float = 0.5
     v_min: float = 0.5
     v_max: float = 10.0
-    # accel_max: float = 4.0
+    accel_max: float = 4.0
     steering_max: float = 0.5
     size_change_rate: float = 1.0
 
@@ -62,8 +62,8 @@ class DynamicPatch:
         self.cos_t = np.cos(self.theta)
         self.sin_t = np.sin(self.theta)
 
-    def step(self, speed: float, steering: float, dt: float = 0.05) -> None:
-        speed = float(np.clip(speed, self.config.v_min, self.config.v_max))
+    def step(self, accel: float, steering: float, dt: float = 0.05) -> None:
+        speed = float(np.clip(accel, -self.config.accel_max, self.config.accel_max))
         steering = float(np.clip(steering, -self.config.steering_max, self.config.steering_max))
 
         self.x += self.v * np.cos(self.theta) * dt

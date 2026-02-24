@@ -18,8 +18,8 @@ import numpy as np
 class PatchDynamicsConfig:
     wheelbase: float = 0.5
     v_min: float = 0.5
-    v_max: float = 10.0
-    # accel_max: float = 4.0
+    v_max: float = 5.0
+    accel_max: float = 4.0
     steering_max: float = 0.5
     size_change_rate: float = 1.0
 
@@ -29,7 +29,7 @@ class DynamicPatch:
     Deformable ellipsoid patch with bicycle-model dynamics.
 
     State: [x, y, theta, v]
-    Control: [speed, steering]
+    Control: [accel, steering]
     Shape: [a, b]
     """
 
@@ -51,7 +51,7 @@ class DynamicPatch:
         self.a = a
         self.b = b
 
-        self.speed = 0.0
+        self.accel = 0.0
         self.steering = 0.0
 
         self.config = config or PatchDynamicsConfig()
@@ -62,15 +62,15 @@ class DynamicPatch:
         self.cos_t = np.cos(self.theta)
         self.sin_t = np.sin(self.theta)
 
-    def step(self, speed: float, steering: float, dt: float = 0.05) -> None:
-        speed = float(np.clip(speed, self.config.v_min, self.config.v_max))
+    def step(self, accel: float, steering: float, dt: float = 0.05) -> None:
+        accel = float(np.clip(accel, -self.config.accel_max, self.config.accel_max))
         steering = float(np.clip(steering, -self.config.steering_max, self.config.steering_max))
 
         self.x += self.v * np.cos(self.theta) * dt
         self.y += self.v * np.sin(self.theta) * dt
         self.theta += (self.v / self.config.wheelbase) * np.tan(steering) * dt
-        self.v = speed
-        # self.v = float(np.clip(self.v, self.config.v_min, self.config.v_max))
+        self.v += accel * dt
+        self.v = float(np.clip(self.v, self.config.v_min, self.config.v_max))
 
         while self.theta > np.pi:
             self.theta -= 2 * np.pi
@@ -177,7 +177,7 @@ class DynamicPatch:
             if px < 0 or py < 0 or py >= occupancy_map.shape[0] or px >= occupancy_map.shape[1]:
                 violated_points.append((x_world, y_world))
                 continue
-            if occupancy_map[py, px] < 0.5:
+            if i want [py, px] < 0.5:
                 violated_points.append((x_world, y_world))
 
         violation_fraction = len(violated_points) / max(n_points, 1)

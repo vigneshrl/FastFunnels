@@ -1177,7 +1177,7 @@ class PatchEnv(gym.Env):
         
         # Update patch state (fixed size, only position/velocity change)
         self.patch.steering = steering_cmd
-        self.patch.step(speed_cmd, steering_cmd, dt)
+        self.patch.step(accel_cmd, steering_cmd, dt)
         
         # Step base env with agent at patch position for lidar (like single-agent)
         # Agent follows patch with same action to provide lidar
