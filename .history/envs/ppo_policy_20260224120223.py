@@ -357,8 +357,8 @@ class PatchEnvConfig:
     reward_crosstrack_weight: float = 2.0
     reward_steer_bias_weight: float = 0.0
     reward_steer_rate_weight: float = 0.0
-    spin_yawrate_threshold: float = 1.5
-    reward_spin_weight: float = 0.5 
+    spin_yawrate_threshold: float = 0.0
+    reward_spin_weight: float = 0.0 
     collision_penalty: float = 1500.0
     collision_min_dist: float = 0.25
     stuck_no_progress_steps: int = 60
