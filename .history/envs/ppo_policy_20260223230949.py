@@ -1088,8 +1088,7 @@ class PatchEnv(gym.Env):
         self.prev_s, _ = self._patch_to_frenet()
         
         # Reset base env with agent at patch position (same as single-agent - 1 agent for lidar)
-        # base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
-        base_obs, _ = self.f110.reset(poses=np.array([[patch_x, patch_y, patch_theta]], dtype=np.float32))
+        base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
         self.current_base_obs = base_obs
         
         # OLD: Reset with empty poses for proxy lidar (commented out - using real lidar instead)

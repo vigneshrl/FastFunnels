@@ -1088,8 +1088,7 @@ class PatchEnv(gym.Env):
         self.prev_s, _ = self._patch_to_frenet()
         
         # Reset base env with agent at patch position (same as single-agent - 1 agent for lidar)
-        # base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
-        base_obs, _ = self.f110.reset(poses=np.array([[patch_x, patch_y, patch_theta]], dtype=np.float32))
+        base_obs, _ = self.f110.reset(poses=[[patch_x, patch_y, patch_theta]])
         self.current_base_obs = base_obs
         
         # OLD: Reset with empty poses for proxy lidar (commented out - using real lidar instead)
@@ -1972,12 +1971,12 @@ def make_patch_env(
     rank: int,
     seed: int = 0,
     domain_randomize: bool = False,
-    # navigation_mode: str = "landmark",
-    # debug_print_every_n_steps: int = 0,
-    # debug_print_episode_end: bool = True,
+    navigation_mode: str = "landmark",
+    debug_print_every_n_steps: int = 0,
+    debug_print_episode_end: bool = True,
     base_reset_type: str = "rl_random_static",
-    # use_base_done_termination: bool = False,
-    # patch_only_mode: bool = False,
+    use_base_done_termination: bool = False,
+    patch_only_mode: bool = False,
 ):
     """
     Factory function to create patch environments for parallel training.
@@ -2000,12 +1999,12 @@ def make_patch_env(
             domain_randomize=domain_randomize,
             num_agents=2,
             render_mode=None,
-            # navigation_mode=navigation_mode,
-            # debug_print_every_n_steps=debug_print_every_n_steps,
-            # debug_print_episode_end=debug_print_episode_end,
+            navigation_mode=navigation_mode,
+            debug_print_every_n_steps=debug_print_every_n_steps,
+            debug_print_episode_end=debug_print_episode_end,
             base_reset_type=base_reset_type,
-            # use_base_done_termination=use_base_done_termination,
-            # patch_only_mode=patch_only_mode,
+            use_base_done_termination=use_base_done_termination,
+            patch_only_mode=patch_only_mode,
         )
         env = PatchEnv(cfg)
         env.reset(seed=seed + rank)
