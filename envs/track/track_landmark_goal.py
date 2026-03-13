@@ -38,3 +38,4 @@ def get_landmark(name: str = "spielberg_default") -> LandmarkGoal:
     return DEFAULT_LANDMARKS[name]
 
 
+
