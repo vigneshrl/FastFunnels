@@ -11,9 +11,9 @@ import torch
 import torch.nn as nn 
 
 try:
-    from .ppo_policy import make_patch_env
+    from .ppo_policy import make_patch_env, make_agent_env, PatchEnv, PatchEnvConfig
 except ImportError:
-    from envs.ppo_policy import make_patch_env
+    from envs.ppo_policy import make_patch_env, make_agent_env, PatchEnv, PatchEnvConfig
 
 try:
     from stable_baselines3 import PPO
@@ -122,7 +122,7 @@ class TrainingCallback(BaseCallback):
             self.recent_min_dists.append(float(info.get("min_lidar_dist", np.nan)))
             self.recent_last_ds.append(float(info.get("ds", np.nan)))
             self.recent_last_ey.append(float(info.get("ey", np.nan)))
-            self.recent_mpc_feas.append(float(info.get("mpc_feasibility_rate", np.nan)))
+            # self.recent_mpc_feas.append(float(info.get("mpc_feasibility_rate", np.nan)))
             self.recent_safety_rates.append(float(info.get("safety_intervention_rate", np.nan)))
             self.recent_reward_clipped.append(bool(info.get("reward_was_clipped", False)))
             self.recent_agent_step_disp.append(float(info.get("episode_avg_agent_step_disp", np.nan)))
@@ -130,6 +130,9 @@ class TrainingCallback(BaseCallback):
             self.recent_mean_speed_cmd.append(float(info.get("mean_speed_cmd", np.nan)))
             self.recent_mean_abs_steer_cmd.append(float(info.get("mean_abs_steer_cmd", np.nan)))
             self.recent_control_order.append(str(info.get("control_input_order", "unknown")))
+            # self.recent_inter_agent_dists.append(float(info.get("inter_agent_dist", np.nan)))
+            # both_inside = float(info.get("agent0_inside_patch", False)) + float(info.get("agent1_inside_patch", False))
+            # self.recent_inside_patch_rates.append(both_inside / 2.0)
 
             if self.episode_count % 50 == 0 and self.episode_rewards:
                 now = time.time()
@@ -158,22 +161,22 @@ class TrainingCallback(BaseCallback):
                     f"  Avg Reward: {avg_r:.2f} | Avg Len: {avg_len:.1f} | "
                     f"Top End: {top_reason} | Time: {elapsed/60:.1f} min | Speed: {tps:.1f} steps/sec"
                 )
-                print(
-                    f"  Debug(last50): reasons=[{reason_breakdown}] "
-                    f"min_dist={avg_min_dist:.3f} ds={avg_last_ds:.4f} ey={avg_last_ey:.3f} "
-                    f"mpc_feas={avg_mpc_feas:.3f} safety_rate={avg_safety:.3f} clip_frac={clip_frac:.2f}"
-                )
-                print(
-                    f"  AgentMotion(last50): avg_step_disp={avg_agent_step_disp:.4f}m "
-                    f"move_step_ratio={avg_agent_move_ratio:.3f}"
-                )
-                print(
-                    f"  Cmd(last50): mean_speed={avg_cmd_speed:.3f} "
-                    f"mean_abs_steer={avg_cmd_abs_steer:.3f} "
-                    f"control_order={control_order_sample}"
-                )
-                if avg_len < 5.0:
-                    print("  WARNING: Very short episodes. Focus on termination reasons and min_dist.")
+                if self.policy_name != "AGENT":
+                    print(
+                        f"  Debug(last50): reasons=[{reason_breakdown}] "
+                        f"min_dist={avg_min_dist:.3f} ds={avg_last_ds:.4f} ey={avg_last_ey:.3f} "
+                    )
+                    print(
+                        f"  AgentMotion(last50): avg_step_disp={avg_agent_step_disp:.4f}m "
+                        f"move_step_ratio={avg_agent_move_ratio:.3f}"
+                    )
+                    print(
+                        f"  Cmd(last50): mean_speed={avg_cmd_speed:.3f} "
+                        f"mean_abs_steer={avg_cmd_abs_steer:.3f} "
+                        f"control_order={control_order_sample}"
+                    )
+                    if avg_len < 5.0:
+                        print("  WARNING: Very short episodes. Focus on termination reasons and min_dist.")
                 with open(self.log_file, "a", encoding="utf-8") as f:
                     # old csv row kept for reference:
                     # f.write(f"{self.num_timesteps},{self.episode_count},{avg_r:.2f},{avg_len:.2f},{elapsed:.1f},{tps:.2f},{top_reason},{avg_min_dist:.4f},{avg_last_ds:.6f},{avg_last_ey:.4f},{avg_mpc_feas:.4f},{avg_safety:.4f},{clip_frac:.4f}\n")
@@ -344,8 +347,132 @@ def train_patch_policy(
     return model
 
 
+def train_agent_policy(
+    total_timesteps: int = 1000000,
+    save_path: str = "agent_policy_models",
+    checkpoint_freq: int = 2000,
+    NUM_ENVS: int = 4,
+    resume_from: Optional[str] = None,
+    patch_checkpoint_path: str = "",
+    patch_vecnorm_path: str = "",
+    norm_reward: bool = True,
+    patch_env=None,
+    # base_reset_type: str = "rl_random_static",
+    wandb_project: str = "agent_sempc_training",
+    wandb_entity: Optional[str] = None,
+    wandb_run_name: Optional[str] = None,
+):
+    if not SB3_AVAILABLE:
+        raise RuntimeError("stable-baselines3 is required for training.")
+
+    os.makedirs(save_path, exist_ok=True)
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = os.path.join(save_path, f"run_{run_id}")
+    os.makedirs(run_dir, exist_ok=True)
+    tb_log_dir = os.path.join(run_dir, "tb")
+    os.makedirs(tb_log_dir, exist_ok=True)
+
+    wandb_run = None
+    if WANDB_AVAILABLE:
+        wandb_run = wandb.init(
+            project=wandb_project,
+            sync_tensorboard=True,
+            save_code=True,
+        )
+
+    def _monitored(thunk):
+        return lambda: Monitor(thunk())
+
+    if patch_env is None and patch_checkpoint_path:
+        patch_env = PatchEnv(PatchEnvConfig())
+        patch_env.patch_policy = PPO.load(patch_checkpoint_path)
+        patch_env.patch_policy.policy.set_training_mode(False)
+        if patch_vecnorm_path and os.path.exists(patch_vecnorm_path):
+            from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+            import gymnasium as gym
+            from gymnasium import spaces
+            class _DummyPatchEnv(gym.Env):
+                observation_space = spaces.Box(-np.inf, np.inf, shape=(4,), dtype=np.float32)
+                action_space = spaces.Box(
+                    low=np.array([-0.4189, 0.5, 0.325, 0.25], dtype=np.float32),
+                    high=np.array([0.4189, 10.0, 2.5, 1.5], dtype=np.float32),
+                )
+                def reset(self, **kw): return np.zeros(4, dtype=np.float32), {}
+                def step(self, a): return np.zeros(4, dtype=np.float32), 0.0, False, False, {}
+            patch_env.patch_vecnorm = VecNormalize.load(patch_vecnorm_path, DummyVecEnv([_DummyPatchEnv]))
+            patch_env.patch_vecnorm.training = False
+            patch_env.patch_vecnorm.norm_reward = False
+        else:
+            patch_env.patch_vecnorm = None
+
+    env_fns = [
+        _monitored(make_agent_env(
+            i,
+            seed=42,
+            patch_env=patch_env,
+        ))
+        for i in range(NUM_ENVS)
+    ]
+
+    if NUM_ENVS > 1:
+        env = SubprocVecEnv(env_fns)
+    else:
+        env = DummyVecEnv(env_fns)
+
+    env = VecCheckNan(env, raise_exception=True)
+    env = VecNormalize(
+        env,
+        norm_obs=True,
+        norm_reward=norm_reward,
+        clip_obs=10.0,
+        clip_reward=5.0,
+        gamma=0.99,
+    )
+
+    callback = TrainingCallback(run_dir, checkpoint_freq, "AGENT")
+
+    rollout_steps = 2048
+    batch_size = NUM_ENVS * rollout_steps // 4
+
+    if resume_from and os.path.exists(resume_from + ".zip"):
+        model = PPO.load(resume_from, env=env)
+    else:
+        model = PPO(
+            "MlpPolicy",
+            env,
+            tensorboard_log=tb_log_dir,
+            learning_rate=1e-5,
+            seed=42,
+            n_steps=rollout_steps,
+            batch_size=batch_size,
+            n_epochs=10,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_range=0.2,
+            ent_coef=0.003, #previously it was 0.05 chnaged it beacuse of the log_s
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            verbose=1,
+            use_sde=False,
+            policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256]), log_std_init=-3.0),
+        )
+
+    save_best_cb = SaveBestWithVecNormalize(save_dir=run_dir, check_freq=rollout_steps)
+    callbacks = [callback, save_best_cb]
+
+    model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
+    model.save(os.path.join(run_dir, "final_model"))
+    env.save(os.path.join(run_dir, "final_vecnormalize.pkl"))
+    env.close()
+    if WANDB_AVAILABLE and wandb_run is not None:
+        wandb.finish()
+    return model
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train patch policy with modular envs stack.")
+    parser = argparse.ArgumentParser(description="Train patch or agent policy with modular envs stack.")
+    parser.add_argument("--mode", type=str, default="patch", choices=["patch", "agent"],
+                        help="Which policy to train: 'patch' (default) or 'agent'")
     parser.add_argument("--timesteps", type=int, default=500000)
     parser.add_argument("--checkpoint-freq", type=int, default=10000)
     parser.add_argument("--num-envs", type=int, default=4)
@@ -354,29 +481,57 @@ if __name__ == "__main__":
     parser.add_argument("--domain-randomize", action="store_true")
     parser.add_argument("--no-norm-reward", action="store_true")
     parser.add_argument("--base-reset-type", type=str, default="rl_random_static")
-    # parser.add_argument("--use-base-done-termination", action="store_true")
-    # parser.add_argument("--patch-only-mode", action="store_true")
-    # parser.add_argument("--debug-step-print-every", type=int, default=0)
-    # parser.add_argument("--no-debug-episode-end", action="store_true")
+    # Agent-mode args
+    parser.add_argument("--patch-checkpoint", type=str, default="",
+                        help="Path to frozen patch PPO checkpoint (without .zip), required for --mode agent")
+    parser.add_argument("--patch-vecnorm", type=str, default="",
+                        help="Path to VecNormalize .pkl for the patch policy, required for --mode agent")
     parser.add_argument("--wandb-project", type=str, default="patch_sempc_training")
     parser.add_argument("--wandb-entity", type=str, default=None)
     parser.add_argument("--wandb-run-name", type=str, default=None)
     args = parser.parse_args()
 
-    train_patch_policy(
-        total_timesteps=args.timesteps,
-        save_path=args.save_path,
-        checkpoint_freq=args.checkpoint_freq,
-        NUM_ENVS=args.num_envs,
-        resume_from=args.resume,
-        domain_randomize=args.domain_randomize,
-        norm_reward=not args.no_norm_reward,
-        base_reset_type=args.base_reset_type,
-        # use_base_done_termination=args.use_base_done_termination,
-        # patch_only_mode=args.patch_only_mode,
-        # debug_print_every_n_steps=args.debug_step_print_every,
-        # debug_print_episode_end=not args.no_debug_episode_end,
-        wandb_project=args.wandb_project,
-        wandb_entity=args.wandb_entity,
-        wandb_run_name=args.wandb_run_name,
-    )
+    if args.mode == "agent":
+        train_agent_policy(
+            total_timesteps=args.timesteps,
+            save_path=args.save_path if args.save_path != "patch_policy_models" else "agent_policy_models",
+            checkpoint_freq=args.checkpoint_freq,
+            NUM_ENVS=args.num_envs,
+            resume_from=args.resume,
+            patch_checkpoint_path=args.patch_checkpoint,
+            patch_vecnorm_path=args.patch_vecnorm,
+            norm_reward=not args.no_norm_reward,
+            # base_reset_type=args.base_reset_type,
+            wandb_project=args.wandb_project,
+            wandb_entity=args.wandb_entity,
+            wandb_run_name=args.wandb_run_name,
+        )
+    else:
+        train_patch_policy(
+            total_timesteps=args.timesteps,
+            save_path=args.save_path,
+            checkpoint_freq=args.checkpoint_freq,
+            NUM_ENVS=args.num_envs,
+            resume_from=args.resume,
+            domain_randomize=args.domain_randomize,
+            norm_reward=not args.no_norm_reward,
+            base_reset_type=args.base_reset_type,
+            # use_base_done_termination=args.use_base_done_termination,
+            # patch_only_mode=args.patch_only_mode,
+            # debug_print_every_n_steps=args.debug_step_print_every,
+            # debug_print_episode_end=not args.no_debug_episode_end,
+            wandb_project=args.wandb_project,
+            wandb_entity=args.wandb_entity,
+            wandb_run_name=args.wandb_run_name,
+        )
+
+
+
+# for training the agents with the patch run this command 
+
+# python -m envs.training \
+#   --mode agent \
+#   --patch-checkpoint /path/to/patch_model \
+#   --patch-vecnorm /path/to/vecnormalize.pkl \
+#   --timesteps 1000000 \
+#   --num-envs 4
