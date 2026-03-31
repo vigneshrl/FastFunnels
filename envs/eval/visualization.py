@@ -17,7 +17,7 @@ import matplotlib
 #     matplotlib.use("TkAgg")
 # except Exception:
 #     matplotlib.use("Agg")
-matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')  # headless: no display/X11 needed
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
@@ -115,7 +115,7 @@ def evaluate_patch_policy(
             num_agents=2,
             render_mode="human" if render else None,
             domain_randomize=False,
-            random_spawn=True,
+            random_spawn=False,
             # patch_only_mode=True,
         )
     )
@@ -257,7 +257,7 @@ def _plot_patch_evaluation(all_episodes, num_episodes, model_path):
     b_mean, b_std = patch_b_arr.mean(axis=0), patch_b_arr.std(axis=0)
     
     # Create figure
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 3, figsize=(6, 5))
     fig.suptitle(f'Patch Policy Evaluation (n={num_episodes} episodes)', fontsize=14, fontweight='bold')
     
     # 1. Patch Velocity
@@ -396,7 +396,7 @@ def evaluate_agent_policy(
         import gymnasium as gym
         from gymnasium import spaces
         class _DummyPatchEnv(gym.Env):
-            observation_space = spaces.Box(-np.inf, np.inf, shape=(4,), dtype=np.float32)
+            observation_space = spaces.Box(-np.inf, np.inf, shape=(11,), dtype=np.float32)
             action_space = spaces.Box(
                 low=np.array([-0.4189, 0.5, 0.325, 0.25], dtype=np.float32),
                 high=np.array([0.4189, 10.0, 2.5, 1.5], dtype=np.float32),
@@ -445,8 +445,8 @@ def evaluate_agent_policy(
         prev_px, prev_py = None, None  # for position-delta check
 
         while True:
-            action, _ = agent_policy.predict(obs, deterministic=True)
-            obs, reward, done, info = vec_env.step(action)
+            get_patch_action, _ = agent_policy.predict(obs, deterministic=True)
+            obs, reward, done, info = vec_env.step(get_patch_action)
             total_reward += float(reward[0])
             step += 1
 
