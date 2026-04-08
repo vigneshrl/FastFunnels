@@ -31,8 +31,10 @@ except ImportError:
 
 try:
     from ..ppo_policy import PatchEnv, PatchEnvConfig, AgentEnv, AgentEnvConfig
+    from ..ppo_policy import JointEnv, JointEnvConfig
 except ImportError:
     from envs.ppo_policy import PatchEnv, PatchEnvConfig, AgentEnv, AgentEnvConfig
+    from envs.ppo_policy import JointEnv, JointEnvConfig
 
 
 def _resolve_vecnorm_path(policy_path):
@@ -47,6 +49,12 @@ def _resolve_vecnorm_path(policy_path):
         candidates.append(os.path.join(model_dir, model_name.replace("_model", "_vecnormalize.pkl")))
     elif model_name.startswith("checkpoint_"):
         candidates.append(base_path + "_vecnormalize.pkl")
+
+    # joint_sb3 naming: patch_sb3_final → patch_sb3_vecnorm_final.pkl
+    #                   agents_sb3_final → agents_sb3_vecnorm_final.pkl
+    if model_name.endswith("_final"):
+        prefix = model_name[: -len("_final")]
+        candidates.append(os.path.join(model_dir, f"{prefix}_vecnorm_final.pkl"))
 
     candidates.extend(
         [
@@ -348,8 +356,7 @@ def evaluate_agent_policy(
     num_episodes=10,
     num_agents= 2,
     render=False,
-    visualise=False,
-):
+    visualise=False,):
     """
     Evaluate agent policy inside a frozen patch corridor.
 
@@ -415,7 +422,7 @@ def evaluate_agent_policy(
         AgentEnvConfig(
             patch_env=patch_env,
             render_mode="human" if render else None,
-            random_spawn=True,
+            random_spawn=False,
         )
     )
     vec_env = DummyVecEnv([lambda: env])
@@ -532,6 +539,326 @@ def evaluate_agent_policy(
     return all_rewards, all_steps
 
 
+def evaluate_joint_policy(
+    patch_model_path: str,
+    agent_model_path: str,
+    patch_vecnorm_path: str = None,
+    agent_vecnorm_path: str = None,
+    num_episodes: int = 10,
+    render: bool = False,
+    plot: bool = True,
+    live_viz: bool = False,
+):
+    """Evaluate the jointly-trained patch + agent policies on a fresh JointEnv.
+
+    Both models are loaded from their SB3 .zip files. VecNormalize stats are
+    applied to observations before passing to each policy (identical to training).
+
+    Parameters
+    ----------
+    patch_model_path : path to patch_sb3_final.zip (or similar)
+    agent_model_path : path to agents_sb3_final.zip (or similar)
+    patch_vecnorm_path : path to patch VecNormalize .pkl  (auto-resolved if None)
+    agent_vecnorm_path : path to agent VecNormalize .pkl  (auto-resolved if None)
+    num_episodes : how many episodes to run
+    render : call env._visualize() for a live matplotlib view each step
+    plot : generate summary plots after evaluation
+    live_viz : show a real-time matplotlib window of patch + agent positions
+    """
+    if not SB3_AVAILABLE:
+        print("ERROR: stable-baselines3 required!")
+        return
+
+    print("=" * 70)
+    print("EVALUATING JOINT POLICY (patch + agents)")
+    print("=" * 70)
+    print(f"Patch model : {patch_model_path}")
+    print(f"Agent model : {agent_model_path}")
+    print(f"Episodes    : {num_episodes}")
+    print("=" * 70)
+
+    # --- resolve vecnorm paths ---
+    if patch_vecnorm_path is None:
+        patch_vecnorm_path = _resolve_vecnorm_path(patch_model_path)
+        if patch_vecnorm_path:
+            print(f"Auto-resolved patch vecnorm : {patch_vecnorm_path}")
+    if agent_vecnorm_path is None:
+        agent_vecnorm_path = _resolve_vecnorm_path(agent_model_path)
+        if agent_vecnorm_path:
+            print(f"Auto-resolved agent vecnorm : {agent_vecnorm_path}")
+
+    # --- load models ---
+    patch_ppo = PPO.load(patch_model_path)
+    patch_ppo.policy.set_training_mode(False)
+    agent_ppo = PPO.load(agent_model_path)
+    agent_ppo.policy.set_training_mode(False)
+
+    # --- build dummy VecNormalize wrappers for obs normalisation only ---
+    # Load VecNormalize stats via pickle to avoid obs-shape mismatch in set_venv.
+    # We only need normalize_obs() — no real env needs to be attached.
+    import pickle
+
+    patch_vn = None
+    if patch_vecnorm_path and os.path.exists(patch_vecnorm_path):
+        with open(patch_vecnorm_path, "rb") as f:
+            patch_vn = pickle.load(f)
+        patch_vn.training = False
+        patch_vn.norm_reward = False
+
+    agent_vn = None
+    if agent_vecnorm_path and os.path.exists(agent_vecnorm_path):
+        with open(agent_vecnorm_path, "rb") as f:
+            agent_vn = pickle.load(f)
+        agent_vn.training = False
+        agent_vn.norm_reward = False
+
+    def _norm_patch(obs):
+        if patch_vn is None:
+            return obs
+        if patch_vn.obs_rms.mean.shape != obs.shape:
+            print(f"WARNING: patch vecnorm shape {patch_vn.obs_rms.mean.shape} != obs {obs.shape}; skipping normalisation")
+            return obs
+        return patch_vn.normalize_obs(obs[np.newaxis])[0]
+
+    def _norm_agent(obs):
+        if agent_vn is None:
+            return obs
+        if agent_vn.obs_rms.mean.shape != obs.shape:
+            print(f"WARNING: agent vecnorm shape {agent_vn.obs_rms.mean.shape} != obs {obs.shape}; skipping normalisation")
+            return obs
+        return agent_vn.normalize_obs(obs[np.newaxis])[0]
+
+    # render_mode="human" enables both f110 top-down view and matplotlib overlay
+    env = JointEnv(JointEnvConfig(render_mode="human" if (render or live_viz) else None))
+    env._real_agents_active = True   # real agent policies are running — enable f110 simulation
+
+    # --- episode loop ---
+    all_rewards_agents = []
+    all_rewards_patch  = []
+    all_ep_lens        = []
+    termination_reasons = defaultdict(int)
+
+    # per-episode trajectory storage
+    all_patch_xs, all_patch_ys = [], []
+    all_agent0_xs, all_agent0_ys = [], []
+    all_agent1_xs, all_agent1_ys = [], []
+    all_agents_inside = []
+    all_patch_speeds  = []
+
+    for ep in range(num_episodes):
+        env.reset(seed=ep)
+        ep_reward_agents = 0.0
+        ep_reward_patch  = 0.0
+        patch_xs, patch_ys = [], []
+        agent0_xs, agent0_ys = [], []
+        agent1_xs, agent1_ys = [], []
+        agents_inside_ts = []
+        patch_speed_ts   = []
+
+        while True:
+            # --- get observations ---
+            patch_obs = env._step_obs[0]
+            agent0_obs = env._step_obs[1]
+            agent1_obs = env._step_obs[2]
+
+            if patch_obs is None or agent0_obs is None or agent1_obs is None:
+                break  # env not yet initialised (shouldn't happen after reset)
+
+            # --- predict actions (with obs normalisation) ---
+            patch_action, _ = patch_ppo.predict(_norm_patch(patch_obs), deterministic=True)
+            agent0_action, _ = agent_ppo.predict(_norm_agent(agent0_obs), deterministic=True)
+            agent1_action, _ = agent_ppo.predict(_norm_agent(agent1_obs), deterministic=True)
+
+            # --- step ---
+            env._execute_joint_step(
+                np.asarray(patch_action, dtype=np.float32),
+                np.asarray(agent0_action, dtype=np.float32),
+                np.asarray(agent1_action, dtype=np.float32),
+            )
+
+            ep_reward_agents += float(np.mean([env._step_rewards[1], env._step_rewards[2]]))
+            ep_reward_patch  += float(env._step_rewards[0])
+
+            # record positions
+            patch_xs.append(env.patch.x)
+            patch_ys.append(env.patch.y)
+            if env.current_base_obs is not None:
+                bobs = env.current_base_obs
+                agent0_xs.append(float(bobs["poses_x"][0]))
+                agent0_ys.append(float(bobs["poses_y"][0]))
+                agent1_xs.append(float(bobs["poses_x"][1]))
+                agent1_ys.append(float(bobs["poses_y"][1]))
+            agents_inside_ts.append(env._step_info.get("agents_inside", 0))
+            patch_speed_ts.append(env.patch.v)
+
+            # --- f110 gym window (top-down car view) ---
+            if render or live_viz:
+                env.render()
+
+            # --- matplotlib overlay (patch ellipse + agent markers) ---
+            if live_viz:
+                env._visualize()
+
+            if env._step_terminated or env._step_truncated:
+                reason = env._step_info.get("termination_reason", "unknown")
+                termination_reasons[reason] += 1
+                all_rewards_agents.append(ep_reward_agents)
+                all_rewards_patch.append(ep_reward_patch)
+                all_ep_lens.append(env.step_count)
+                all_patch_xs.append(patch_xs)
+                all_patch_ys.append(patch_ys)
+                all_agent0_xs.append(agent0_xs)
+                all_agent0_ys.append(agent0_ys)
+                all_agent1_xs.append(agent1_xs)
+                all_agent1_ys.append(agent1_ys)
+                all_agents_inside.append(agents_inside_ts)
+                all_patch_speeds.append(patch_speed_ts)
+                print(
+                    f"Ep {ep+1:3d}/{num_episodes} | "
+                    f"len={env.step_count:4d} | "
+                    f"rew_agents={ep_reward_agents:8.1f} | "
+                    f"rew_patch={ep_reward_patch:8.1f} | "
+                    f"reason={reason}"
+                )
+                break
+
+    env.close()  # also closes the matplotlib figure via JointEnv.close()
+
+    # --- summary ---
+    print(f"\n{'='*70}")
+    print("JOINT EVALUATION SUMMARY")
+    print(f"{'='*70}")
+    print(f"Avg Episode Length : {np.mean(all_ep_lens):.0f} ± {np.std(all_ep_lens):.0f} steps")
+    print(f"Avg Agent Reward   : {np.mean(all_rewards_agents):.1f} ± {np.std(all_rewards_agents):.1f}")
+    print(f"Avg Patch Reward   : {np.mean(all_rewards_patch):.1f} ± {np.std(all_rewards_patch):.1f}")
+    print(f"\nTermination Reasons:")
+    for reason, count in sorted(termination_reasons.items(), key=lambda x: -x[1]):
+        print(f"  {reason}: {count} ({count/num_episodes*100:.0f}%)")
+    print(f"{'='*70}")
+
+    if plot and all_patch_xs:
+        _plot_joint_evaluation(
+            all_patch_xs, all_patch_ys,
+            all_agent0_xs, all_agent0_ys,
+            all_agent1_xs, all_agent1_ys,
+            all_agents_inside, all_patch_speeds,
+            all_ep_lens, all_rewards_agents,
+            num_episodes, patch_model_path,
+        )
+
+    return all_rewards_agents, all_ep_lens
+
+
+def _plot_joint_evaluation(
+    patch_xs, patch_ys,
+    agent0_xs, agent0_ys,
+    agent1_xs, agent1_ys,
+    agents_inside_ts, patch_speed_ts,
+    ep_lens, rewards_agents,
+    num_episodes, model_path,
+):
+    """Generate summary plots for joint policy evaluation."""
+    print("\nGenerating joint evaluation plots...")
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 9))
+    fig.suptitle(f"Joint Policy Evaluation  (n={num_episodes} episodes)", fontsize=14, fontweight="bold")
+    colors = plt.cm.tab10.colors
+
+    # 1. Patch + agent trajectories (up to 5 episodes)
+    ax = axes[0, 0]
+    for i in range(min(5, len(patch_xs))):
+        c = colors[i % len(colors)]
+        ax.plot(patch_xs[i], patch_ys[i], color=c, linewidth=1.5,
+                alpha=0.8, label=f"Ep{i+1} patch")
+        if agent0_xs[i]:
+            ax.plot(agent0_xs[i], agent0_ys[i], color=c, linewidth=1,
+                    linestyle="--", alpha=0.5)
+            ax.plot(agent1_xs[i], agent1_ys[i], color=c, linewidth=1,
+                    linestyle=":", alpha=0.5)
+        ax.scatter(patch_xs[i][0], patch_ys[i][0], color=c, marker="o", s=40, zorder=5)
+        ax.scatter(patch_xs[i][-1], patch_ys[i][-1], color=c, marker="x", s=40, zorder=5)
+    ax.set_title("Trajectories (solid=patch, --=A0, :=A1)")
+    ax.set_xlabel("X (m)")
+    ax.set_ylabel("Y (m)")
+    ax.axis("equal")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=7)
+
+    # 2. Agents-inside fraction over time (mean ± std across episodes)
+    ax = axes[0, 1]
+    max_len = max(len(ts) for ts in agents_inside_ts)
+    def _pad(arr, length, fill=None):
+        fill = arr[-1] if fill is None and arr else 0
+        return arr + [fill] * (length - len(arr))
+    inside_arr = np.array([_pad(ts, max_len) for ts in agents_inside_ts], dtype=float)
+    t = np.arange(max_len)
+    m, s = inside_arr.mean(0), inside_arr.std(0)
+    ax.plot(t, m, color="blue", linewidth=2)
+    ax.fill_between(t, np.clip(m - s, 0, 2), np.clip(m + s, 0, 2), alpha=0.25, color="blue")
+    ax.set_ylim(-0.1, 2.5)
+    ax.set_title("Agents Inside Patch (mean ± std)")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Count")
+    ax.axhline(2, color="green", linestyle="--", alpha=0.5, label="Both inside")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+
+    # 3. Patch speed over time
+    ax = axes[0, 2]
+    speed_arr = np.array([_pad(ts, max_len) for ts in patch_speed_ts], dtype=float)
+    m, s = speed_arr.mean(0), speed_arr.std(0)
+    ax.plot(t, m, color="orange", linewidth=2)
+    ax.fill_between(t, m - s, m + s, alpha=0.25, color="orange")
+    ax.set_title("Patch Speed (m/s)")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Speed (m/s)")
+    ax.grid(True, alpha=0.3)
+
+    # 4. Episode lengths
+    ax = axes[1, 0]
+    ax.bar(range(1, len(ep_lens) + 1), ep_lens, color="steelblue", alpha=0.8)
+    ax.axhline(np.mean(ep_lens), color="red", linestyle="--", label=f"Mean={np.mean(ep_lens):.0f}")
+    ax.set_title("Episode Length per Episode")
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Steps")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3, axis="y")
+
+    # 5. Agent rewards per episode
+    ax = axes[1, 1]
+    ax.bar(range(1, len(rewards_agents) + 1), rewards_agents, color="salmon", alpha=0.8)
+    ax.axhline(np.mean(rewards_agents), color="red", linestyle="--",
+               label=f"Mean={np.mean(rewards_agents):.0f}")
+    ax.set_title("Agent Episode Reward")
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Cumulative Reward")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3, axis="y")
+
+    # 6. Agents-inside fraction per episode (summary bar)
+    ax = axes[1, 2]
+    inside_fracs = [np.mean(ts) / 2.0 for ts in agents_inside_ts]  # 0-1 fraction of max
+    ax.bar(range(1, len(inside_fracs) + 1), inside_fracs, color="mediumseagreen", alpha=0.8)
+    ax.axhline(np.mean(inside_fracs), color="red", linestyle="--",
+               label=f"Mean={np.mean(inside_fracs):.2f}")
+    ax.set_ylim(0, 1.05)
+    ax.set_title("Avg Fraction of Steps Both Agents Inside")
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Fraction (0–1)")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    output_dir = os.path.dirname(model_path) if os.path.dirname(model_path) else "."
+    png_path = os.path.join(output_dir, "joint_evaluation_plots.png")
+    pdf_path = os.path.join(output_dir, "joint_evaluation_plots.pdf")
+    plt.savefig(png_path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.savefig(pdf_path, bbox_inches="tight")
+    print(f"Saved: {png_path}")
+    print(f"Saved: {pdf_path}")
+    plt.show()
+
+
 if __name__ == "__main__":
     import argparse
     
@@ -539,7 +866,7 @@ if __name__ == "__main__":
         description="Evaluate Patch or Agent Policy"
     )
     
-    parser.add_argument("--policy", type=str, choices=["patch", "agent"], required=True,
+    parser.add_argument("--policy", type=str, choices=["patch", "agent", "joint"], required=True,
                        help="Which policy to evaluate")
     parser.add_argument("--model", type=str, required=True,
                        help="Path to policy model (.zip)")
@@ -555,10 +882,30 @@ if __name__ == "__main__":
                        help="Visualise episodes (custom patch+agent overlay)")
     parser.add_argument("--no-plot", action="store_true",
                        help="Disable plotting")
+    # joint-mode args
+    parser.add_argument("--agent-model", type=str, default=None,
+                       help="Path to agent PPO model (required for --policy joint)")
+    parser.add_argument("--agent-vecnorm", type=str, default=None,
+                       help="Path to agent VecNormalize .pkl (auto-resolved if omitted)")
+    parser.add_argument("--live-viz", action="store_true",
+                       help="Show real-time matplotlib window (joint mode)")
 
     args = parser.parse_args()
 
-    if args.policy == "patch":
+    if args.policy == "joint":
+        if not args.agent_model:
+            parser.error("--agent-model is required when --policy joint")
+        evaluate_joint_policy(
+            patch_model_path=args.model,
+            agent_model_path=args.agent_model,
+            patch_vecnorm_path=args.patch_vecnorm,
+            agent_vecnorm_path=args.agent_vecnorm,
+            num_episodes=args.episodes,
+            render=args.render,
+            plot=not args.no_plot,
+            live_viz=args.live_viz,
+        )
+    elif args.policy == "patch":
         evaluate_patch_policy(
             args.model,
             num_episodes=args.episodes,

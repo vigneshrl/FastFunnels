@@ -75,7 +75,11 @@ class DynamicPatch:
         self.x += self.v * np.cos(self.theta) * dt
         self.y += self.v * np.sin(self.theta) * dt
         self.theta += (self.v / self.config.wheelbase) * np.tan(steering) * dt
-        self.v = speed
+        # First-order lag: τ=0.5s time constant — matches f110 acceleration envelope.
+        # Prevents instant jumps from 0→10 m/s that agents with real inertia cannot follow.
+        tau = 0.5
+        alpha = dt / (tau + dt)   # ≈ 0.09 → ~90% of way to target in 1 second
+        self.v = self.v + alpha * (speed - self.v)
 
         
         # self.v = float(np.clip(self.v, self.config.v_min, self.config.v_max))
