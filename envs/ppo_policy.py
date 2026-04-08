@@ -169,13 +169,13 @@ class JointEnvConfig:
     patch_a: float = 3.0
     patch_b: float = 1.5
     # Agent reward — large internal values, clipped to [-100, 100] (same style as PatchEnv)
-    out_of_patch_penalty: float = 200.0
-    inter_collision_penalty: float = 150.0
+    out_of_patch_penalty: float = 80.0
+    inter_collision_penalty: float = 1000.0
     inside_patch_reward: float = 15.0
-    repulsion_zone: float = 2.0
+    repulsion_zone: float = 0.2
     repulsion_weight: float = 30.0
     survival_reward_per_step: float = 2.0
-    inter_agent_collision_dist: float = 0.50
+    inter_agent_collision_dist: float = 0.25
     patch_boundary_violation_threshold: float = 0.02  # 1/64 points → immediate detection
     # Patch reward — mirrors PatchEnv._compute_reward_for exactly + JointEnv-specific terms
     reward_progress_scale: float = 40.0          # same as PatchEnv
@@ -1207,6 +1207,7 @@ class JointEnv:
 
     def _compute_agent_reward(self, dist_norm: float, prev_dist_norm: float,
                               inter_collision: bool, agent_speed: float,
+                              agent_steer: float = 0.0,
                               inter_dist: float = 999.0) -> float:
         # Continuous distance-based reward — NO hard boundary, smooth gradient everywhere.
         # Agents always get signal to move toward patch center, even when far outside.
@@ -1214,25 +1215,40 @@ class JointEnv:
         speed_err = abs(agent_speed - self.patch.v) / max(self.patch.v, 0.5)
         speed_match = 20.0 * max(0.0, 1.0 - speed_err)
 
-        if dist_norm <= 1.0:
-            # Inside patch: position reward (Gaussian, max at center) + speed match
+        steer_err = abs(agent_steer - self.patch.steering) / 0.4189
+        steer_match = 10.0 * max(0.0, 1.0 - steer_err)
+
+        # Safe inner zone: based on minimum patch width (b_cmd_min) not current width.
+        # An agent inside this zone is safe even when the patch shrinks to its smallest.
+        # With b_cmd_min=1.0 and spawn offset=0.5m: spawn_zone = 0.5/1.0 = 0.5
+        spawn_zone = 0.5 / max(self.cfg.patch_b_cmd_min, 1e-3)
+        if dist_norm <= spawn_zone:
+            # Zone 1: near center (spawn zone) — maximum reward, Gaussian peaks at 0
             reward = self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
-            reward += 20.0 * (prev_dist_norm - dist_norm)  # pull toward center
-            reward += speed_match
+            reward += 50.0 * (prev_dist_norm - dist_norm)  # pull toward center
+        elif dist_norm < 1.0:
+            # Zone 2: inside patch but drifting away from center — reduced reward + pull back
+            reward = 0.5 * self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
+            reward += 100.0 * (prev_dist_norm - dist_norm)  # still pull toward center
         else:
-            # Outside: penalty grows with distance + strong recovery gradient + speed match
-            # At dist_norm=1.0: 0 penalty; at dist_norm=2.0: full penalty
+            # Zone 3: at/beyond patch edge — penalty + strong recovery gradient
             reward = -self.cfg.out_of_patch_penalty * min(dist_norm - 1.0, 1.0)
-            reward += 50.0 * (prev_dist_norm - dist_norm)  # 50 not 5: match inside pull strength
-            reward += speed_match  # still reward catching up to patch speed when outside
+            # reward += 50.0 * (prev_dist_norm - dist_norm)
+
+        # Speed and steer matching fire in all zones
+        reward += speed_match
+        reward += steer_match
+
         # Gradient repulsion: smooth penalty that ramps up before hard collision threshold.
         # Fires when agents are within repulsion_zone but haven't fully collided yet.
         if inter_dist < self.cfg.repulsion_zone and not inter_collision:
             t = (self.cfg.repulsion_zone - inter_dist) / max(
                 self.cfg.repulsion_zone - self.cfg.inter_agent_collision_dist, 1e-6)
             reward -= self.cfg.repulsion_weight * float(np.clip(t, 0.0, 1.0))
+        
         if inter_collision:
             reward -= self.cfg.inter_collision_penalty
+
         return float(np.nan_to_num(np.clip(reward, -100.0, 100.0), nan=0.0))
 
     def _check_agent_termination(self, agent_idx: int, dist_norm: float,
@@ -1360,6 +1376,7 @@ class JointEnv:
             v0 = float(np.clip(np.nan_to_num(action0[1]), 0.5, 12.0))
             s1 = float(np.clip(np.nan_to_num(action1[0]), -0.4189, 0.4189))
             v1 = float(np.clip(np.nan_to_num(action1[1]), 0.5, 12.0))
+            self._last_agent_steers = [s0, s1]  # stored for _compute_agent_reward
             base_obs, _, _, _, _ = self.f110.step(
                 np.array([[s0, v0], [s1, v1]], dtype=np.float32)
             )
@@ -1463,9 +1480,10 @@ class JointEnv:
             vx = float(np.nan_to_num(base_obs.get("linear_vels_x", [0.0, 0.0])[i], nan=0.0))
             vy = float(np.nan_to_num(base_obs.get("linear_vels_y", [0.0, 0.0])[i], nan=0.0))
             agent_speed = float(np.hypot(vx, vy))
+            agent_steer = getattr(self, "_last_agent_steers", [0.0, 0.0])[i]
             r = self._compute_agent_reward(
                 dist_norm_list[i], self.prev_dist_norms[i], inter_collision, agent_speed,
-                inter_dist=inter_dist)
+                agent_steer=agent_steer, inter_dist=inter_dist)
             r = float(np.nan_to_num(r, nan=0.0))
             term, trunc, reason = self._check_agent_termination(
                 i, dist_norm_list[i], inter_collision)
@@ -1755,75 +1773,75 @@ class JointPatchView(gym.Env):
         self.env.close()
 
 
-class JointAgentView(gym.Env):
-    """Gym interface for a learning agent in joint training.
+# class JointAgentView(gym.Env):
+#     """Gym interface for a learning agent in joint training.
 
-    obs:    24D CTDE  [ego 12D + partner 12D]
-    action: 2D        [steer, speed]  — absolute (not delta)
+#     obs:    24D CTDE  [ego 12D + partner 12D]
+#     action: 2D        [steer, speed]  — absolute (not delta)
 
-    Two JointAgentViews (agent_idx=1 and agent_idx=2) share one JointEnv.
-    Physics executes once BOTH agent slots are filled.
-    Patch action comes from env._patch_action_fn if set, else a default action.
-    """
+#     Two JointAgentViews (agent_idx=1 and agent_idx=2) share one JointEnv.
+#     Physics executes once BOTH agent slots are filled.
+#     Patch action comes from env._patch_action_fn if set, else a default action.
+#     """
 
-    metadata = {"render_modes": [None]}
+#     metadata = {"render_modes": [None]}
 
-    def __init__(self, shared_env: JointEnv, agent_idx: int):
-        super().__init__()
-        assert agent_idx in (1, 2), "agent_idx must be 1 or 2"
-        self.env = shared_env
-        self.agent_idx = agent_idx
-        self.action_space = spaces.Box(
-            low=np.array([-0.4189, 0.5], dtype=np.float32),
-            high=np.array([0.4189, 15.0], dtype=np.float32),
-        )
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(JointEnv.AGENT_OBS_DIM,), dtype=np.float32,
-        )
+#     def __init__(self, shared_env: JointEnv, agent_idx: int):
+#         super().__init__()
+#         assert agent_idx in (1, 2), "agent_idx must be 1 or 2"
+#         self.env = shared_env
+#         self.agent_idx = agent_idx
+#         self.action_space = spaces.Box(
+#             low=np.array([-0.4189, 0.5], dtype=np.float32),
+#             high=np.array([0.4189, 15.0], dtype=np.float32),
+#         )
+#         self.observation_space = spaces.Box(
+#             low=-np.inf, high=np.inf, shape=(JointEnv.AGENT_OBS_DIM,), dtype=np.float32,
+#         )
 
-    def reset(self, seed=None, options=None):
-        if self.agent_idx == 1:
-            self.env.reset(seed=seed, options=options)
-        obs = self.env._step_obs[self.agent_idx]
-        if obs is None:
-            self.env.reset(seed=seed, options=options)
-            obs = self.env._step_obs[self.agent_idx]
-        return obs.copy(), {}
+#     def reset(self, seed=None, options=None):
+#         if self.agent_idx == 1:
+#             self.env.reset(seed=seed, options=options)
+#         obs = self.env._step_obs[self.agent_idx]
+#         if obs is None:
+#             self.env.reset(seed=seed, options=options)
+#             obs = self.env._step_obs[self.agent_idx]
+#         return obs.copy(), {}
 
-    def step(self, action):
-        action = np.asarray(action, dtype=np.float32)
-        self.env._pending_actions[self.agent_idx] = action
+#     def step(self, action):
+#         action = np.asarray(action, dtype=np.float32)
+#         self.env._pending_actions[self.agent_idx] = action
 
-        if self.env._pending_actions[1] is not None and self.env._pending_actions[2] is not None:
-            patch_obs = self.env._step_obs[0]
-            if self.env._patch_action_fn is not None and patch_obs is not None:
-                patch_action = np.asarray(
-                    self.env._patch_action_fn(patch_obs), dtype=np.float32)
-            else:
-                cfg = self.env.cfg
-                patch_action = np.array(
-                    [0.0, 2.0, cfg.patch_a, cfg.patch_b], dtype=np.float32)
+#         if self.env._pending_actions[1] is not None and self.env._pending_actions[2] is not None:
+#             patch_obs = self.env._step_obs[0]
+#             if self.env._patch_action_fn is not None and patch_obs is not None:
+#                 patch_action = np.asarray(
+#                     self.env._patch_action_fn(patch_obs), dtype=np.float32)
+#             else:
+#                 cfg = self.env.cfg
+#                 patch_action = np.array(
+#                     [0.0, 2.0, cfg.patch_a, cfg.patch_b], dtype=np.float32)
 
-            self.env._execute_joint_step(
-                patch_action,
-                self.env._pending_actions[1],
-                self.env._pending_actions[2],
-            )
-            self.env._pending_actions[1] = None
-            self.env._pending_actions[2] = None
+#             self.env._execute_joint_step(
+#                 patch_action,
+#                 self.env._pending_actions[1],
+#                 self.env._pending_actions[2],
+#             )
+#             self.env._pending_actions[1] = None
+#             self.env._pending_actions[2] = None
 
-        obs = self.env._step_obs[self.agent_idx].copy()
-        info = dict(self.env._step_info)
-        info["agent_idx"] = self.agent_idx
-        return obs, self.env._step_rewards[self.agent_idx], \
-               self.env._step_terminated, self.env._step_truncated, info
+#         obs = self.env._step_obs[self.agent_idx].copy()
+#         info = dict(self.env._step_info)
+#         info["agent_idx"] = self.agent_idx
+#         return obs, self.env._step_rewards[self.agent_idx], \
+#                self.env._step_terminated, self.env._step_truncated, info
 
-    def render(self):
-        return None
+#     def render(self):
+#         return None
 
-    def close(self):
-        if self.agent_idx == 1:
-            self.env.close()
+#     def close(self):
+#         if self.agent_idx == 1:
+#             self.env.close()
 
 
 class PatchEnv(gym.Env):
@@ -2824,60 +2842,60 @@ class PatchEnv(gym.Env):
 # ---------------------------------------------------------------------------
 # CTDE policy for multi-agent PPO (MAPPO)
 # ---------------------------------------------------------------------------
-if SB3_AVAILABLE:
-    import torch as th
-    import torch.nn as nn
-    from stable_baselines3.common.policies import ActorCriticPolicy
-    from stable_baselines3.common.type_aliases import Schedule as _Schedule
+# if SB3_AVAILABLE:
+#     import torch as th
+#     import torch.nn as nn
+#     from stable_baselines3.common.policies import ActorCriticPolicy
+#     from stable_baselines3.common.type_aliases import Schedule as _Schedule
 
-    class CTDEMlpExtractor(nn.Module):
-        """MLP extractor for Centralized Training, Decentralized Execution.
+#     class CTDEMlpExtractor(nn.Module):
+#         """MLP extractor for Centralized Training, Decentralized Execution.
 
-        Obs layout (24D):
-            obs[:12]  = ego agent's 12D observation  → used by actor
-            obs[12:]  = partner agent's 12D obs      → concatenated for critic
+#         Obs layout (24D):
+#             obs[:12]  = ego agent's 12D observation  → used by actor
+#             obs[12:]  = partner agent's 12D obs      → concatenated for critic
 
-        Actor branch: processes only the ego slice (decentralized execution).
-        Critic branch: processes the full 24D joint state (centralized training).
-        """
+#         Actor branch: processes only the ego slice (decentralized execution).
+#         Critic branch: processes the full 24D joint state (centralized training).
+#         """
 
-        EGO_DIM   = 12
-        JOINT_DIM = 24
+#         EGO_DIM   = 12
+#         JOINT_DIM = 24
 
-        def __init__(self, hidden: int = 256):
-            super().__init__()
-            self.latent_dim_pi = hidden
-            self.latent_dim_vf = hidden
+#         def __init__(self, hidden: int = 256):
+#             super().__init__()
+#             self.latent_dim_pi = hidden
+#             self.latent_dim_vf = hidden
 
-            # Decentralized actor — ego obs only
-            self.policy_net = nn.Sequential(
-                nn.Linear(self.EGO_DIM, hidden), nn.Tanh(),
-                nn.Linear(hidden, hidden),        nn.Tanh(),
-            )
-            # Centralized critic — full joint obs
-            self.value_net = nn.Sequential(
-                nn.Linear(self.JOINT_DIM, hidden), nn.Tanh(),
-                nn.Linear(hidden, hidden),          nn.Tanh(),
-            )
+#             # Decentralized actor — ego obs only
+#             self.policy_net = nn.Sequential(
+#                 nn.Linear(self.EGO_DIM, hidden), nn.Tanh(),
+#                 nn.Linear(hidden, hidden),        nn.Tanh(),
+#             )
+#             # Centralized critic — full joint obs
+#             self.value_net = nn.Sequential(
+#                 nn.Linear(self.JOINT_DIM, hidden), nn.Tanh(),
+#                 nn.Linear(hidden, hidden),          nn.Tanh(),
+#             )
 
-        def forward(self, features: th.Tensor):
-            return self.forward_actor(features), self.forward_critic(features)
+#         def forward(self, features: th.Tensor):
+#             return self.forward_actor(features), self.forward_critic(features)
 
-        def forward_actor(self, features: th.Tensor) -> th.Tensor:
-            return self.policy_net(features[:, :self.EGO_DIM])
+#         def forward_actor(self, features: th.Tensor) -> th.Tensor:
+#             return self.policy_net(features[:, :self.EGO_DIM])
 
-        def forward_critic(self, features: th.Tensor) -> th.Tensor:
-            return self.value_net(features)
+#         def forward_critic(self, features: th.Tensor) -> th.Tensor:
+#             return self.value_net(features)
 
-    class MAPPOPolicy(ActorCriticPolicy):
-        """SB3-compatible PPO policy with CTDE.
+#     class MAPPOPolicy(ActorCriticPolicy):
+#         """SB3-compatible PPO policy with CTDE.
 
-        Drop-in replacement for 'MlpPolicy' in PPO():
-            model = PPO(MAPPOPolicy, env, ...)
-        """
+#         Drop-in replacement for 'MlpPolicy' in PPO():
+#             model = PPO(MAPPOPolicy, env, ...)
+#         """
 
-        def _build_mlp_extractor(self) -> None:
-            self.mlp_extractor = CTDEMlpExtractor(hidden=256)
+#         def _build_mlp_extractor(self) -> None:
+#             self.mlp_extractor = CTDEMlpExtractor(hidden=256)
 
 
 def make_patch_env(
@@ -2933,8 +2951,7 @@ def make_patch_env(
 def make_agent_env(
     rank: int,
     seed: int = 0,
-    patch_env=None,
-):
+    patch_env=None, ):
     def _init():
         cfg = AgentEnvConfig(
             patch_env=patch_env,
@@ -2950,72 +2967,71 @@ def make_agent_env(
     return _init
 
 
-def make_agent_views(
-    rank: int,
-    seed: int = 0,
-    patch_env=None,
-) -> tuple:
-    """Return a pair of (thunk_for_agent0, thunk_for_agent1) that share one AgentEnv.
+# def make_agent_views(
+#     rank: int,
+#     seed: int = 0,
+#     patch_env=None, ) -> tuple:
+#     """Return a pair of (thunk_for_agent0, thunk_for_agent1) that share one AgentEnv.
 
-    Usage in training.py:
-        env_fns = []
-        for i in range(NUM_ENVS):
-            fn0, fn1 = make_agent_views(i, seed=42, patch_env=patch_env)
-            env_fns.append(fn0)
-            env_fns.append(fn1)
-        vec_env = DummyVecEnv(env_fns)
+#     Usage in training.py:
+#         env_fns = []
+#         for i in range(NUM_ENVS):
+#             fn0, fn1 = make_agent_views(i, seed=42, patch_env=patch_env)
+#             env_fns.append(fn0)
+#             env_fns.append(fn1)
+#         vec_env = DummyVecEnv(env_fns)
 
-    This creates 2*NUM_ENVS slots. Slots come in consecutive pairs that share
-    physics — agent0's slot is always stepped before agent1's slot within each
-    DummyVecEnv.step(), so agent0 submits first and agent1 triggers the physics.
-    """
-    if SB3_AVAILABLE:
-        set_random_seed(seed + rank)
+#     This creates 2*NUM_ENVS slots. Slots come in consecutive pairs that share
+#     physics — agent0's slot is always stepped before agent1's slot within each
+#     DummyVecEnv.step(), so agent0 submits first and agent1 triggers the physics.
+#     """
+#     if SB3_AVAILABLE:
+#         set_random_seed(seed + rank)
 
-    # Build the shared backend once; both thunks close over it.
-    cfg = AgentEnvConfig(
-        patch_env=patch_env,
-        render_mode=None,
-        random_spawn=False,
-    )
-    shared_env = AgentEnv(cfg)
-    shared_env.reset(seed=seed + rank)
+#     # Build the shared backend once; both thunks close over it.
+#     cfg = AgentEnvConfig(
+#         patch_env=patch_env,
+#         render_mode=None,
+#         random_spawn=False,
+#     )
+#     shared_env = AgentEnv(cfg)
+#     shared_env.reset(seed=seed + rank)
 
-    def _view0():
-        return AgentView(shared_env, agent_idx=0)
+#     def _view0():
+#         return AgentView(shared_env, agent_idx=0)
 
-    def _view1():
-        return AgentView(shared_env, agent_idx=1)
+#     def _view1():
+#         return AgentView(shared_env, agent_idx=1)
 
-    return _view0, _view1
+#     return _view0, _view1
 
 
-def make_joint_views(rank: int, seed: int = 0, cfg: "JointEnvConfig" = None) -> tuple:
-    """Create one JointEnv and return (shared_env, patch_thunk, agent0_thunk, agent1_thunk).
+# def make_joint_views(rank: int, seed: int = 0, cfg: "JointEnvConfig" = None) -> tuple:
+#     """Create one JointEnv and return (shared_env, patch_thunk, agent0_thunk, agent1_thunk).
 
-    Usage in training.py:
-        shared_envs, patch_fns, agent_fns = [], [], []
-        for i in range(NUM_ENVS):
-            env, pf, af0, af1 = make_joint_views(i, seed=42)
-            shared_envs.append(env)
-            patch_fns.append(pf)
-            agent_fns.extend([af0, af1])
+#     Usage in training.py:
+#         shared_envs, patch_fns, agent_fns = [], [], []
+#         for i in range(NUM_ENVS):
+#             env, pf, af0, af1 = make_joint_views(i, seed=42)
+#             shared_envs.append(env)
+#             patch_fns.append(pf)
+#             agent_fns.extend([af0, af1])
 
-        patch_vec_env = DummyVecEnv(patch_fns)   # N slots — one per JointEnv
-        agent_vec_env = DummyVecEnv(agent_fns)   # 2N slots — two per JointEnv
-    """
-    if SB3_AVAILABLE:
-        set_random_seed(seed + rank)
-    if cfg is None:
-        cfg = JointEnvConfig()
-    shared_env = JointEnv(cfg)
-    shared_env.reset(seed=seed + rank)
+#         patch_vec_env = DummyVecEnv(patch_fns)   # N slots — one per JointEnv
+#         agent_vec_env = DummyVecEnv(agent_fns)   # 2N slots — two per JointEnv
+#     """
+#     if SB3_AVAILABLE:
+#         set_random_seed(seed + rank)
+#     if cfg is None:
+#         cfg = JointEnvConfig()
+#     shared_env = JointEnv(cfg)
+#     shared_env.reset(seed=seed + rank)
 
-    def _patch():  return JointPatchView(shared_env)
-    def _agent0(): return JointAgentView(shared_env, agent_idx=1)
-    def _agent1(): return JointAgentView(shared_env, agent_idx=2)
+#     def _patch():  return JointPatchView(shared_env)
+#     def _agent0(): return JointAgentView(shared_env, agent_idx=1)
+#     def _agent1(): return JointAgentView(shared_env, agent_idx=2)
 
-    return shared_env, _patch, _agent0, _agent1
+#     return shared_env, _patch, _agent0, _agent1
 
 
 

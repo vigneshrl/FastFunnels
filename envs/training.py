@@ -12,13 +12,11 @@ import torch.nn as nn
 
 try:
     from .ppo_policy import (
-        make_patch_env, make_agent_env, make_agent_views, make_joint_views,
-        MAPPOPolicy, PatchEnv, PatchEnvConfig, JointEnvConfig,
+        make_patch_env, make_agent_env, PatchEnv, PatchEnvConfig, JointEnvConfig,
     )
 except ImportError:
     from envs.ppo_policy import (
-        make_patch_env, make_agent_env, make_agent_views, make_joint_views,
-        MAPPOPolicy, PatchEnv, PatchEnvConfig, JointEnvConfig,
+        make_patch_env, make_agent_env, PatchEnv, PatchEnvConfig, JointEnvConfig,
     )
 
 try:
@@ -363,306 +361,306 @@ def train_patch_policy(
     return model
 
 
-def train_agent_policy(
-    total_timesteps: int = 1000000,
-    save_path: str = "agent_policy_models",
-    checkpoint_freq: int = 2000,
-    NUM_ENVS: int = 4,
-    resume_from: Optional[str] = None,
-    patch_checkpoint_path: str = "",
-    patch_vecnorm_path: str = "",
-    norm_reward: bool = True,
-    patch_env=None,
-    # base_reset_type: str = "rl_random_static",
-    wandb_project: str = "agent_sempc_training",
-    wandb_entity: Optional[str] = None,
-    wandb_run_name: Optional[str] = None, ):
-    if not SB3_AVAILABLE:
-        raise RuntimeError("stable-baselines3 is required for training.")
+# def train_agent_policy(
+#     total_timesteps: int = 1000000,
+#     save_path: str = "agent_policy_models",
+#     checkpoint_freq: int = 2000,
+#     NUM_ENVS: int = 4,
+#     resume_from: Optional[str] = None,
+#     patch_checkpoint_path: str = "",
+#     patch_vecnorm_path: str = "",
+#     norm_reward: bool = True,
+#     patch_env=None,
+#     # base_reset_type: str = "rl_random_static",
+#     wandb_project: str = "agent_sempc_training",
+#     wandb_entity: Optional[str] = None,
+#     wandb_run_name: Optional[str] = None, ):
+#     if not SB3_AVAILABLE:
+#         raise RuntimeError("stable-baselines3 is required for training.")
 
-    os.makedirs(save_path, exist_ok=True)
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = os.path.join(save_path, f"run_{run_id}")
-    os.makedirs(run_dir, exist_ok=True)
-    tb_log_dir = os.path.join(run_dir, "tb")
-    os.makedirs(tb_log_dir, exist_ok=True)
+#     os.makedirs(save_path, exist_ok=True)
+#     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     run_dir = os.path.join(save_path, f"run_{run_id}")
+#     os.makedirs(run_dir, exist_ok=True)
+#     tb_log_dir = os.path.join(run_dir, "tb")
+#     os.makedirs(tb_log_dir, exist_ok=True)
 
-    wandb_run = None
-    if WANDB_AVAILABLE:
-        wandb_run = wandb.init(
-            project=wandb_project,
-            sync_tensorboard=True,
-            save_code=True,
-        )
+#     wandb_run = None
+#     if WANDB_AVAILABLE:
+#         wandb_run = wandb.init(
+#             project=wandb_project,
+#             sync_tensorboard=True,
+#             save_code=True,
+#         )
 
-    def _monitored(thunk):
-        return lambda: Monitor(thunk())
+#     def _monitored(thunk):
+#         return lambda: Monitor(thunk())
 
-    if patch_env is None and patch_checkpoint_path:
-        patch_env = PatchEnv(PatchEnvConfig())
-        patch_env.patch_policy = PPO.load(patch_checkpoint_path)
-        patch_env.patch_policy.policy.set_training_mode(False)
-        if patch_vecnorm_path and os.path.exists(patch_vecnorm_path):
-            from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
-            import gymnasium as gym
-            from gymnasium import spaces
-            class _DummyPatchEnv(gym.Env):
-                observation_space = spaces.Box(-np.inf, np.inf, shape=(11,), dtype=np.float32)
-                action_space = spaces.Box(
-                    low=np.array([-0.4189, 0.5, 0.325, 0.25], dtype=np.float32),
-                    high=np.array([0.4189, 10.0, 2.5, 1.5], dtype=np.float32),
-                )
-                def reset(self, **kw): return np.zeros(11, dtype=np.float32), {}
-                def step(self, a): return np.zeros(11, dtype=np.float32), 0.0, False, False, {}
-            patch_env.patch_vecnorm = VecNormalize.load(patch_vecnorm_path, DummyVecEnv([_DummyPatchEnv]))
-            patch_env.patch_vecnorm.training = False
-            patch_env.patch_vecnorm.norm_reward = False
-        else:
-            patch_env.patch_vecnorm = None
+#     if patch_env is None and patch_checkpoint_path:
+#         patch_env = PatchEnv(PatchEnvConfig())
+#         patch_env.patch_policy = PPO.load(patch_checkpoint_path)
+#         patch_env.patch_policy.policy.set_training_mode(False)
+#         if patch_vecnorm_path and os.path.exists(patch_vecnorm_path):
+#             from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+#             import gymnasium as gym
+#             from gymnasium import spaces
+#             class _DummyPatchEnv(gym.Env):
+#                 observation_space = spaces.Box(-np.inf, np.inf, shape=(11,), dtype=np.float32)
+#                 action_space = spaces.Box(
+#                     low=np.array([-0.4189, 0.5, 0.325, 0.25], dtype=np.float32),
+#                     high=np.array([0.4189, 10.0, 2.5, 1.5], dtype=np.float32),
+#                 )
+#                 def reset(self, **kw): return np.zeros(11, dtype=np.float32), {}
+#                 def step(self, a): return np.zeros(11, dtype=np.float32), 0.0, False, False, {}
+#             patch_env.patch_vecnorm = VecNormalize.load(patch_vecnorm_path, DummyVecEnv([_DummyPatchEnv]))
+#             patch_env.patch_vecnorm.training = False
+#             patch_env.patch_vecnorm.norm_reward = False
+#         else:
+#             patch_env.patch_vecnorm = None
 
-    # True parameter sharing: each AgentEnv is shared by two AgentView slots.
-    # Slots come in consecutive pairs [view0, view1, view0, view1, ...] so that
-    # view0 always submits its action first and view1 triggers the physics step.
-    env_fns = []
-    for i in range(NUM_ENVS):
-        fn0, fn1 = make_agent_views(i, seed=42, patch_env=patch_env)
-        env_fns.append(_monitored(fn0))
-        env_fns.append(_monitored(fn1))
+#     # True parameter sharing: each AgentEnv is shared by two AgentView slots.
+#     # Slots come in consecutive pairs [view0, view1, view0, view1, ...] so that
+#     # view0 always submits its action first and view1 triggers the physics step.
+#     env_fns = []
+#     for i in range(NUM_ENVS):
+#         fn0, fn1 = make_agent_views(i, seed=42, patch_env=patch_env)
+#         env_fns.append(_monitored(fn0))
+#         env_fns.append(_monitored(fn1))
 
-    # DummyVecEnv required: AgentView pairs share state — SubprocVecEnv would
-    # fork the process and break the shared reference between view0 and view1.
-    env = DummyVecEnv(env_fns)
+#     # DummyVecEnv required: AgentView pairs share state — SubprocVecEnv would
+#     # fork the process and break the shared reference between view0 and view1.
+#     env = DummyVecEnv(env_fns)
 
-    env = VecCheckNan(env, raise_exception=True)
-    env = VecNormalize(
-        env,
-        norm_obs=True,
-        norm_reward=norm_reward,
-        clip_obs=10.0,
-        clip_reward=5.0,
-        gamma=0.99,
-    )
+#     env = VecCheckNan(env, raise_exception=True)
+#     env = VecNormalize(
+#         env,
+#         norm_obs=True,
+#         norm_reward=norm_reward,
+#         clip_obs=10.0,
+#         clip_reward=5.0,
+#         gamma=0.99,
+#     )
 
-    callback = TrainingCallback(run_dir, checkpoint_freq, "AGENT")
+#     callback = TrainingCallback(run_dir, checkpoint_freq, "AGENT")
 
-    rollout_steps = 2048
-    # 2*NUM_ENVS slots (two AgentView per shared env)
-    n_slots = 2 * NUM_ENVS
-    batch_size = n_slots * rollout_steps // 4
+#     rollout_steps = 2048
+#     # 2*NUM_ENVS slots (two AgentView per shared env)
+#     n_slots = 2 * NUM_ENVS
+#     batch_size = n_slots * rollout_steps // 4
 
-    if resume_from and os.path.exists(resume_from + ".zip"):
-        model = PPO.load(resume_from, env=env)
-    else:
-        model = PPO(
-            MAPPOPolicy,   # CTDE: decentralized actor (obs[:12]), centralized critic (obs[:24])
-            env,
-            tensorboard_log=tb_log_dir,
-            learning_rate=3e-4,
-            seed=42,
-            n_steps=rollout_steps,
-            batch_size=batch_size,
-            n_epochs=10,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=0.01,
-            vf_coef=0.5,
-            max_grad_norm=0.5,
-            verbose=1,
-            use_sde=False,
-            # net_arch is handled inside MAPPOPolicy._build_mlp_extractor
-        )
+#     if resume_from and os.path.exists(resume_from + ".zip"):
+#         model = PPO.load(resume_from, env=env)
+#     else:
+#         model = PPO(
+#             MAPPOPolicy,   # CTDE: decentralized actor (obs[:12]), centralized critic (obs[:24])
+#             env,
+#             tensorboard_log=tb_log_dir,
+#             learning_rate=3e-4,
+#             seed=42,
+#             n_steps=rollout_steps,
+#             batch_size=batch_size,
+#             n_epochs=10,
+#             gamma=0.99,
+#             gae_lambda=0.95,
+#             clip_range=0.2,
+#             ent_coef=0.01,
+#             vf_coef=0.5,
+#             max_grad_norm=0.5,
+#             verbose=1,
+#             use_sde=False,
+#             # net_arch is handled inside MAPPOPolicy._build_mlp_extractor
+#         )
 
-    save_best_cb = SaveBestWithVecNormalize(save_dir=run_dir, check_freq=rollout_steps)
-    callbacks = [callback, save_best_cb]
+#     save_best_cb = SaveBestWithVecNormalize(save_dir=run_dir, check_freq=rollout_steps)
+#     callbacks = [callback, save_best_cb]
 
-    model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
-    model.save(os.path.join(run_dir, "final_model"))
-    env.save(os.path.join(run_dir, "final_vecnormalize.pkl"))
-    env.close()
-    if WANDB_AVAILABLE and wandb_run is not None:
-        wandb.finish()
-    return model
+#     model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
+#     model.save(os.path.join(run_dir, "final_model"))
+#     env.save(os.path.join(run_dir, "final_vecnormalize.pkl"))
+#     env.close()
+#     if WANDB_AVAILABLE and wandb_run is not None:
+#         wandb.finish()
+#     return model
 
 
-def train_joint_policy(
-    total_timesteps: int = 2_000_000,
-    save_path: str = "joint_policy_models",
-    checkpoint_freq: int = 10000,
-    NUM_ENVS: int = 4,
-    phase_steps: int = 4096,
-    resume_patch: str = "",
-    resume_agents: str = "",
-    norm_reward: bool = True,
-    wandb_project: str = "joint_sempc_training", ):
-    """Train patch + agent policies jointly with alternating MAPPO.
+# def train_joint_policy(
+#     total_timesteps: int = 2_000_000,
+#     save_path: str = "joint_policy_models",
+#     checkpoint_freq: int = 10000,
+#     NUM_ENVS: int = 4,
+#     phase_steps: int = 4096,
+#     resume_patch: str = "",
+#     resume_agents: str = "",
+#     norm_reward: bool = True,
+#     wandb_project: str = "joint_sempc_training", ):
+#     """Train patch + agent policies jointly with alternating MAPPO.
 
-    Each iteration alternates between:
-      1. Patch training (phase_steps): agents use frozen snapshot of agent policy.
-      2. Agent training (phase_steps): patch uses frozen snapshot of patch policy.
+#     Each iteration alternates between:
+#       1. Patch training (phase_steps): agents use frozen snapshot of agent policy.
+#       2. Agent training (phase_steps): patch uses frozen snapshot of patch policy.
 
-    Both policies co-evolve — the patch learns to keep agents inside;
-    agents learn to follow whatever pace the patch sets.
-    """
-    if not SB3_AVAILABLE:
-        raise RuntimeError("stable-baselines3 is required.")
+#     Both policies co-evolve — the patch learns to keep agents inside;
+#     agents learn to follow whatever pace the patch sets.
+#     """
+#     if not SB3_AVAILABLE:
+#         raise RuntimeError("stable-baselines3 is required.")
 
-    os.makedirs(save_path, exist_ok=True)
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = os.path.join(save_path, f"run_{run_id}")
-    os.makedirs(run_dir, exist_ok=True)
+#     os.makedirs(save_path, exist_ok=True)
+#     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     run_dir = os.path.join(save_path, f"run_{run_id}")
+#     os.makedirs(run_dir, exist_ok=True)
 
-    wandb_run = None
-    if WANDB_AVAILABLE:
-        wandb_run = wandb.init(
-            project=wandb_project,
-            sync_tensorboard=True,
-            save_code=True,
-        )
+#     wandb_run = None
+#     if WANDB_AVAILABLE:
+#         wandb_run = wandb.init(
+#             project=wandb_project,
+#             sync_tensorboard=True,
+#             save_code=True,
+#         )
 
-    def _mon(thunk):
-        return lambda: Monitor(thunk())
+#     def _mon(thunk):
+#         return lambda: Monitor(thunk())
 
-    # Build separate JointEnv sets for each training phase to avoid state collision.
-    # patch_shared_envs[i] is used for patch training only.
-    # agent_shared_envs[i] is used for agent training only.
-    patch_shared_envs, patch_fns = [], []
-    agent_shared_envs, agent_fns = [], []
+#     # Build separate JointEnv sets for each training phase to avoid state collision.
+#     # patch_shared_envs[i] is used for patch training only.
+#     # agent_shared_envs[i] is used for agent training only.
+#     patch_shared_envs, patch_fns = [], []
+#     agent_shared_envs, agent_fns = [], []
 
-    for i in range(NUM_ENVS):
-        env_p, pf, _, _ = make_joint_views(i, seed=42)
-        patch_shared_envs.append(env_p)
-        patch_fns.append(_mon(pf))
+#     for i in range(NUM_ENVS):
+#         env_p, pf, _, _ = make_joint_views(i, seed=42)
+#         patch_shared_envs.append(env_p)
+#         patch_fns.append(_mon(pf))
 
-        env_a, _, af0, af1 = make_joint_views(i + NUM_ENVS, seed=42)
-        agent_shared_envs.append(env_a)
-        agent_fns.extend([_mon(af0), _mon(af1)])
+#         env_a, _, af0, af1 = make_joint_views(i + NUM_ENVS, seed=42)
+#         agent_shared_envs.append(env_a)
+#         agent_fns.extend([_mon(af0), _mon(af1)])
 
-    # DummyVecEnv required: shared env state cannot cross process boundaries.
-    patch_vec = DummyVecEnv(patch_fns)
-    agent_vec = DummyVecEnv(agent_fns)
+#     # DummyVecEnv required: shared env state cannot cross process boundaries.
+#     patch_vec = DummyVecEnv(patch_fns)
+#     agent_vec = DummyVecEnv(agent_fns)
 
-    patch_vec = VecCheckNan(patch_vec, raise_exception=True)
-    agent_vec = VecCheckNan(agent_vec, raise_exception=True)
-    patch_vec = VecNormalize(patch_vec, norm_obs=True, norm_reward=norm_reward,
-                              clip_obs=10.0, clip_reward=10.0, gamma=0.99)
-    agent_vec = VecNormalize(agent_vec, norm_obs=True, norm_reward=norm_reward,
-                              clip_obs=10.0, clip_reward=5.0, gamma=0.99)
+#     patch_vec = VecCheckNan(patch_vec, raise_exception=True)
+#     agent_vec = VecCheckNan(agent_vec, raise_exception=True)
+#     patch_vec = VecNormalize(patch_vec, norm_obs=True, norm_reward=norm_reward,
+#                               clip_obs=10.0, clip_reward=10.0, gamma=0.99)
+#     agent_vec = VecNormalize(agent_vec, norm_obs=True, norm_reward=norm_reward,
+#                               clip_obs=10.0, clip_reward=5.0, gamma=0.99)
 
-    rollout_steps = 2048
+#     rollout_steps = 2048
 
-    # --- Patch PPO: standard MlpPolicy (15D obs → 4D action) ---
-    if resume_patch and os.path.exists(resume_patch + ".zip"):
-        patch_ppo = PPO.load(resume_patch, env=patch_vec)
-    else:
-        patch_ppo = PPO(
-            "MlpPolicy", patch_vec,
-            tensorboard_log=os.path.join(run_dir, "tb_patch"),
-            learning_rate=3e-4, seed=42,
-            n_steps=rollout_steps,
-            batch_size=NUM_ENVS * rollout_steps // 4,
-            n_epochs=10, gamma=0.99, gae_lambda=0.95,
-            clip_range=0.2, ent_coef=0.01, vf_coef=0.5,
-            max_grad_norm=0.5, verbose=1,
-            policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256])),
-        )
+#     # --- Patch PPO: standard MlpPolicy (15D obs → 4D action) ---
+#     if resume_patch and os.path.exists(resume_patch + ".zip"):
+#         patch_ppo = PPO.load(resume_patch, env=patch_vec)
+#     else:
+#         patch_ppo = PPO(
+#             "MlpPolicy", patch_vec,
+#             tensorboard_log=os.path.join(run_dir, "tb_patch"),
+#             learning_rate=3e-4, seed=42,
+#             n_steps=rollout_steps,
+#             batch_size=NUM_ENVS * rollout_steps // 4,
+#             n_epochs=10, gamma=0.99, gae_lambda=0.95,
+#             clip_range=0.2, ent_coef=0.01, vf_coef=0.5,
+#             max_grad_norm=0.5, verbose=1,
+#             policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256])),
+#         )
 
-    # --- Agent PPO: CTDE MAPPOPolicy (24D obs → 2D action, parameter shared) ---
-    n_agent_slots = 2 * NUM_ENVS
-    if resume_agents and os.path.exists(resume_agents + ".zip"):
-        agent_ppo = PPO.load(resume_agents, env=agent_vec)
-    else:
-        agent_ppo = PPO(
-            MAPPOPolicy, agent_vec,
-            tensorboard_log=os.path.join(run_dir, "tb_agents"),
-            learning_rate=3e-4, seed=42,
-            n_steps=rollout_steps,
-            batch_size=n_agent_slots * rollout_steps // 4,
-            n_epochs=10, gamma=0.99, gae_lambda=0.95,
-            clip_range=0.2, ent_coef=0.01, vf_coef=0.5,
-            max_grad_norm=0.5, verbose=1,
-        )
+#     # --- Agent PPO: CTDE MAPPOPolicy (24D obs → 2D action, parameter shared) ---
+#     n_agent_slots = 2 * NUM_ENVS
+#     if resume_agents and os.path.exists(resume_agents + ".zip"):
+#         agent_ppo = PPO.load(resume_agents, env=agent_vec)
+#     else:
+#         agent_ppo = PPO(
+#             MAPPOPolicy, agent_vec,
+#             tensorboard_log=os.path.join(run_dir, "tb_agents"),
+#             learning_rate=3e-4, seed=42,
+#             n_steps=rollout_steps,
+#             batch_size=n_agent_slots * rollout_steps // 4,
+#             n_epochs=10, gamma=0.99, gae_lambda=0.95,
+#             clip_range=0.2, ent_coef=0.01, vf_coef=0.5,
+#             max_grad_norm=0.5, verbose=1,
+#         )
 
-    patch_cb = TrainingCallback(run_dir, checkpoint_freq, "JOINT-PATCH")
-    agent_cb = TrainingCallback(run_dir, checkpoint_freq, "JOINT-AGENT")
+#     patch_cb = TrainingCallback(run_dir, checkpoint_freq, "JOINT-PATCH")
+#     agent_cb = TrainingCallback(run_dir, checkpoint_freq, "JOINT-AGENT")
 
-    # ------------------------------------------------------------------
-    # Alternating training loop
-    # ------------------------------------------------------------------
-    total_steps = 0
-    iteration = 0
+#     # ------------------------------------------------------------------
+#     # Alternating training loop
+#     # ------------------------------------------------------------------
+#     total_steps = 0
+#     iteration = 0
 
-    while total_steps < total_timesteps:
-        iteration += 1
-        print(f"\n[Joint iter {iteration}] steps={total_steps}/{total_timesteps}")
+#     while total_steps < total_timesteps:
+#         iteration += 1
+#         print(f"\n[Joint iter {iteration}] steps={total_steps}/{total_timesteps}")
 
-        # --- Phase 1: Train patch — agents use frozen snapshot ---
-        _agent_snap = agent_ppo.policy
-        _agent_vec_norm = agent_vec  # VecNormalize for un-normalising agent obs
+#         # --- Phase 1: Train patch — agents use frozen snapshot ---
+#         _agent_snap = agent_ppo.policy
+#         _agent_vec_norm = agent_vec  # VecNormalize for un-normalising agent obs
 
-        for env in patch_shared_envs:
-            def _agent_fn(obs0, obs1, _pol=_agent_snap, _vn=_agent_vec_norm):
-                # obs0/obs1 are raw (un-normalised) — normalise before prediction
-                obs0_n = _vn.normalize_obs(obs0[np.newaxis])[0]
-                obs1_n = _vn.normalize_obs(obs1[np.newaxis])[0]
-                a0, _ = _pol.predict(obs0_n[np.newaxis], deterministic=True)
-                a1, _ = _pol.predict(obs1_n[np.newaxis], deterministic=True)
-                return a0[0], a1[0]
-            env._agent_action_fn = _agent_fn
+#         for env in patch_shared_envs:
+#             def _agent_fn(obs0, obs1, _pol=_agent_snap, _vn=_agent_vec_norm):
+#                 # obs0/obs1 are raw (un-normalised) — normalise before prediction
+#                 obs0_n = _vn.normalize_obs(obs0[np.newaxis])[0]
+#                 obs1_n = _vn.normalize_obs(obs1[np.newaxis])[0]
+#                 a0, _ = _pol.predict(obs0_n[np.newaxis], deterministic=True)
+#                 a1, _ = _pol.predict(obs1_n[np.newaxis], deterministic=True)
+#                 return a0[0], a1[0]
+#             env._agent_action_fn = _agent_fn
 
-        patch_ppo.learn(
-            phase_steps, callback=patch_cb,
-            reset_num_timesteps=(iteration == 1), progress_bar=False,
-        )
-        total_steps += phase_steps
+#         patch_ppo.learn(
+#             phase_steps, callback=patch_cb,
+#             reset_num_timesteps=(iteration == 1), progress_bar=False,
+#         )
+#         total_steps += phase_steps
 
-        # --- Phase 2: Train agents — patch uses frozen snapshot ---
-        _patch_snap = patch_ppo.policy
-        _patch_vec_norm = patch_vec  # VecNormalize for patch obs
+#         # --- Phase 2: Train agents — patch uses frozen snapshot ---
+#         _patch_snap = patch_ppo.policy
+#         _patch_vec_norm = patch_vec  # VecNormalize for patch obs
 
-        for env in agent_shared_envs:
-            def _patch_fn(obs, _pol=_patch_snap, _vn=_patch_vec_norm):
-                obs_n = _vn.normalize_obs(obs[np.newaxis])[0]
-                action, _ = _pol.predict(obs_n[np.newaxis], deterministic=True)
-                return action[0]
-            env._patch_action_fn = _patch_fn
+#         for env in agent_shared_envs:
+#             def _patch_fn(obs, _pol=_patch_snap, _vn=_patch_vec_norm):
+#                 obs_n = _vn.normalize_obs(obs[np.newaxis])[0]
+#                 action, _ = _pol.predict(obs_n[np.newaxis], deterministic=True)
+#                 return action[0]
+#             env._patch_action_fn = _patch_fn
 
-        agent_ppo.learn(
-            phase_steps, callback=agent_cb,
-            reset_num_timesteps=(iteration == 1), progress_bar=False,
-        )
-        total_steps += phase_steps
+#         agent_ppo.learn(
+#             phase_steps, callback=agent_cb,
+#             reset_num_timesteps=(iteration == 1), progress_bar=False,
+#         )
+#         total_steps += phase_steps
 
-        # Log combined metrics to wandb once per iteration
-        if WANDB_AVAILABLE and wandb_run is not None:
-            patch_buf = patch_ppo.ep_info_buffer
-            agent_buf = agent_ppo.ep_info_buffer
-            log = {"joint/total_steps": total_steps, "joint/iteration": iteration}
-            if patch_buf:
-                log["joint/patch_ep_rew_mean"] = float(np.mean([e["r"] for e in patch_buf]))
-                log["joint/patch_ep_len_mean"] = float(np.mean([e["l"] for e in patch_buf]))
-            if agent_buf:
-                log["joint/agent_ep_rew_mean"] = float(np.mean([e["r"] for e in agent_buf]))
-                log["joint/agent_ep_len_mean"] = float(np.mean([e["l"] for e in agent_buf]))
-            wandb.log(log, step=total_steps)
+#         # Log combined metrics to wandb once per iteration
+#         if WANDB_AVAILABLE and wandb_run is not None:
+#             patch_buf = patch_ppo.ep_info_buffer
+#             agent_buf = agent_ppo.ep_info_buffer
+#             log = {"joint/total_steps": total_steps, "joint/iteration": iteration}
+#             if patch_buf:
+#                 log["joint/patch_ep_rew_mean"] = float(np.mean([e["r"] for e in patch_buf]))
+#                 log["joint/patch_ep_len_mean"] = float(np.mean([e["l"] for e in patch_buf]))
+#             if agent_buf:
+#                 log["joint/agent_ep_rew_mean"] = float(np.mean([e["r"] for e in agent_buf]))
+#                 log["joint/agent_ep_len_mean"] = float(np.mean([e["l"] for e in agent_buf]))
+#             wandb.log(log, step=total_steps)
 
-    # --- Save ---
-    patch_ppo.save(os.path.join(run_dir, "patch_final"))
-    agent_ppo.save(os.path.join(run_dir, "agents_final"))
-    patch_vec.save(os.path.join(run_dir, "patch_vecnorm_final.pkl"))
-    agent_vec.save(os.path.join(run_dir, "agents_vecnorm_final.pkl"))
-    patch_vec.close()
-    agent_vec.close()
-    if WANDB_AVAILABLE and wandb_run is not None:
-        wandb.finish()
-    print(f"Joint training complete. Models saved to {run_dir}")
-    return patch_ppo, agent_ppo
+#     # --- Save ---
+#     patch_ppo.save(os.path.join(run_dir, "patch_final"))
+#     agent_ppo.save(os.path.join(run_dir, "agents_final"))
+#     patch_vec.save(os.path.join(run_dir, "patch_vecnorm_final.pkl"))
+#     agent_vec.save(os.path.join(run_dir, "agents_vecnorm_final.pkl"))
+#     patch_vec.close()
+#     agent_vec.close()
+#     if WANDB_AVAILABLE and wandb_run is not None:
+#         wandb.finish()
+#     print(f"Joint training complete. Models saved to {run_dir}")
+#     return patch_ppo, agent_ppo
 
 
 def train_joint_sb3(
     total_timesteps: int = 2_000_000,
     save_path: str = "joint_sb3_models",
-    checkpoint_freq: int = 10000,
+    checkpoint_freq: int = 2000,
     num_envs: int = 8,
     num_cpus: int = 4,
     phase_steps: int = 8192,
@@ -833,6 +831,8 @@ def train_joint_sb3(
 
     _agent_snap = None       # frozen agent policy for co-evolution (set after Phase 2)
     _agent_vec_norm = None   # VecNormalize for agent obs normalisation
+    patch_ppo_steps = 0      # true PPO timesteps collected by patch policy
+    agent_ppo_steps = 0      # true PPO timesteps collected by agent policy
 
     for iteration in range(1, iterations + 1):
         print(f"\n=== Iteration {iteration}/{iterations} ===")
@@ -865,7 +865,9 @@ def train_joint_sb3(
             reset_num_timesteps=(iteration == 1),
             progress_bar=False,
         )
-        total_steps += phase_steps * num_envs
+        # phase_steps is already total transitions across all envs (SB3 accounts for parallelism)
+        total_steps     += phase_steps
+        patch_ppo_steps += phase_steps
 
         # Phase 2: train agents with frozen patch policy snapshot
         _patch_snap = patch_ppo.policy
@@ -893,7 +895,8 @@ def train_joint_sb3(
             reset_num_timesteps=(iteration == 1),
             progress_bar=False,
         )
-        total_steps += phase_steps * num_envs * 2  # 2 agents per env
+        total_steps     += phase_steps   # agent phase: same phase_steps budget
+        agent_ppo_steps += phase_steps
 
         # Snapshot trained agent for use in next iteration's Phase 1 (co-evolution)
         _agent_snap     = agent_ppo.policy
@@ -903,7 +906,12 @@ def train_joint_sb3(
         if WANDB_AVAILABLE and wandb_run is not None:
             patch_buf = patch_ppo.ep_info_buffer
             agent_buf = agent_ppo.ep_info_buffer
-            log = {"joint_sb3/total_steps": total_steps, "joint_sb3/iteration": iteration}
+            log = {
+                "joint_sb3/total_steps":     total_steps,       # true PPO steps (patch + agent)
+                "joint_sb3/patch_ppo_steps": patch_ppo_steps,   # patch policy budget used
+                "joint_sb3/agent_ppo_steps": agent_ppo_steps,   # agent policy budget used
+                "joint_sb3/iteration":       iteration,
+            }
             if patch_buf:
                 log["joint_sb3/patch_ep_rew_mean"] = float(np.mean([e["r"] for e in patch_buf]))
                 log["joint_sb3/patch_ep_len_mean"] = float(np.mean([e["l"] for e in patch_buf]))
