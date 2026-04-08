@@ -712,14 +712,27 @@ def train_joint_sb3(
             reinit=True,
         )
 
-    rollout_steps = 2048
-    # phase_steps must be >= n_steps * num_envs for PPO to trigger at least one update.
-    # Silently round up to the nearest multiple so we never get 0 updates per phase.
-    min_phase = rollout_steps * num_envs
+    # Scale n_steps so that each rollout sees enough diverse episodes.
+    # With ~20-step episodes, n_steps must be large enough to cover many episodes
+    # before each gradient update — too small = each update sees the same behavior
+    # repeated, gradient is noisy, policy barely improves.
+    # TARGET_ROLLOUT = n_steps × num_slots; keeping it ~65536 restores the
+    # original n_steps=2048 behaviour at num_envs=16 (2 PPO updates per phase).
+    TARGET_ROLLOUT = 65536
+    patch_n_steps = max(512, TARGET_ROLLOUT // max(1, num_envs))
+    agent_n_steps = max(512, TARGET_ROLLOUT // max(1, num_envs * 2))
+    patch_batch   = max(256, patch_n_steps * num_envs // 8)
+    agent_batch   = max(256, agent_n_steps * num_envs * 2 // 8)
+
+    # phase_steps must cover at least one full PPO rollout for BOTH policies.
+    min_phase = max(patch_n_steps * num_envs, agent_n_steps * num_envs * 2)
     if phase_steps < min_phase:
-        print(f"[WARNING] phase_steps={phase_steps} < n_steps*num_envs={min_phase}. "
-              f"Rounding up to {min_phase} to ensure at least 1 PPO update per phase.")
+        print(f"[WARNING] phase_steps={phase_steps} < {min_phase} "
+              f"(min to guarantee 1 PPO update per phase). Rounding up.")
         phase_steps = min_phase
+    print(f"[joint_sb3] patch n_steps={patch_n_steps} batch={patch_batch} | "
+          f"agent n_steps={agent_n_steps} batch={agent_batch} | "
+          f"phase_steps={phase_steps}")
 
     # Separate subdirs so patch and agent checkpoints never overwrite each other
     patch_dir = os.path.join(run_dir, "patch")
@@ -751,7 +764,7 @@ def train_joint_sb3(
         save_freq=max(1, checkpoint_freq // num_envs),
         policy_name="patch_sb3",
     )
-    save_patch_best = SaveBestWithVecNormalize(save_dir=patch_dir, check_freq=rollout_steps,
+    save_patch_best = SaveBestWithVecNormalize(save_dir=patch_dir, check_freq=patch_n_steps,
                                                model_name="best_model")
 
     if resume_patch:
@@ -759,7 +772,7 @@ def train_joint_sb3(
     else:
         patch_ppo = PPO(
             "MlpPolicy", patch_vec,
-            n_steps=rollout_steps, batch_size=512, n_epochs=10,
+            n_steps=patch_n_steps, batch_size=patch_batch, n_epochs=10,
             gamma=0.99, gae_lambda=0.95, clip_range=0.2,
             ent_coef=0.05,   # higher entropy → more speed/steering exploration
             vf_coef=0.5, max_grad_norm=0.5,
@@ -771,16 +784,20 @@ def train_joint_sb3(
     # ------------------------------------------------------------------
     def _build_agent_vec(patch_policy_fn=None):
         from stable_baselines3.common.vec_env import VecMonitor
+        from supersuit.vector.constructors import MakeCPUAsyncConstructor
+        from supersuit.vector.vector_constructors import vec_env_args
+        from supersuit.vector.sb3_vector_wrapper import SB3VecEnvWrapper
+
         pz = AgentEnv(patch_policy=patch_policy_fn)
-        vec = ss.pettingzoo_env_to_vec_env_v1(pz)          # 2 gym envs
-        # num_cpus=0 uses ConcatVecEnv (in-process) to avoid a supersuit bug where
-        # the multiproc path (num_cpus>=2) requires obs_space/act_space args that
-        # vec_env_args() doesn't supply.
-        vec = ss.concat_vec_envs_v1(
-            vec, num_vec_envs=num_envs,
-            num_cpus=0, base_class="stable_baselines3",
-        )
-        vec = VecMonitor(vec)   # needed so SB3 ep_info_buffer gets episode stats
+        vec = ss.pettingzoo_env_to_vec_env_v1(pz)   # MarkovVectorEnv: 2 slots (one per agent)
+
+        # Bypass concat_vec_envs_v1 — it has a bug where vec_env_args returns (env_fn_list,)
+        # but MakeCPUAsyncConstructor.constructor expects (env_fn_list, obs_space, act_space).
+        # We call the internals directly with the correct 3 args.
+        env_fn_list = vec_env_args(vec, num_envs)[0]   # [env_fn] * num_envs
+        raw = MakeCPUAsyncConstructor(0)(env_fn_list)  # 0 = DummyVecEnv, no subprocess lifecycle issues
+        vec = SB3VecEnvWrapper(raw)
+        vec = VecMonitor(vec)
         return vec
 
     agent_vec = _build_agent_vec()
@@ -792,7 +809,7 @@ def train_joint_sb3(
         save_freq=max(1, checkpoint_freq // (num_envs * 2)),
         policy_name="agents_sb3",
     )
-    save_agent_best = SaveBestWithVecNormalize(save_dir=agent_dir, check_freq=rollout_steps,
+    save_agent_best = SaveBestWithVecNormalize(save_dir=agent_dir, check_freq=agent_n_steps,
                                                model_name="best_model")
 
     if resume_agents:
@@ -800,7 +817,7 @@ def train_joint_sb3(
     else:
         agent_ppo = PPO(
             "MlpPolicy", agent_vec,
-            n_steps=rollout_steps, batch_size=512, n_epochs=10,
+            n_steps=agent_n_steps, batch_size=agent_batch, n_epochs=10,
             gamma=0.99, gae_lambda=0.95, clip_range=0.2,
             ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5,
             device="cpu", verbose=1,

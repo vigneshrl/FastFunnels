@@ -78,6 +78,7 @@ class AgentEnv(ParallelEnv):
         self,
         env_config: dict | None = None,
         patch_policy: Callable[[np.ndarray], np.ndarray] | None = None,
+        **kwargs,  # absorbs obs_space/act_space injected by SuperSuit subprocess path
     ) -> None:
         super().__init__()
 

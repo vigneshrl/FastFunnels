@@ -1210,20 +1210,21 @@ class JointEnv:
                               inter_dist: float = 999.0) -> float:
         # Continuous distance-based reward — NO hard boundary, smooth gradient everywhere.
         # Agents always get signal to move toward patch center, even when far outside.
+        # Speed-matching fires everywhere — agents must match patch speed whether inside or outside
+        speed_err = abs(agent_speed - self.patch.v) / max(self.patch.v, 0.5)
+        speed_match = 20.0 * max(0.0, 1.0 - speed_err)
+
         if dist_norm <= 1.0:
-            # Inside patch: position reward (Gaussian, max at center) + survival + speed match
+            # Inside patch: position reward (Gaussian, max at center) + speed match
             reward = self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
-            # reward += self.cfg.survival_reward_per_step
-            reward += 20.0 * (prev_dist_norm - dist_norm)  # stronger pull toward center
-            # Speed-matching bonus: reward agent for matching patch speed
-            speed_err = abs(agent_speed - self.patch.v) / max(self.patch.v, 0.5)
-            reward += 20.0 * max(0.0, 1.0 - speed_err)
+            reward += 20.0 * (prev_dist_norm - dist_norm)  # pull toward center
+            reward += speed_match
         else:
-            # Outside: penalty grows with distance, no hard cliff — smooth gradient to come back
+            # Outside: penalty grows with distance + strong recovery gradient + speed match
             # At dist_norm=1.0: 0 penalty; at dist_norm=2.0: full penalty
             reward = -self.cfg.out_of_patch_penalty * min(dist_norm - 1.0, 1.0)
-            # Still reward moving back toward patch even when outside
-            reward += 5.0 * (prev_dist_norm - dist_norm)
+            reward += 50.0 * (prev_dist_norm - dist_norm)  # 50 not 5: match inside pull strength
+            reward += speed_match  # still reward catching up to patch speed when outside
         # Gradient repulsion: smooth penalty that ramps up before hard collision threshold.
         # Fires when agents are within repulsion_zone but haven't fully collided yet.
         if inter_dist < self.cfg.repulsion_zone and not inter_collision:
