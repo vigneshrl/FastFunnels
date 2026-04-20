@@ -19,12 +19,13 @@ import numpy as np
 class F110Config:
     """Configuration for creating an F1TENTH base environment."""
 
-    map_name: str = "custom_map5"
+    #map_name: str = "custom_map6"
+    map_name: str = "plain_map"
     num_agents: int = 2
     timestep: float = 0.01
     integrator: str = "rk4"
     control_input: Tuple[str, str] = ("speed", "steering_angle")
-    model: str = "st"
+    model: str = "st" #"st" - can be used to simulate the dynamic single track model with (yaw_rate, slip angle and tire-style terms)
     observation_type: str = "original"
     mu: float = 1.0
     reset_type: str = "rl_random_static"

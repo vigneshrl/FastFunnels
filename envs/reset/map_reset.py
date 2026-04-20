@@ -33,22 +33,24 @@ class MapResetHelper:
         y: float,
         theta: float,
     ) -> float:
-        perp_left = theta + np.pi / 2.0
-        perp_right = theta - np.pi / 2.0
+        distances = np.arange(0.0, self.config.max_scan_dist, self.config.scan_step)
+        h, w = occupancy_map.shape
+        max_d = float(self.config.max_scan_dist)
 
-        def cast(angle: float) -> float:
-            for d in np.arange(0.0, self.config.max_scan_dist, self.config.scan_step):
-                px = x + d * np.cos(angle)
-                py = y + d * np.sin(angle)
-                ix = int((px - origin[0]) / resolution)
-                iy = int((py - origin[1]) / resolution)
-                if ix < 0 or iy < 0 or iy >= occupancy_map.shape[0] or ix >= occupancy_map.shape[1]:
-                    return float(d)
-                if occupancy_map[iy, ix] < 0.5:
-                    return float(d)
-            return float(self.config.max_scan_dist)
+        def cast_vec(angle: float) -> float:
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            px = x + distances * cos_a
+            py = y + distances * sin_a
+            ix = ((px - origin[0]) / resolution).astype(np.intp)
+            iy = ((py - origin[1]) / resolution).astype(np.intp)
+            oob = (ix < 0) | (iy < 0) | (iy >= h) | (ix >= w)
+            safe_ix = np.clip(ix, 0, w - 1)
+            safe_iy = np.clip(iy, 0, h - 1)
+            hit = oob | (occupancy_map[safe_iy, safe_ix] < 0.5)
+            idx = np.argmax(hit)
+            return float(distances[idx]) if hit[idx] else max_d
 
-        return cast(perp_left) + cast(perp_right)
+        return cast_vec(theta + np.pi / 2.0) + cast_vec(theta - np.pi / 2.0)
 
     def compute_safe_patch_size(self, track_width: float) -> Tuple[float, float]:
         max_patch_width = track_width - (2.0 * self.config.safety_margin)

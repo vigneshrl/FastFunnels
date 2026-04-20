@@ -30,10 +30,12 @@ except ImportError:
     SB3_AVAILABLE = False
 
 try:
-    from ..ppo_policy import PatchEnv, PatchEnvConfig, AgentEnv, AgentEnvConfig
+    from ..ppo_policy import PatchEnv, PatchCarEnv, PatchEnvConfig
+    # AgentEnv, AgentEnvConfig
     from ..ppo_policy import JointEnv, JointEnvConfig
 except ImportError:
-    from envs.ppo_policy import PatchEnv, PatchEnvConfig, AgentEnv, AgentEnvConfig
+    from envs.ppo_policy import PatchEnv, PatchCarEnv, PatchEnvConfig
+    # AgentEnv, AgentEnvConfig
     from envs.ppo_policy import JointEnv, JointEnvConfig
 
 
@@ -117,17 +119,19 @@ def evaluate_patch_policy(
     if agent_policy_path and os.path.exists(agent_policy_path + ".zip"):
         agent_policy = PPO.load(agent_policy_path)
     
-    # Create environment
-    env = PatchEnv(
+    # PatchCarEnv steps the real f110 car each step (same as --mode patch training).
+    # Plain PatchEnv only integrates the bicycle DynamicPatch and never calls f110.step(),
+    # so the pygame window would show a frozen car at spawn.
+    env = PatchCarEnv(
         PatchEnvConfig(
             num_agents=2,
             render_mode="human" if render else None,
             domain_randomize=False,
             random_spawn=False,
-            # patch_only_mode=True,
+            split_mode=True,
         )
     )
-    
+        
     vec_env = DummyVecEnv([lambda: env])
     
     vecnorm_path = _resolve_vecnorm_path(patch_policy_path)
@@ -210,10 +214,13 @@ def evaluate_patch_policy(
             # print(f"\nEpisode {ep+1}/{num_episodes} finished at step {step}")
             # print(f"  Reward: {total_reward:.1f} | Progress: {progress:.1%} | Reason: {reason}")
             progress = info[0].get("lap_progress", 0)
-            total_reward = 0
-            step = 0 
             reason = info[0].get("termination_reason", "truncated")
-            print(f"  Reward: {total_reward:.1f} | Progress: {progress:.1%} | Reason: {reason} | Steps: {step}")
+            print(
+                f"  Reward: {total_reward:.1f} | Progress: {progress:.1%} | "
+                f"Reason: {reason} | Steps: {step}"
+            )
+            total_reward = 0
+            step = 0
             obs = vec_env.reset()
     
     # Summary
@@ -548,6 +555,7 @@ def evaluate_joint_policy(
     render: bool = False,
     plot: bool = True,
     live_viz: bool = False,
+    random_spawn: bool = True,
 ):
     """Evaluate the jointly-trained patch + agent policies on a fresh JointEnv.
 
@@ -629,7 +637,10 @@ def evaluate_joint_policy(
         return agent_vn.normalize_obs(obs[np.newaxis])[0]
 
     # render_mode="human" enables both f110 top-down view and matplotlib overlay
-    env = JointEnv(JointEnvConfig(render_mode="human" if (render or live_viz) else None))
+    env = JointEnv(JointEnvConfig(
+        render_mode="human" if (render or live_viz) else None,
+        random_spawn=random_spawn,
+    ))
     env._real_agents_active = True   # real agent policies are running — enable f110 simulation
 
     # --- episode loop ---
@@ -659,24 +670,25 @@ def evaluate_joint_policy(
             # --- get observations ---
             patch_obs = env._step_obs[0]
             agent0_obs = env._step_obs[1]
-            agent1_obs = env._step_obs[2]
+            # agent1_obs = env._step_obs[2]
 
-            if patch_obs is None or agent0_obs is None or agent1_obs is None:
+            # if patch_obs is None or agent0_obs is None or agent1_obs is None:
+            if patch_obs is None or agent0_obs is None is None:
                 break  # env not yet initialised (shouldn't happen after reset)
 
             # --- predict actions (with obs normalisation) ---
             patch_action, _ = patch_ppo.predict(_norm_patch(patch_obs), deterministic=True)
             agent0_action, _ = agent_ppo.predict(_norm_agent(agent0_obs), deterministic=True)
-            agent1_action, _ = agent_ppo.predict(_norm_agent(agent1_obs), deterministic=True)
+            # agent1_action, _ = agent_ppo.predict(_norm_agent(agent1_obs), deterministic=True)
 
             # --- step ---
             env._execute_joint_step(
                 np.asarray(patch_action, dtype=np.float32),
                 np.asarray(agent0_action, dtype=np.float32),
-                np.asarray(agent1_action, dtype=np.float32),
+                # np.asarray(agent1_action, dtype=np.float32),
             )
 
-            ep_reward_agents += float(np.mean([env._step_rewards[1], env._step_rewards[2]]))
+            ep_reward_agents += float(np.mean([env._step_rewards[1]]))
             ep_reward_patch  += float(env._step_rewards[0])
 
             # record positions
@@ -889,6 +901,8 @@ if __name__ == "__main__":
                        help="Path to agent VecNormalize .pkl (auto-resolved if omitted)")
     parser.add_argument("--live-viz", action="store_true",
                        help="Show real-time matplotlib window (joint mode)")
+    parser.add_argument("--no-random-spawn", action="store_true",
+                       help="Disable random spawn (start from fixed position)")
 
     args = parser.parse_args()
 
@@ -904,6 +918,7 @@ if __name__ == "__main__":
             render=args.render,
             plot=not args.no_plot,
             live_viz=args.live_viz,
+            random_spawn=not args.no_random_spawn,
         )
     elif args.policy == "patch":
         evaluate_patch_policy(

@@ -1,21 +1,21 @@
 """
 PettingZoo ParallelEnv wrapper for agent-only training.
 
-Exposes agent_0 and agent_1 as PettingZoo parallel agents backed by JointEnv.
-The patch runs a fixed/heuristic policy internally — agents learn to stay inside.
+Exposes agent_0 as a PettingZoo parallel agent backed by JointEnv.
+The patch runs a fixed/heuristic policy internally — the agent learns to stay inside.
 
 Usage with SuperSuit:
     import supersuit as ss
     from envs.pz_env import AgentEnv
 
     env = AgentEnv()
-    env = ss.pettingzoo_env_to_vec_env_v1(env)   # gym VecEnv, 2 envs (one per agent)
-    env = ss.concat_vec_envs_v1(env, num_vec_envs=8, num_cpus=4)  # 16 total
+    env = ss.pettingzoo_env_to_vec_env_v1(env)   # gym VecEnv, 1 env (one agent)
+    env = ss.concat_vec_envs_v1(env, num_vec_envs=8, num_cpus=4)  # 8 total
 
 Notes:
-- Both agents have identical obs/action spaces (24D / 2D) → no padding needed.
-- patch_policy: callable(patch_obs) → action[4], or None for a simple heuristic.
-- At each step the patch acts first (heuristic or frozen policy), then agents act.
+- Single agent with obs/action spaces (21D / 2D).
+- patch_policy: callable(patch_obs[11D]) → action[4], or None for a simple heuristic.
+- At each step the patch acts first (heuristic or frozen policy), then agent acts.
 """
 
 from __future__ import annotations
@@ -53,18 +53,18 @@ def _default_patch_policy(patch_obs: np.ndarray) -> np.ndarray:
 
 class AgentEnv(ParallelEnv):
     """
-    PettingZoo ParallelEnv for the two learning agents.
+    PettingZoo ParallelEnv for a single learning agent.
 
     The patch is controlled by `patch_policy` (default: heuristic).
-    agent_0 and agent_1 share the same obs/action space so SuperSuit's
-    pettingzoo_env_to_vec_env_v1 stacks them without padding.
+    The patch car is a real f110 car providing physical inertia;
+    the single agent learns to stay inside the patch ellipse.
 
     Parameters
     ----------
     env_config : dict
         Passed to JointEnvConfig (only recognised fields are forwarded).
     patch_policy : callable, optional
-        (patch_obs: np.ndarray[15]) -> np.ndarray[4]
+        (patch_obs: np.ndarray[11]) -> np.ndarray[4]
         If None, uses the built-in heuristic.
     """
 
@@ -72,7 +72,7 @@ class AgentEnv(ParallelEnv):
     render_mode = None
 
     # PettingZoo required attributes
-    possible_agents = ["agent_0", "agent_1"]
+    possible_agents = ["agent_0"]
 
     def __init__(
         self,
@@ -90,7 +90,9 @@ class AgentEnv(ParallelEnv):
         )
 
         # Observation / action spaces (identical for both agents)
-        obs_space = spaces.Box(low=-np.inf, high=np.inf, shape=(24,), dtype=np.float32)
+        obs_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(JointEnv.AGENT_OBS_DIM,), dtype=np.float32
+        )
         act_space = spaces.Box(
             low=np.array([-0.4189, 0.5], dtype=np.float32),
             high=np.array([0.4189, 12.0], dtype=np.float32),
@@ -112,6 +114,9 @@ class AgentEnv(ParallelEnv):
     def action_space(self, agent: str) -> spaces.Space:  # type: ignore[override]
         return self._act_space
 
+    
+    def set_patch_policy(self, fn):
+        self.patch_policy = fn
     # ------------------------------------------------------------------
     # Core PettingZoo interface
     # ------------------------------------------------------------------
@@ -126,9 +131,8 @@ class AgentEnv(ParallelEnv):
 
         obs = {
             "agent_0": self.joint_env._step_obs[1].copy(),
-            "agent_1": self.joint_env._step_obs[2].copy(),
         }
-        infos: Dict[str, dict] = {"agent_0": {}, "agent_1": {}}
+        infos: Dict[str, dict] = {"agent_0": {}}
         return obs, infos
 
     def step(
@@ -150,26 +154,21 @@ class AgentEnv(ParallelEnv):
         self.joint_env._execute_joint_step(
             np.asarray(patch_action,          dtype=np.float32),
             np.asarray(actions["agent_0"],    dtype=np.float32),
-            np.asarray(actions["agent_1"],    dtype=np.float32),
         )
 
         obs = {
             "agent_0": self.joint_env._step_obs[1].copy(),
-            "agent_1": self.joint_env._step_obs[2].copy(),
         }
         rewards = {
             "agent_0": float(self.joint_env._step_rewards[1]),
-            "agent_1": float(self.joint_env._step_rewards[2]),
         }
 
         done = self.joint_env._step_terminated or self.joint_env._step_truncated
-        terminated = {"agent_0": self.joint_env._step_terminated,
-                      "agent_1": self.joint_env._step_terminated}
-        truncated  = {"agent_0": self.joint_env._step_truncated,
-                      "agent_1": self.joint_env._step_truncated}
+        terminated = {"agent_0": self.joint_env._step_terminated}
+        truncated  = {"agent_0": self.joint_env._step_truncated}
 
         base_info = dict(self.joint_env._step_info)
-        infos = {"agent_0": base_info, "agent_1": base_info}
+        infos = {"agent_0": base_info}
 
         if done:
             self.agents = []   # PettingZoo: clear agents list on episode end

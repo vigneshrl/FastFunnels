@@ -68,6 +68,26 @@ class DynamicPatch:
         self.cos_t = np.cos(self.theta)
         self.sin_t = np.sin(self.theta)
 
+    def sync_from_pose(
+        self,
+        x: float,
+        y: float,
+        theta: float,
+        v: float,
+        steering: float = 0.0,
+    ) -> None:
+        """Overwrite pose/velocity from an external simulator (e.g. f110). Skips bicycle integration."""
+        self.x = float(x)
+        self.y = float(y)
+        self.theta = float(theta)
+        self.v = float(v)
+        self.steering = float(steering)
+        while self.theta > np.pi:
+            self.theta -= 2 * np.pi
+        while self.theta < -np.pi:
+            self.theta += 2 * np.pi
+        self._update_rotation()
+
     def step(self, speed: float, steering: float, dt: float = 0.05) -> None:
         speed = float(np.clip(speed, self.config.v_min, self.config.v_max))
         steering = float(np.clip(steering, -self.config.steering_max, self.config.steering_max))
@@ -162,13 +182,17 @@ class DynamicPatch:
         self.config.wheelbase = float(np_random.uniform(0.4, 0.7))
 
     def get_boundary_points(self, n_points: int = 32) -> List[Tuple[float, float]]:
+        pts = self.get_boundary_points_array(n_points)
+        return [(float(pts[i, 0]), float(pts[i, 1])) for i in range(pts.shape[0])]
+
+    def get_boundary_points_array(self, n_points: int = 32) -> np.ndarray:
+        """Vectorized boundary points — returns (n_points, 2) world coords."""
         angles = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
-        points: List[Tuple[float, float]] = []
-        for angle in angles:
-            x_local = self.a * np.cos(angle)
-            y_local = self.b * np.sin(angle)
-            points.append(self.patch_to_world_frame(x_local, y_local))
-        return points
+        x_local = self.a * np.cos(angles)
+        y_local = self.b * np.sin(angles)
+        x_world = x_local * self.cos_t - y_local * self.sin_t + self.x
+        y_world = x_local * self.sin_t + y_local * self.cos_t + self.y
+        return np.column_stack((x_world, y_world))
 
     def check_patch_boundary_wall_collision(
         self,
@@ -178,20 +202,30 @@ class DynamicPatch:
         n_points: int = 32,
         violation_threshold: float = 0.05,
     ) -> Tuple[bool, List[Tuple[float, float]]]:
+        """Sample the ellipse boundary in world space and test occupancy grid cells.
+
+        Points that fall outside the grid (`oob`) count as violations, same as
+        in-bounds cells with value < 0.5. That can terminate episodes near the map
+        edge even when a smooth ellipse draw looks clear. The drawn Matplotlib
+        ellipse is also smoother than the pixel staircase of the occupancy map,
+        so a few samples can land in wall cells while the curve appears inside.
+        """
         if occupancy_map is None or resolution is None or origin is None:
             return False, []
 
-        violated_points: List[Tuple[float, float]] = []
-        for x_world, y_world in self.get_boundary_points(n_points=n_points):
-            px = int((x_world - origin[0]) / resolution)
-            py = int((y_world - origin[1]) / resolution)
+        pts = self.get_boundary_points_array(n_points)
+        px = ((pts[:, 0] - origin[0]) / resolution).astype(np.intp)
+        py = ((pts[:, 1] - origin[1]) / resolution).astype(np.intp)
 
-            if px < 0 or py < 0 or py >= occupancy_map.shape[0] or px >= occupancy_map.shape[1]:
-                violated_points.append((x_world, y_world))
-                continue
-            if occupancy_map[py, px] < 0.5:
-                violated_points.append((x_world, y_world))
+        h, w = occupancy_map.shape
+        oob = (px < 0) | (py < 0) | (py >= h) | (px >= w)
+        safe_px = np.clip(px, 0, w - 1)
+        safe_py = np.clip(py, 0, h - 1)
+        in_wall = occupancy_map[safe_py, safe_px] < 0.5
+        violated = oob | in_wall
 
-        violation_fraction = len(violated_points) / max(n_points, 1)
-        return violation_fraction >= violation_threshold, violated_points
+        violation_fraction = int(violated.sum()) / max(n_points, 1)
+        if violation_fraction >= violation_threshold:
+            return True, [(float(pts[i, 0]), float(pts[i, 1])) for i in np.where(violated)[0]]
+        return False, []
 

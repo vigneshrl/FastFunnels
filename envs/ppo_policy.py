@@ -30,20 +30,20 @@ import numpy as np
 from gymnasium import spaces
 
 try:
-    from .action import PatchAction, PatchActionConfig
+    # from .action import PatchAction, PatchActionConfig
     from .f110_env import F110Config, F110EnvAdapter
-    from .laser_model import LidarModel
-    from .mpc import MPCConfig, SEMPCSolver, SafetyConfig, SafetyLayer
-    from .observation import PatchObservationBuilder
+    # from .laser_model import LidarModel
+    # from .mpc import MPCConfig, SEMPCSolver, SafetyConfig, SafetyLayer
+    # from .observation import PatchObservationBuilder
     from .patch import DynamicPatch
     from .reset.map_reset import MapResetHelper
 except ImportError:
     # Allow running as a standalone script from repo root.
-    from envs.action import PatchAction, PatchActionConfig
+    # from envs.action import PatchAction, PatchActionConfig
     from envs.f110_env import F110Config, F110EnvAdapter
-    from envs.laser_model import LidarModel
-    from envs.mpc import MPCConfig, SEMPCSolver, SafetyConfig, SafetyLayer
-    from envs.observation import PatchObservationBuilder
+    # from envs.laser_model import LidarModel
+    # from envs.mpc import MPCConfig, SEMPCSolver, SafetyConfig, SafetyLayer
+    # from envs.observation import PatchObservationBuilder
     from envs.patch import DynamicPatch
     from envs.reset.map_reset import MapResetHelper
 
@@ -72,19 +72,20 @@ class PatchEnvConfig:
     """
     # Environment basics
     num_agents: int = 0  # Patch-only, no agents
-    control_dt: float = 0.05
+    control_dt: float = 0.01
+    
     base_reset_type: str = "rl_random_static"
     render_mode: Optional[str] = None
-    max_steps: int = 100_000
+    max_steps: int = 5000 #was 100,000
     domain_randomize: bool = False
     
     # Frenet reward (same as single-agent)
-    reward_progress_scale: float = 40.0
+    reward_progress_scale: float = 80.0
     reward_crosstrack_weight: float = 2.0
     reward_steer_bias_weight: float = 0.0
     reward_steer_rate_weight: float = 0.0
-    spin_yawrate_threshold: float = 1.5
-    reward_spin_weight: float = 0.5 
+    spin_yawrate_threshold: float = 0
+    reward_spin_weight: float = 0.0
     collision_penalty: float = 1500.0
     collision_min_dist: float = 0.25
     stuck_no_progress_steps: int = 60
@@ -92,891 +93,902 @@ class PatchEnvConfig:
     stuck_penalty: float = 10.0
     lap_finish_bonus: float = 2000.0
     lap_bonus_tau: float = 200.0
-    time_penalty_per_sec: float = 0.0
+    time_penalty_per_sec: float = 0.5  # set >0 to prefer faster laps (subtracted per step as rate*dt)
     
     # Lidar config (match single-agent)
-    num_beams: int = 108  # Same as single-agent ENV_CONFIG
+    # num_beams: int = 108  # Same as single-agent ENV_CONFIG
     #  obstacle_coords = 
     
     # Vehicle dynamics
     wheelbase: float = 0.33
     robot_radius: float = 0.15
+    steering_max: float = 0.4189  # max steering angle in radians (~24 degrees)
     
     # Patch size at spawn
-    patch_a: float = 3.0  # semi-major axis (length)
-    patch_b: float = 1.2  # semi-minor axis (width)
+    patch_a: float = 2.0  # semi-major axis (length)
+    patch_b: float = 1.5  # semi-minor axis (width)
 
     # b_cmd / a_cmd action bounds
     # b_cmd_min = 1.0 because 2 agents need at least b=1.0 to fit side-by-side in the patch
     b_cmd_min: float = 1.0
     b_cmd_max: float = 1.5
-    a_cmd_min: float = 1.5
-    a_cmd_max: float = 3.0
+    a_cmd_min: float = 1.0
+    a_cmd_max: float = 2.0
 
     shape_area_penalty_weight: float = 0.1
-    random_spawn: bool = False
+    random_spawn: bool = True
 
     # Patch boundary collision detection
     patch_boundary_violation_threshold: float = 0.05
 
-    # Lookahead distance (metres ahead along spline) — used for proactive split/merge
-    lookahead_dist: float = 6.0
+    # === SPLIT/MERGE MODE DISABLED FOR DEBUGGING ===
+    # lookahead_dist: float = 5.0
     split_mode: bool = False
-
-    # Split/merge triggered by LOOKAHEAD track half-width, not by b value.
-    # ahead_half_w < split threshold → narrow section coming → split now
-    # ahead_half_w > merge threshold → wide section coming → merge now
-    split_ahead_half_w: float = 0.8   # m — split when less than this half-width ahead
-    merge_ahead_half_w: float = 1.1   # m — merge when more than this half-width ahead
-    lane_centering_weight: float = 2.0
+    # split_ahead_half_w: float = 2.0  # m — split when less than this half-width ahead
+    # merge_ahead_half_w: float = 1.1   # m — merge when more than this half-width ahead
+    # lane_centering_weight: float = 2.0
     
 
-@dataclass 
-class AgentEnvConfig:
-    control_dt: float = 0.05
-    num_agents: int = 2
-    patch_env: Optional[Any] = None
-    # base_reset_type: str = "rl_random_static"
-    render_mode: Optional[str] = None
-    random_spawn: bool = False
-    max_steps: int = 100_000
-    patch_a: float = 3.0   # must match PatchEnvConfig.patch_a — frozen policy was trained with this
-    patch_b: float = 1.2   # must match PatchEnvConfig.patch_b
+# @dataclass 
+# class AgentEnvConfig:
+#     control_dt: float = 0.01
+#     num_agents: int = 2
+#     patch_env: Optional[Any] = None
+#     # base_reset_type: str = "rl_random_static"
+#     render_mode: Optional[str] = None
+#     random_spawn: bool = False
+#     max_steps: int = 5000 # was 100,000
+#     patch_a: float = 2.0   # must match PatchEnvConfig.patch_a — frozen policy was trained with this
+#     patch_b: float = 1.5   # must match PatchEnvConfig.patch_b
 
-    wheelbase: float = 0.33
-    robot_radius: float = 0.15
+#     wheelbase: float = 0.33
+#     robot_radius: float = 0.15
 
-    out_of_patch_penalty: float = 200.0
-    inter_collision_penalty: float = 150.0
-    inside_patch_reward: float = 30.0
-    survival_reward_per_step: float = 2.0  # bonus per step alive inside patch
+#     out_of_patch_penalty: float = 200.0
+#     inter_collision_penalty: float = 150.0
+#     inside_patch_reward: float = 30.0
+#     survival_reward_per_step: float = 2.0  # bonus per step alive inside patch
 
-    agents_random_spawn: bool = False
-    # lap_finish_bonus: float = 2000.0
-    # lap_bonus_tau: float = 200.0
+#     agents_random_spawn: bool = False
+#     # lap_finish_bonus: float = 2000.0
+#     # lap_bonus_tau: float = 200.0
 
-    inter_agent_collision_dist: float = 0.20
-    patch_boundary_violation_threshold: float = 0.10  # fraction of boundary pts in wall → collision
+#     inter_agent_collision_dist: float = 0.20
+#     patch_boundary_violation_threshold: float = 0.10  # fraction of boundary pts in wall → collision
 
 
 @dataclass
 class JointEnvConfig:
-    """Config for joint training: patch + 2 agents trained simultaneously."""
-    control_dt: float = 0.05
+    """Config for joint training: patch car + 1 learning agent trained simultaneously.
+
+    The patch car is a real f110 car (car 1) providing physical inertia.
+    The learning agent is car 0. DynamicPatch is used only for ellipse geometry.
+    """
+    control_dt: float = 0.01
     render_mode: Optional[str] = None
     random_spawn: bool = True
-    max_steps: int = 100_000
-    patch_a: float = 3.0
-    patch_b: float = 1.5
-    # Agent reward — large internal values, clipped to [-100, 100] (same style as PatchEnv)
+    max_steps: int = 5000
+    patch_a: float = 2.0  # Match PatchEnvConfig for Phase 0 → Phase A consistency
+    patch_b: float = 1.5  # Match PatchEnvConfig for Phase 0 → Phase A consistency
+    # Agent reward — flat inside, warning ramp near boundary, penalty outside
     out_of_patch_penalty: float = 80.0
     inter_collision_penalty: float = 1000.0
-    inside_patch_reward: float = 15.0
-    repulsion_zone: float = 0.2
+    inside_reward: float = 1.0               # flat reward per step while inside patch
+    warning_zone_start: float = 0.85         # dn threshold where warning ramp begins (dn=1.0 = boundary)
+    # Repulsion: agent vs patch car proximity avoidance
+    repulsion_zone: float = 0.15             # metres — tight so agent can navigate narrow patches
     repulsion_weight: float = 30.0
-    survival_reward_per_step: float = 2.0
-    inter_agent_collision_dist: float = 0.25
+    patch_car_collision_dist: float = 0.18   # metres — agent-to-patch-car collision threshold
     patch_boundary_violation_threshold: float = 0.02  # 1/64 points → immediate detection
-    # Patch reward — mirrors PatchEnv._compute_reward_for exactly + JointEnv-specific terms
-    reward_progress_scale: float = 40.0          # same as PatchEnv
-    reward_crosstrack_weight: float = 2.0        # same as PatchEnv
-    reward_steer_bias_weight: float = 0.0        # same as PatchEnv
-    reward_steer_rate_weight: float = 0.0        # same as PatchEnv
-    spin_yawrate_threshold: float = 1.5          # same as PatchEnv
-    reward_spin_weight: float = 0.5              # same as PatchEnv
-    patch_wall_penalty: float = 1500.0           # same as PatchEnv collision_penalty
-    stuck_no_progress_steps: int = 60            # same as PatchEnv
-    stuck_progress_eps: float = 1e-3             # same as PatchEnv
-    stuck_penalty: float = 10.0                  # same as PatchEnv
-    patch_lap_bonus: float = 2000.0              # same as PatchEnv lap_finish_bonus
-    wheelbase: float = 0.33                      # same as PatchEnv
+    # Patch reward — mirrors PatchEnv._compute_reward_for exactly (reuses logic via helper)
+    reward_progress_scale: float = 80.0          # Match PatchEnvConfig (was 40.0)
+    reward_crosstrack_weight: float = 2.0        # Match PatchEnvConfig
+    reward_steer_bias_weight: float = 0.0        # Match PatchEnvConfig
+    reward_steer_rate_weight: float = 0.0        # Match PatchEnvConfig
+    spin_yawrate_threshold: float = 0.0          # Match PatchEnvConfig (was 1.5)
+    reward_spin_weight: float = 0.0              # Match PatchEnvConfig (was 0.5)
+    patch_wall_penalty: float = 1500.0           # Match PatchEnvConfig collision_penalty
+    stuck_no_progress_steps: int = 60            # Match PatchEnvConfig
+    stuck_progress_eps: float = 1e-3             # Match PatchEnvConfig
+    stuck_penalty: float = 10.0                  # Match PatchEnvConfig
+    patch_lap_bonus: float = 2000.0              # Match PatchEnvConfig lap_finish_bonus
+    lap_bonus_tau: float = 200.0                 # Match PatchEnvConfig
+    wheelbase: float = 0.33                      # Match PatchEnvConfig
+    # Patch-specific continued (from PatchEnvConfig)
+    shape_area_penalty_weight: float = 0.1       # Match PatchEnvConfig
+    time_penalty_per_sec: float = 0.5            # Match PatchEnvConfig
+    lane_centering_weight: float = 2.0           # Match PatchEnvConfig
     # JointEnv-specific: agent coupling terms
     agents_inside_bonus: float = 30.0            # bonus per agent inside per step
     patch_min_speed_frac: float = 0.3
     patch_boundary_violation_threshold: float = 0.05
     # Patch obs / action bounds
-    patch_lookahead_dist: float = 2.0
-    patch_a_cmd_min: float = 1.5
-    patch_b_cmd_min: float = 1.0
+    patch_lookahead_dist: float = 5.0            # Match PatchEnvConfig lookahead_dist (was 2.0)
+    patch_a_cmd_min: float = 1.0                 # Match PatchEnvConfig.a_cmd_min
+    patch_a_cmd_max: float = 2.0                 # Match PatchEnvConfig.a_cmd_max
+    patch_b_cmd_min: float = 1.0   # must match PatchEnvConfig.b_cmd_min
+    patch_b_cmd_max: float = 1.5
+    agent_out_of_patch_threshold: float = 2.0
+    steering_max: float = 0.4189  # max steering angle in radians (~24 degrees) - Match PatchEnvConfig
 
 
-class AgentEnv(gym.Env):
-    "Agent enviroment which is using the patch as the place to navigate"
+# class AgentEnv(gym.Env):
+#     "Agent enviroment which is using the patch as the place to navigate"
 
-    metadata = { "render_modes" : ["human", "rgb_array", None]}
+#     metadata = { "render_modes" : ["human", "rgb_array", None]}
 
-    def __init__(self, config: Optional[AgentEnvConfig] = None):
-        super().__init__()
-        self.cfg = config or AgentEnvConfig()
-        self.patch_env = self.cfg.patch_env
-        # Action: [steer_delta, speed_delta]
-        # steer_delta — correction on top of patch co-driver steer (keeps agents
-        #               stable during early training; random deltas stay aligned)
-        # speed_delta — correction on top of frozen patch speed baseline
-        self.action_space = spaces.Box(
-            low=np.array([-0.4189, -1.0], dtype=np.float32),
-            high=np.array([0.4189,  1.0], dtype=np.float32),
-            dtype=np.float32,
-        )
-        # Obs: 24D — ego 12D concatenated with partner 12D (for CTDE centralized critic)
-        # obs[0:12]  = ego agent's 12D obs (actor only uses this slice)
-        # obs[12:24] = partner agent's 12D obs (critic uses full 24D)
-        # Layout of each 12D block:
-        # [x_norm, y_norm,            ← position in patch
-        #  ot_x_norm, ot_y_norm,      ← other agent position
-        #  dx_other,  dy_other,       ← separation vector
-        #  patch_yaw_rate, patch_v,   ← patch dynamics
-        #  a, b, speed, heading_rel]  ← shape + own kinematics
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(24,), dtype=np.float32,
-        )
-        self._ego_idx = 0  # randomised each reset — breaks agent0/agent1 asymmetry
+#     def __init__(self, config: Optional[AgentEnvConfig] = None):
+#         super().__init__()
+#         self.cfg = config or AgentEnvConfig()
+#         self.patch_env = self.cfg.patch_env
+#         # Action: [steer_delta, speed_delta]
+#         # steer_delta — correction on top of patch co-driver steer (keeps agents
+#         #               stable during early training; random deltas stay aligned)
+#         # speed_delta — correction on top of frozen patch speed baseline
+#         self.action_space = spaces.Box(
+#             low=np.array([-0.4189, -1.0], dtype=np.float32),
+#             high=np.array([0.4189,  1.0], dtype=np.float32),
+#             dtype=np.float32,
+#         )
+#         # Obs: 24D — ego 12D concatenated with partner 12D (for CTDE centralized critic)
+#         # obs[0:12]  = ego agent's 12D obs (actor only uses this slice)
+#         # obs[12:24] = partner agent's 12D obs (critic uses full 24D)
+#         # Layout of each 12D block:
+#         # [x_norm, y_norm,            ← position in patch
+#         #  ot_x_norm, ot_y_norm,      ← other agent position
+#         #  dx_other,  dy_other,       ← separation vector
+#         #  patch_yaw_rate, patch_v,   ← patch dynamics
+#         #  a, b, speed, heading_rel]  ← shape + own kinematics
+#         self.observation_space = spaces.Box(
+#             low=-np.inf, high=np.inf, shape=(24,), dtype=np.float32,
+#         )
+#         self._ego_idx = 0  # randomised each reset — breaks agent0/agent1 asymmetry
 
-        # 3-car simulation: car 0 = patch (frozen policy, real f110 inertia),
-        # cars 1 & 2 = learning agents.
-        # Using real f110 physics for the patch restores the inertia it had during
-        # PatchEnv training — the kinematic DynamicPatch had no inertia and sprinted
-        # ahead of the physical agent cars during the acceleration phase.
-        self.f110 = F110EnvAdapter(
-            F110Config(
-                num_agents=3,
-                control_input=("speed", "steering_angle"),
-                timestep=self.cfg.control_dt,
-            ),
-            render_mode=self.cfg.render_mode,
-        )
-        self.base_env = self.f110
-        self.map_reset = MapResetHelper()
+#         # 3-car simulation: car 0 = patch (frozen policy, real f110 inertia),
+#         # cars 1 & 2 = learning agents.
+#         # Using real f110 physics for the patch restores the inertia it had during
+#         # PatchEnv training — the kinematic DynamicPatch had no inertia and sprinted
+#         # ahead of the physical agent cars during the acceleration phase.
+#         self.f110 = F110EnvAdapter(
+#             F110Config(
+#                 num_agents=3,
+#                 control_input=("speed", "steering_angle"),
+#                 timestep=self.cfg.control_dt,
+#             ),
+#             render_mode=self.cfg.render_mode,
+#         )
+#         self.base_env = self.f110
+#         self.map_reset = MapResetHelper()
 
-        # DynamicPatch is synced from f110 car 0's physical position each step.
-        # Used only for geometry: world_to_patch_frame, check_boundary_collision,
-        # update_shape, and obs building. No longer stepped kinematically.
-        self.patch = DynamicPatch()
-        self.patch.a = self.cfg.patch_a
-        self.patch.b = self.cfg.patch_b
+#         # DynamicPatch is synced from f110 car 0's physical position each step.
+#         # Used only for geometry: world_to_patch_frame, check_boundary_collision,
+#         # update_shape, and obs building. No longer stepped kinematically.
+#         self.patch = DynamicPatch()
+#         self.patch.a = self.cfg.patch_a
+#         self.patch.b = self.cfg.patch_b
 
-        self.num_agents = 2  # learning agents (f110 cars 1 and 2)
-        self.track_spline = None
-        self.track_length = None
-        self._occ_map = None
-        self._resolution = None
-        self._origin = None
-        self.step_count = 0
-        self.episode_reward = 0.0
-        self.current_base_obs = None
-        self._fig = None
-        self._ax = None
-        self._term_counts = {"out_of_patch": 0, "inter_collision": 0, "max_steps": 0, "patch_wall": 0}
-        self.prev_patch_theta = 0.0
-        self.patch_yaw_rate = 0.0
-        self.patch_steer = 0.0
-        self._episode_count = 0
-        self.prev_dist_norms = [0.0, 0.0]  # tracked for shaped reward
+#         self.num_agents = 2  # learning agents (f110 cars 1 and 2)
+#         self.track_spline = None
+#         self.track_length = None
+#         self._occ_map = None
+#         self._resolution = None
+#         self._origin = None
+#         self.step_count = 0
+#         self.episode_reward = 0.0
+#         self.current_base_obs = None
+#         self._fig = None
+#         self._ax = None
+#         self._term_counts = {"out_of_patch": 0, "inter_collision": 0, "max_steps": 0, "patch_wall": 0}
+#         self.prev_patch_theta = 0.0
+#         self.patch_yaw_rate = 0.0
+#         self.patch_steer = 0.0
+#         self._episode_count = 0
+#         self.prev_dist_norms = [0.0, 0.0]  # tracked for shaped reward
 
-        # --- AgentView synchronization (parameter sharing) ---
-        # Two AgentView instances share this env. Each independently predicts
-        # a 2D action. Physics executes once BOTH actions are submitted.
-        self._pending_actions: list = [None, None]
-        self._step_obs:        list = [None, None]
-        self._step_rewards:    list = [0.0, 0.0]
-        self._step_terminated: bool = False
-        self._step_truncated:  bool = False
-        self._step_info:       dict = {}
+#         # --- AgentView synchronization (parameter sharing) ---
+#         # Two AgentView instances share this env. Each independently predicts
+#         # a 2D action. Physics executes once BOTH actions are submitted.
+#         self._pending_actions: list = [None, None]
+#         self._step_obs:        list = [None, None]
+#         self._step_rewards:    list = [0.0, 0.0]
+#         self._step_terminated: bool = False
+#         self._step_truncated:  bool = False
+#         self._step_info:       dict = {}
 
 
-    #     # Frenet bookkeeping - per agent
-    #     self.track_spline = None
-    #     self.track_length = None
-    #     self.prev_rel = [None, None]
-    #     self.no_progress_counter = [0, 0]
-    #     self.step_count = 0
-    #     self.episode_reward = 0.0
-    #     self._last_reward_terms = {}
-    #     self.current_base_obs = None
-    #     self.num_agents = 2
-    #     self._fig = None
-    #     self._ax = None
+#     #     # Frenet bookkeeping - per agent
+#     #     self.track_spline = None
+#     #     self.track_length = None
+#     #     self.prev_rel = [None, None]
+#     #     self.no_progress_counter = [0, 0]
+#     #     self.step_count = 0
+#     #     self.episode_reward = 0.0
+#     #     self._last_reward_terms = {}
+#     #     self.current_base_obs = None
+#     #     self.num_agents = 2
+#     #     self._fig = None
+#     #     self._ax = None
     
-    # # def _wrap_ds(self, ds: float) -> float:
-    # #     if self.track_length is None or not np.isfinite(self.track_length):
-    # #         return ds  # Safe fallback
-    # #     L = float(self.track_length)
-    # #     if L <= 0:
-    # #         return ds
-    # #     return (ds + 0.5 * L) % L - 0.5 * L
+#     # # def _wrap_ds(self, ds: float) -> float:
+#     # #     if self.track_length is None or not np.isfinite(self.track_length):
+#     # #         return ds  # Safe fallback
+#     # #     L = float(self.track_length)
+#     # #     if L <= 0:
+#     # #         return ds
+#     # #     return (ds + 0.5 * L) % L - 0.5 * L
 
-    # @staticmethod
-    # def _wrap_angle(angle_rad: float) -> float:
-    #     return float((angle_rad + np.pi) % (2.0 * np.pi) - np.pi)
+#     # @staticmethod
+#     # def _wrap_angle(angle_rad: float) -> float:
+#     #     return float((angle_rad + np.pi) % (2.0 * np.pi) - np.pi)
 
-    # def _patch_to_frenet(self) -> tuple[float, float]:
-    #     if self.track_spline is None:
-    #         # Return safe fallback values (like single-car would never reach here)
-    #         return 0.0, 0.0
+#     # def _patch_to_frenet(self) -> tuple[float, float]:
+#     #     if self.track_spline is None:
+#     #         # Return safe fallback values (like single-car would never reach here)
+#     #         return 0.0, 0.0
         
-    #     try:
-    #         s, ey = self.track_spline.calc_arclength_inaccurate(float(self.patch.x), float(self.patch.y))
-    #         # Check for NaN (single-car doesn't need this but multi-agent might)
-    #         if not np.isfinite(s) or not np.isfinite(ey):
-    #             return 0.0, 0.0
-    #         return float(s), float(ey)
-    #     except (AttributeError, TypeError):
-    #         return 0.0, 0.0
+#     #     try:
+#     #         s, ey = self.track_spline.calc_arclength_inaccurate(float(self.patch.x), float(self.patch.y))
+#     #         # Check for NaN (single-car doesn't need this but multi-agent might)
+#     #         if not np.isfinite(s) or not np.isfinite(ey):
+#     #             return 0.0, 0.0
+#     #         return float(s), float(ey)
+#     #     except (AttributeError, TypeError):
+#     #         return 0.0, 0.0
 
-    # def _estimate_current_track_width(self) -> float:
-    #     """Estimate local track width at current patch pose."""
-    #     try:
-    #         _, occ_map, resolution, origin = self.f110.get_track_data()
-    #         width = float(
-    #             self.map_reset.estimate_track_width(
-    #                 occ_map,
-    #                 resolution,
-    #                 origin,
-    #                 float(self.patch.x),
-    #                 float(self.patch.y),
-    #                 float(self.patch.theta),
-    #             )
-    #         )
-    #         if not np.isfinite(width) or width <= 0.0:
-    #             return float(max(2.0 * self.patch.b, 1.0))
-    #         return width
-    #     except Exception:
-    #         return float(max(2.0 * self.patch.b, 1.0))
+#     # def _estimate_current_track_width(self) -> float:
+#     #     """Estimate local track width at current patch pose."""
+#     #     try:
+#     #         _, occ_map, resolution, origin = self.f110.get_track_data()
+#     #         width = float(
+#     #             self.map_reset.estimate_track_width(
+#     #                 occ_map,
+#     #                 resolution,
+#     #                 origin,
+#     #                 float(self.patch.x),
+#     #                 float(self.patch.y),
+#     #                 float(self.patch.theta),
+#     #             )
+#     #         )
+#     #         if not np.isfinite(width) or width <= 0.0:
+#     #             return float(max(2.0 * self.patch.b, 1.0))
+#     #         return width
+#     #     except Exception:
+#     #         return float(max(2.0 * self.patch.b, 1.0))
 
-    # def _agent_to_frenet(self, x: float, y: float) -> tuple[float, float]:
-    #     """Convert agent world position to Frenet (s, ey)."""
-    #     if self.track_spline is None:
-    #         return 0.0, 0.0
-    #     try:
-    #         s, ey = self.track_spline.calc_arclength_inaccurate(float(x), float(y))
-    #         if not np.isfinite(s) or not np.isfinite(ey):
-    #             return 0.0, 0.0
-    #         return float(s), float(ey)
-    #     except (AttributeError, TypeError):
-    #         return 0.0, 0.0
+#     # def _agent_to_frenet(self, x: float, y: float) -> tuple[float, float]:
+#     #     """Convert agent world position to Frenet (s, ey)."""
+#     #     if self.track_spline is None:
+#     #         return 0.0, 0.0
+#     #     try:
+#     #         s, ey = self.track_spline.calc_arclength_inaccurate(float(x), float(y))
+#     #         if not np.isfinite(s) or not np.isfinite(ey):
+#     #             return 0.0, 0.0
+#     #         return float(s), float(ey)
+#     #     except (AttributeError, TypeError):
+#     #         return 0.0, 0.0
     
-    def _sync_patch_from_car0(self, base_obs) -> None:
-        """Sync DynamicPatch geometry from f110 car 0 (the physical patch car).
-        Called after every f110.reset() and f110.step() so the patch ellipse
-        always reflects the real physical position of the patch car.
-        """
-        self.patch.x = float(base_obs["poses_x"][0])
-        self.patch.y = float(base_obs["poses_y"][0])
-        self.patch.theta = float(base_obs["poses_theta"][0])
-        vx = float(base_obs["linear_vels_x"][0]) if "linear_vels_x" in base_obs else 0.0
-        vy = float(base_obs["linear_vels_y"][0]) if "linear_vels_y" in base_obs else 0.0
-        self.patch.v = float(np.hypot(vx, vy))
+#     def _sync_patch_from_car0(self, base_obs) -> None:
+#         """Sync DynamicPatch geometry from f110 car 0 (the physical patch car).
+#         Called after every f110.reset() and f110.step() so the patch ellipse
+#         always reflects the real physical position of the patch car.
+#         """
+#         self.patch.x = float(base_obs["poses_x"][0])
+#         self.patch.y = float(base_obs["poses_y"][0])
+#         self.patch.theta = float(base_obs["poses_theta"][0])
+#         vx = float(base_obs["linear_vels_x"][0]) if "linear_vels_x" in base_obs else 0.0
+#         vy = float(base_obs["linear_vels_y"][0]) if "linear_vels_y" in base_obs else 0.0
+#         self.patch.v = float(np.hypot(vx, vy))
 
-    def _build_agent_obs_for(self, ego: int, base_obs) -> np.ndarray:
-        """Build 12D ego-centric observation for logical agent `ego` (0 or 1).
-        Logical agent 0 → f110 car 1, logical agent 1 → f110 car 2.
-        (f110 car 0 is reserved for the patch car.)
-        """
-        other = 1 - ego
-        # Map logical agent index to f110 car index
-        f_ego  = ego  + 1   # f110 index for ego agent
-        f_other = other + 1  # f110 index for other agent
-        a = max(float(self.patch.a), 1e-3)
-        b = max(float(self.patch.b), 1e-3)
+#     def _build_agent_obs_for(self, ego: int, base_obs) -> np.ndarray:
+#         """Build 12D ego-centric observation for logical agent `ego` (0 or 1).
+#         Logical agent 0 → f110 car 1, logical agent 1 → f110 car 2.
+#         (f110 car 0 is reserved for the patch car.)
+#         """
+#         other = 1 - ego
+#         # Map logical agent index to f110 car index
+#         f_ego  = ego  + 1   # f110 index for ego agent
+#         f_other = other + 1  # f110 index for other agent
+#         a = max(float(self.patch.a), 1e-3)
+#         b = max(float(self.patch.b), 1e-3)
 
-        def _get_patch_pos(fi):
-            x = float(base_obs["poses_x"][fi])
-            y = float(base_obs["poses_y"][fi])
-            return self.patch.world_to_patch_frame(x, y)
+#         def _get_patch_pos(fi):
+#             x = float(base_obs["poses_x"][fi])
+#             y = float(base_obs["poses_y"][fi])
+#             return self.patch.world_to_patch_frame(x, y)
 
-        def _get_speed(fi):
-            vx = float(base_obs["linear_vels_x"][fi]) if "linear_vels_x" in base_obs else 0.0
-            vy = float(base_obs["linear_vels_y"][fi]) if "linear_vels_y" in base_obs else 0.0
-            return float(np.hypot(vx, vy))
+#         def _get_speed(fi):
+#             vx = float(base_obs["linear_vels_x"][fi]) if "linear_vels_x" in base_obs else 0.0
+#             vy = float(base_obs["linear_vels_y"][fi]) if "linear_vels_y" in base_obs else 0.0
+#             return float(np.hypot(vx, vy))
 
-        def _get_heading_rel(fi):
-            yaw = float(base_obs["poses_theta"][fi]) if "poses_theta" in base_obs else 0.0
-            return float((yaw - self.patch.theta + np.pi) % (2 * np.pi) - np.pi)
+#         def _get_heading_rel(fi):
+#             yaw = float(base_obs["poses_theta"][fi]) if "poses_theta" in base_obs else 0.0
+#             return float((yaw - self.patch.theta + np.pi) % (2 * np.pi) - np.pi)
 
-        # Ego agent
-        ex, ey = _get_patch_pos(f_ego)
-        my_x_norm, my_y_norm = ex / b, ey / a
+#         # Ego agent
+#         ex, ey = _get_patch_pos(f_ego)
+#         my_x_norm, my_y_norm = ex / b, ey / a
 
-        # Other agent
-        ox, oy = _get_patch_pos(f_other)
-        ot_x_norm, ot_y_norm = ox / b, oy / a
+#         # Other agent
+#         ox, oy = _get_patch_pos(f_other)
+#         ot_x_norm, ot_y_norm = ox / b, oy / a
 
-        # Separation from ego's perspective
-        dx_other = ex - ox
-        dy_other = ey - oy
+#         # Separation from ego's perspective
+#         dx_other = ex - ox
+#         dy_other = ey - oy
 
-        patch_yaw_rate = float(np.clip(self.patch_yaw_rate, -10.0, 10.0))
-        patch_v = float(self.patch.v)
+#         patch_yaw_rate = float(np.clip(self.patch_yaw_rate, -10.0, 10.0))
+#         patch_v = float(self.patch.v)
 
-        return np.array([
-            my_x_norm, my_y_norm,
-            ot_x_norm, ot_y_norm,
-            dx_other, dy_other,
-            patch_yaw_rate, patch_v, a, b,
-            _get_speed(f_ego), _get_heading_rel(f_ego),
-        ], dtype=np.float32)
+#         return np.array([
+#             my_x_norm, my_y_norm,
+#             ot_x_norm, ot_y_norm,
+#             dx_other, dy_other,
+#             patch_yaw_rate, patch_v, a, b,
+#             _get_speed(f_ego), _get_heading_rel(f_ego),
+#         ], dtype=np.float32)
 
-    def _build_agent_obs(self, base_obs) -> np.ndarray:
-        """Backward-compat wrapper: builds obs for the current _ego_idx."""
-        return self._build_agent_obs_for(self._ego_idx, base_obs)
+#     def _build_agent_obs(self, base_obs) -> np.ndarray:
+#         """Backward-compat wrapper: builds obs for the current _ego_idx."""
+#         return self._build_agent_obs_for(self._ego_idx, base_obs)
 
-    def _compute_agent_reward(self, dist_norm: float, prev_dist_norm: float,
-                              inter_collision: bool) -> float:
-        """Per-agent reward with position shaping + progress shaping.
-        dist_norm: 0=center, 1=patch edge, >1=outside.
-        prev_dist_norm: dist_norm from previous step — used for shaped reward.
-        """
-        if dist_norm <= 1.0:
-            # Inside: position reward highest at center + survival bonus
-            reward = self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
-            # reward += self.cfg.survival_reward_per_step
-            # Shaped: reward for moving toward center, penalise moving away
-            # prev - curr > 0 means closer than before → positive
-            reward += 5.0 * (prev_dist_norm - dist_norm)
-        elif dist_norm <= 1.5:
-            # Buffer zone: escalating penalty, still alive
-            reward = -self.cfg.out_of_patch_penalty * (dist_norm - 1.0) / 0.5
-        else:
-            # Hard outside: full penalty
-            reward = -self.cfg.out_of_patch_penalty
-        if inter_collision:
-            reward -= self.cfg.inter_collision_penalty
-        return float(np.clip(reward, -200.0, 200.0))
+#     def _compute_agent_reward(self, dist_norm: float, prev_dist_norm: float,
+#                               inter_collision: bool) -> float:
+#         """Per-agent reward with position shaping + progress shaping.
+#         dist_norm: 0=center, 1=patch edge, >1=outside.
+#         prev_dist_norm: dist_norm from previous step — used for shaped reward.
+#         """
+#         if dist_norm <= 1.0:
+#             # Inside: position reward highest at center + survival bonus
+#             reward = self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
+#             # reward += self.cfg.survival_reward_per_step
+#             # Shaped: reward for moving toward center, penalise moving away
+#             # prev - curr > 0 means closer than before → positive
+#             reward += 5.0 * (prev_dist_norm - dist_norm)
+#         elif dist_norm <= 1.5:
+#             # Buffer zone: escalating penalty, still alive
+#             reward = -self.cfg.out_of_patch_penalty * (dist_norm - 1.0) / 0.5
+#         else:
+#             # Hard outside: full penalty
+#             reward = -self.cfg.out_of_patch_penalty
+#         if inter_collision:
+#             reward -= self.cfg.inter_collision_penalty
+#         return float(np.clip(reward, -200.0, 200.0))
 
-    def _check_agent_termination(
-        self, agent_idx: int, dist_norm: float, inter_collision: bool
-    ) -> tuple[bool, bool, str]:
-        """Terminate only when dist_norm > 1.5 (buffer zone gives gradient before cliff)."""
-        if inter_collision:
-            return True, False, f"agent{agent_idx}_inter_collision"
-        if dist_norm > 1.5:
-            return True, False, f"agent{agent_idx}_out_of_patch"
-        if self.step_count >= self.cfg.max_steps:
-            return False, True, "max_steps"
-        return False, False, None
+#     def _check_agent_termination(
+#         self, agent_idx: int, dist_norm: float, inter_collision: bool
+#     ) -> tuple[bool, bool, str]:
+#         """Terminate only when dist_norm > 1.5 (buffer zone gives gradient before cliff)."""
+#         if inter_collision:
+#             return True, False, f"agent{agent_idx}_inter_collision"
+#         if dist_norm > 1.5:
+#             return True, False, f"agent{agent_idx}_out_of_patch"
+#         if self.step_count >= self.cfg.max_steps:
+#             return False, True, "max_steps"
+#         return False, False, None
     
-    def reset(self, seed=None, options=None):
-        """Reset: spawn 2 agents inside patch, initialize frozen patch policy."""
-        super().reset(seed=seed)
-        self.step_count = 0
-        self.episode_reward = 0.0
-        self.prev_dist_norms = [0.0, 0.0]
-        # Randomise ego agent each episode — both agents train equally as "ego"
-        self._ego_idx = int(np.random.randint(0, 2))
-
-        self.f110.ensure_initialized()
-        track, self._occ_map, self._resolution, self._origin = self.f110.get_track_data()
-        if track.centerline is None or track.centerline.spline is None:
-            raise ValueError("Track centerline/spline missing.")
-
-        self.track_spline = track.centerline.spline
-        self.track_length = float(self.track_spline.s[-1])
-
-        # Sync frozen patch_env with track data so get_patch_action builds correct obs.
-        # PatchEnv.reset() is never called in AgentEnv — so we must seed its caches here.
-        # _precompute_track_widths is expensive (200 ray casts) — only do it once per env,
-        # not every episode reset.
-        if self.patch_env is not None:
-            self.patch_env._occ_map    = self._occ_map
-            self.patch_env._resolution = self._resolution
-            self.patch_env._origin     = self._origin
-            self.patch_env.track_spline  = self.track_spline
-            self.patch_env.track_length  = self.track_length
-            if self.patch_env._tw_s_vals is None:
-                self.patch_env._precompute_track_widths(n_samples=200)
-
-        xs = np.asarray(track.centerline.xs, dtype=np.float32)
-        ys = np.asarray(track.centerline.ys, dtype=np.float32)
-        spawn_idx = int(np.random.randint(0, xs.shape[0])) if self.cfg.random_spawn else 0
-        spawn_idx = max(0, min(spawn_idx, xs.shape[0] - 1))
-        patch_x, patch_y = float(xs[spawn_idx]), float(ys[spawn_idx])
-        next_idx = (spawn_idx + 1) % xs.shape[0]
-        patch_theta = float(np.arctan2(
-            float(ys[next_idx] - ys[spawn_idx]),
-            float(xs[next_idx] - xs[spawn_idx])
-        ))
-
-        self.patch = DynamicPatch(
-            x=patch_x, y=patch_y, theta=patch_theta,
-            v=0.5, a=self.cfg.patch_a, b=self.cfg.patch_b
-        )
-        self.prev_patch_theta = patch_theta
-        self.patch_yaw_rate = 0.0
-        self.patch_steer = 0.0
-        if self.patch_env is not None:
-            self.patch_env.patch = self.patch
-        perp_dx = -np.sin(patch_theta)
-        perp_dy = np.cos(patch_theta)
-
-        if self.cfg.agents_random_spawn:
-            a = max(float(self.patch.a), 1e-3)
-            b = max(float(self.patch.b), 1e-3)
-            min_sep = 0.30
-            max_tries = 50
-            cos_t, sin_t = np.cos(patch_theta), np.sin(patch_theta)
-
-            def _sample_in_ellipse():
-                for _ in range(200):
-                    xr = np.random.uniform(-b * 0.5, b * 0.5)
-                    yr = np.random.uniform(-a * 0.5, a * 0.5)
-                    if (xr / b) ** 2 + (yr / a) ** 2 < 0.25:
-                        wx = patch_x + cos_t * yr - sin_t * xr
-                        wy = patch_y + sin_t * yr + cos_t * xr
-                        return wx, wy
-                return patch_x, patch_y
-
-            for _ in range(max_tries):
-                w0x, w0y = _sample_in_ellipse()
-                w1x, w1y = _sample_in_ellipse()
-                if np.hypot(w0x - w1x, w0y - w1y) >= min_sep:
-                    break
-
-            poses = np.array([
-                [patch_x, patch_y, patch_theta],  # car 0 = patch car, at center
-                [w0x, w0y, patch_theta],           # car 1 = agent 0
-                [w1x, w1y, patch_theta],           # car 2 = agent 1
-            ], dtype=np.float32)
-        else:
-            offset = 0.50
-            poses = np.array([
-                [patch_x, patch_y, patch_theta],                                              # car 0 = patch car
-                [patch_x + offset * perp_dx, patch_y + offset * perp_dy, patch_theta],       # car 1 = agent 0 (left)
-                [patch_x - offset * perp_dx, patch_y - offset * perp_dy, patch_theta],       # car 2 = agent 1 (right)
-            ], dtype=np.float32)
-
-        base_obs, _ = self.f110.reset(poses=poses)
-        self.current_base_obs = base_obs
-
-        # Sync DynamicPatch geometry from the physical patch car (f110 car 0)
-        self._sync_patch_from_car0(base_obs)
-
-        # Pre-cache 24D joint obs for CTDE: [ego_12D | partner_12D]
-        ego0 = np.nan_to_num(self._build_agent_obs_for(0, base_obs),
-                              nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        ego1 = np.nan_to_num(self._build_agent_obs_for(1, base_obs),
-                              nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        self._step_obs[0] = np.concatenate([ego0, ego1])  # agent0: ego=0, partner=1
-        self._step_obs[1] = np.concatenate([ego1, ego0])  # agent1: ego=1, partner=0
-        self._pending_actions = [None, None]
-        self._step_rewards    = [0.0, 0.0]
-        self._step_terminated = False
-        self._step_truncated  = False
-        self._step_info       = {}
-
-        obs = self._step_obs[self._ego_idx]  # 24D joint obs already built above
-        return obs.copy(), {}
-
-    def _execute_combined_step(self, action0: np.ndarray, action1: np.ndarray):
-        """Execute one physics step with independent actions for each agent.
-
-        action0: [steer_delta, speed_delta] for physical agent 0
-        action1: [steer_delta, speed_delta] for physical agent 1
-
-        Updates _step_obs, _step_rewards, _step_terminated, _step_truncated,
-        _step_info in-place. Called by AgentView when both actions are ready.
-        """
-        self.step_count += 1
-        dt = self.cfg.control_dt
-
-        # --- Frozen patch policy acts on DynamicPatch state (synced from car 0) ---
-        if self.patch_env is not None:
-            self.patch_env.patch = self.patch
-            patch_action = self.patch_env.get_patch_action(self.patch, self.track_spline)
-            steer_p = float(np.clip(patch_action[0], -0.4189, 0.4189))
-            speed_p = float(np.clip(patch_action[1], 0.5, 10.0))
-            a_p = float(np.clip(patch_action[2], 1.0, self.cfg.patch_a))
-            b_p = float(np.clip(patch_action[3], 1.0, self.cfg.patch_b))
-        else:
-            steer_p, speed_p, a_p, b_p = 0.0, 2.0, self.cfg.patch_a, self.cfg.patch_b
-
-        # --- Decode agent actions (steer/speed deltas on top of patch baseline) ---
-        def _decode(raw):
-            sd = float(np.nan_to_num(raw[0], nan=0.0, posinf=0.4189, neginf=-0.4189))
-            vd = float(np.nan_to_num(raw[1], nan=0.0))
-            s  = float(np.clip(steer_p + sd, -0.4189, 0.4189))
-            v  = float(np.clip(speed_p + vd, 0.5, 10.0))
-            return s, v
-
-        s0, v0 = _decode(action0)
-        s1, v1 = _decode(action1)
-
-        # --- Step all 3 cars together ---
-        # car 0 = patch car (frozen policy), cars 1,2 = learning agents
-        base_obs, _, _, _, _ = self.f110.step(
-            np.array([[steer_p, speed_p],   # patch car: frozen policy command
-                      [s0, v0],             # agent 0
-                      [s1, v1]], dtype=np.float32)  # agent 1
-        )
-        self.current_base_obs = base_obs
-
-        # --- Sync patch geometry from car 0's physical position (with inertia) ---
-        prev_theta = self.patch.theta
-        self._sync_patch_from_car0(base_obs)
-        d_theta = (self.patch.theta - prev_theta + np.pi) % (2 * np.pi) - np.pi
-        self.patch_yaw_rate = d_theta / dt
-
-        # Update patch shape (a, b can grow/shrink per policy output)
-        self.patch.update_shape(a_p, b_p, dt, max_a=self.cfg.patch_a, max_b=self.cfg.patch_b)
-
-        # --- Patch wall collision (uses real physical patch position now) ---
-        patch_wall_hit = False
-        if self._occ_map is not None:
-            patch_wall_hit, _ = self.patch.check_patch_boundary_wall_collision(
-                self._occ_map, self._resolution, self._origin,
-                n_points=32,
-                violation_threshold=self.cfg.patch_boundary_violation_threshold,
-            )
-
-        # --- Per-agent inside-patch check (logical agents 0,1 = f110 cars 1,2) ---
-        dist_norm_list = []
-        for i in range(2):
-            fi = i + 1  # f110 car index for logical agent i
-            x = float(base_obs["poses_x"][fi])
-            y = float(base_obs["poses_y"][fi])
-            x_rel, y_rel = self.patch.world_to_patch_frame(x, y)
-            dist_norm = float(np.sqrt(
-                (x_rel / max(self.patch.a, 1e-3)) ** 2 +
-                (y_rel / max(self.patch.b, 1e-3)) ** 2
-            ))
-            dist_norm_list.append(dist_norm)
-
-        # Inter-agent distance (cars 1 and 2)
-        x0w, y0w = float(base_obs["poses_x"][1]), float(base_obs["poses_y"][1])
-        x1w, y1w = float(base_obs["poses_x"][2]), float(base_obs["poses_y"][2])
-        inter_dist = float(np.hypot(x0w - x1w, y0w - y1w))
-        inter_collision = inter_dist < self.cfg.inter_agent_collision_dist
-
-        # --- Per-agent reward and termination ---
-        total_reward = 0.0
-        terminated_flags = []
-        reasons = []
-        for i in range(2):
-            r = self._compute_agent_reward(dist_norm_list[i], self.prev_dist_norms[i], inter_collision)
-            term, trunc, reason = self._check_agent_termination(i, dist_norm_list[i], inter_collision)
-            self._step_rewards[i] = float(np.clip(r, -200.0, 200.0))
-            total_reward += r
-            terminated_flags.append(term or trunc)
-            reasons.append(reason)
-        self.prev_dist_norms = list(dist_norm_list)
-
-        total_reward = float(np.clip(total_reward / 2.0, -200.0, 200.0))
-        self.episode_reward += total_reward
-        terminated = any(terminated_flags) or patch_wall_hit
-        truncated  = self.step_count >= self.cfg.max_steps
-        if patch_wall_hit:
-            reason = "patch_wall_collision"
-        else:
-            reason = next((r for r in reasons if r is not None), "max_steps" if truncated else None)
-
-        # --- Build 24D joint obs for CTDE: [ego_12D | partner_12D] ---
-        ego0 = np.nan_to_num(self._build_agent_obs_for(0, base_obs),
-                              nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        ego1 = np.nan_to_num(self._build_agent_obs_for(1, base_obs),
-                              nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
-        self._step_obs[0] = np.concatenate([ego0, ego1])
-        self._step_obs[1] = np.concatenate([ego1, ego0])
-
-        if terminated or truncated:
-            self._episode_count += 1
-            if reason == "patch_wall_collision":
-                self._term_counts["patch_wall"] += 1
-            elif reason and "inter_collision" in reason:
-                self._term_counts["inter_collision"] += 1
-            elif reason and "out_of_patch" in reason:
-                self._term_counts["out_of_patch"] += 1
-            else:
-                self._term_counts["max_steps"] += 1
-            if self._episode_count % 200 == 0:
-                n = self._episode_count
-                print(
-                    f"[AgentEnv ep={n}] out_of_patch={self._term_counts['out_of_patch']/n*100:.1f}%  "
-                    f"inter_collision={self._term_counts['inter_collision']/n*100:.1f}%  "
-                    f"patch_wall={self._term_counts['patch_wall']/n*100:.1f}%  "
-                    f"max_steps={self._term_counts['max_steps']/n*100:.1f}%  "
-                    f"| now: inter_dist={inter_dist:.3f}m  patch_v={self.patch.v:.2f}"
-                )
-
-        self._step_terminated = terminated
-        self._step_truncated  = truncated
-        self._step_info = {
-            "episode_reward": self.episode_reward,
-            "Episode_steps": self.step_count,
-            "step_reward": total_reward,
-            "termination_reason": reason,
-            "inter_agent_dist": float(inter_dist),
-            "agent0_speed": float(v0),
-            "agent1_speed": float(v1),
-        }
-
-    def step(self, action):
-        """Standalone step (backward compat). Both agents use the same action.
-        For true parameter sharing use AgentView instead of this directly.
-        """
-        action = np.asarray(action, dtype=np.float32)
-        self._execute_combined_step(action, action)
-        # Return ego obs (randomised _ego_idx) + average reward
-        obs = self._step_obs[self._ego_idx]
-        avg_reward = float(np.mean(self._step_rewards))
-        return obs, avg_reward, self._step_terminated, self._step_truncated, self._step_info
-
-    def render(self):
-        return self.f110.render()
-
-    def _visualize(self):
-        """Visualize patch and agents with wall collision info."""
-        # --- First call: setup figure and per-visualisation cache ---
-        if self._fig is None:
-            plt.ion()
-            self._fig, self._ax = plt.subplots(figsize=(8, 6))
-            self._ax.set_aspect('equal')
-            self._ax.grid(True, alpha=0.3)
-            self._vis_bg_image = None
-            self._vis_bg_bounds = None
-            self._vis_dynamic_artists = []
-            self._vis_occ_cache = None
-            plt.show(block=False)
-
-        ax = self._ax
-
-        # --- Remove dynamic artists from the previous frame (no ax.clear()) ---
-        for artist in self._vis_dynamic_artists:
-            try:
-                artist.remove()
-            except Exception:
-                pass
-        self._vis_dynamic_artists = []
-
-        # --- Occupancy map: fetched once and cached (it never changes) ---
-        occ_map = resolution = origin = None
-        if self._vis_occ_cache is None and self.base_env is not None:
-            try:
-                _, occ_map, resolution, origin = self.base_env.get_track_data()
-                self._vis_occ_cache = (occ_map, resolution, origin)
-            except Exception as e:
-                print(f"Warning: Could not get track data: {type(e).__name__}: {e}")
-        if self._vis_occ_cache is not None:
-            occ_map, resolution, origin = self._vis_occ_cache
-
-        # --- Redraw background imshow only when the view window shifts ---
-        cx, cy = self.patch.x, self.patch.y
-        margin = max(self.patch.a, self.patch.b) + 10
-        if occ_map is not None:
-            px_min = max(0, int((cx - margin - origin[0]) / resolution))
-            px_max = min(occ_map.shape[1], int((cx + margin - origin[0]) / resolution))
-            py_min = max(0, int((cy - margin - origin[1]) / resolution))
-            py_max = min(occ_map.shape[0], int((cy + margin - origin[1]) / resolution))
-            new_bounds = (px_min, px_max, py_min, py_max)
-
-            if self._vis_bg_bounds != new_bounds and px_max > px_min and py_max > py_min:
-                if self._vis_bg_image is not None:
-                    try:
-                        self._vis_bg_image.remove()
-                    except Exception:
-                        pass
-                region = occ_map[py_min:py_max, px_min:px_max]
-                xw0 = px_min * resolution + origin[0]
-                xw1 = px_max * resolution + origin[0]
-                yw0 = py_min * resolution + origin[1]
-                yw1 = py_max * resolution + origin[1]
-                # Build RGBA image: one rasterised call instead of contourf vector ops
-                rgba = np.zeros((*region.shape, 4), dtype=np.uint8)
-                rgba[region < 0.5] = [51, 51, 51, 204]    # dark walls
-                rgba[region >= 0.5] = [220, 220, 220, 60]  # light free space
-                self._vis_bg_image = ax.imshow(
-                    rgba, extent=[xw0, xw1, yw0, yw1],
-                    origin='lower', aspect='auto', zorder=0, interpolation='nearest')
-                self._vis_bg_bounds = new_bounds
-
-        # --- Agent positions ---
-        agent_positions = []
-        if self.current_base_obs is not None:
-            for i in range(self.num_agents):
-                x = float(self.current_base_obs["poses_x"][i])
-                y = float(self.current_base_obs["poses_y"][i])
-                theta = float(self.current_base_obs["poses_theta"][i])
-                v = float(self.current_base_obs["linear_vels_x"][i])
-                agent_positions.append((x, y, theta, v))
-        else:
-            agent_positions = [(self.patch.x, self.patch.y, self.patch.theta, 0.0)] * self.num_agents
-
-        agents_inside = sum(1 for x, y, _, _ in agent_positions if self.patch.is_inside(x, y))
-
-        # --- Wall collision check ---
-        patch_wall_collision = False
-        violated = []
-        if occ_map is not None and resolution is not None and origin is not None:
-            patch_wall_collision, violated = self.patch.check_patch_boundary_wall_collision(
-                occ_map, resolution, origin, n_points=32)
-
-        wall_status = f"⚠️ WALL! ({len(violated)} pts)" if patch_wall_collision else "Clear"
-        ax.set_title(
-            f'Patch Funnel V1 | Step {self.step_count}\n'
-            f'Patch: v={self.patch.v:.1f}m/s, size=({self.patch.a:.1f}, {self.patch.b:.1f}) | '
-            f'Inside: {agents_inside}/{self.num_agents} | {wall_status}',
-            fontsize=11, color='red' if patch_wall_collision else 'black'
-        )
-
-        # --- Patch ellipse ---
-        if patch_wall_collision:
-            face_color, edge_color, alpha = 'red', 'darkred', 0.4
-        elif agents_inside == self.num_agents:
-            face_color, edge_color, alpha = 'cyan', 'darkblue', 0.3
-        else:
-            face_color, edge_color, alpha = 'yellow', 'orange', 0.3
-
-        ellipse = Ellipse(
-            xy=(self.patch.x, self.patch.y),
-            width=self.patch.a * 2, height=self.patch.b * 2,
-            angle=np.degrees(self.patch.theta),
-            facecolor=face_color, edgecolor=edge_color, alpha=alpha, linewidth=3
-        )
-        ax.add_patch(ellipse)
-        self._vis_dynamic_artists.append(ellipse)
-
-        # --- Patch boundary points ---
-        for bx, by in self.patch.get_boundary_points(16):
-            ln, = ax.plot(bx, by, 'k.', markersize=4, alpha=0.5)
-            self._vis_dynamic_artists.append(ln)
-
-        # --- Patch center and velocity arrow ---
-        ln, = ax.plot(self.patch.x, self.patch.y, 'b+', markersize=15, markeredgewidth=2)
-        self._vis_dynamic_artists.append(ln)
-        vx, vy = self.patch.get_velocity_vector()
-        arr = ax.arrow(self.patch.x, self.patch.y, vx * 0.3, vy * 0.3,
-                       head_width=0.2, head_length=0.15, fc='blue', ec='blue', linewidth=2)
-        self._vis_dynamic_artists.append(arr)
-
-        # --- Agents ---
-        colors = ['red', 'orange']
-        collisions = self.current_base_obs.get("collisions", [0.0, 0.0]) if self.current_base_obs is not None else [0.0, 0.0]
-        for i, (x, y, theta, v) in enumerate(agent_positions):
-            inside = self.patch.is_inside(x, y)
-            collision = float(collisions[i]) > 0.5
-            color = colors[i % len(colors)]
-            marker, size = ('X', 18) if collision else ('o', 12) if inside else ('s', 14)
-            ln, = ax.plot(x, y, marker, color=color, markersize=size,
-                          markeredgecolor='black', markeredgewidth=2)
-            self._vis_dynamic_artists.append(ln)
-            arr = ax.arrow(x, y, v * np.cos(theta) * 0.2, v * np.sin(theta) * 0.2,
-                           head_width=0.1, head_length=0.05, fc=color, ec=color, alpha=0.7)
-            self._vis_dynamic_artists.append(arr)
-            txt = ax.text(x + 0.3, y + 0.3, f'R{i}', fontsize=8, fontweight='bold')
-            self._vis_dynamic_artists.append(txt)
-
-        # --- Info box ---
-        txt = ax.text(0.02, 0.98, f'Reward: {self.episode_reward:.1f}\n',
-                      transform=ax.transAxes, fontsize=10, verticalalignment='top',
-                      bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
-        self._vis_dynamic_artists.append(txt)
-
-        # --- View limits ---
-        view_margin = max(self.patch.a, self.patch.b) + 5
-        ax.set_xlim(cx - view_margin, cx + view_margin)
-        ax.set_ylim(cy - view_margin, cy + view_margin)
-
-        try:
-            ax.figure.canvas.draw()
-            ax.figure.canvas.flush_events()
-        except Exception:
-            pass
-
-    def close(self):
-        if hasattr(self, '_fig') and self._fig is not None:
-            import matplotlib.pyplot as plt
-            plt.close(self._fig)
-            self._fig = None
-            self._ax = None
-        self.f110.close()
-
-
-class AgentView(gym.Env):
-    """Single-agent view into a shared AgentEnv for true parameter sharing.
-
-    Two AgentView instances (agent_idx=0 and agent_idx=1) wrap ONE AgentEnv.
-    Each independently predicts [steer_delta, speed_delta] for its own physical
-    agent. Physics executes once BOTH actions are submitted, so the two views
-    must be stepped in order (agent_idx=0 before agent_idx=1 within the same
-    DummyVecEnv call).
-
-    Training setup in training.py:
-        envs = []
-        for _ in range(N_AGENT_ENVS):
-            shared = AgentEnv(cfg)
-            envs.append(lambda env=shared: AgentView(env, 0))
-            envs.append(lambda env=shared: AgentView(env, 1))
-        vec_env = DummyVecEnv(envs)
-
-    This gives 2*N_AGENT_ENVS SB3 slots that all share the SAME network weights
-    (parameter sharing) while each agent independently controls its own vehicle.
-    """
-
-    metadata = {"render_modes": ["human", "rgb_array", None]}
-
-    def __init__(self, shared_env: "AgentEnv", agent_idx: int):
-        super().__init__()
-        assert agent_idx in (0, 1), "agent_idx must be 0 or 1"
-        self.env = shared_env
-        self.agent_idx = agent_idx
-
-        # Identical spaces to AgentEnv (CTDE: 24D obs, 2D action)
-        self.action_space = spaces.Box(
-            low=np.array([-0.4189, -1.0], dtype=np.float32),
-            high=np.array([0.4189,  1.0], dtype=np.float32),
-            dtype=np.float32,
-        )
-        # 24D = ego_12D + partner_12D — actor only uses [:12], critic uses [:24]
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(24,), dtype=np.float32,
-        )
-
-    # ------------------------------------------------------------------
-    # reset
-    # ------------------------------------------------------------------
-    def reset(self, seed=None, options=None):
-        if self.agent_idx == 0:
-            # Agent 0 owns the reset — runs physics reset and seeds _step_obs
-            self.env.reset(seed=seed, options=options)
-            # _step_obs[0] and [1] are already set by AgentEnv.reset()
-        # Both views just return their own cached obs
-        obs = self.env._step_obs[self.agent_idx]
-        if obs is None:
-            # Fallback: env hasn't been reset yet by agent_idx=0 — trigger it now
-            self.env.reset(seed=seed, options=options)
-            obs = self.env._step_obs[self.agent_idx]
-        return obs.copy(), {}
-
-    # ------------------------------------------------------------------
-    # step
-    # ------------------------------------------------------------------
-    def step(self, action):
-        action = np.asarray(action, dtype=np.float32)
-        self.env._pending_actions[self.agent_idx] = action
-
-        if all(a is not None for a in self.env._pending_actions):
-            # Both actions ready — execute one physics step
-            self.env._execute_combined_step(
-                self.env._pending_actions[0],
-                self.env._pending_actions[1],
-            )
-            self.env._pending_actions = [None, None]
-
-        obs        = self.env._step_obs[self.agent_idx].copy()
-        reward     = self.env._step_rewards[self.agent_idx]
-        terminated = self.env._step_terminated
-        truncated  = self.env._step_truncated
-        info       = dict(self.env._step_info)
-        info["agent_idx"] = self.agent_idx
-        return obs, reward, terminated, truncated, info
-
-    # ------------------------------------------------------------------
-    # passthrough
-    # ------------------------------------------------------------------
-    def render(self):
-        return self.env.render()
-
-    def close(self):
-        if self.agent_idx == 0:
-            self.env.close()
+#     def reset(self, seed=None, options=None):
+#         """Reset: spawn 2 agents inside patch, initialize frozen patch policy."""
+#         super().reset(seed=seed)
+#         self.step_count = 0
+#         self.episode_reward = 0.0
+#         self.prev_dist_norms = [0.0, 0.0]
+#         # Randomise ego agent each episode — both agents train equally as "ego"
+#         self._ego_idx = int(np.random.randint(0, 2))
+
+#         self.f110.ensure_initialized()
+#         track, self._occ_map, self._resolution, self._origin = self.f110.get_track_data()
+#         if track.centerline is None or track.centerline.spline is None:
+#             raise ValueError("Track centerline/spline missing.")
+
+#         self.track_spline = track.centerline.spline
+#         self.track_length = float(self.track_spline.s[-1])
+
+#         # Sync frozen patch_env with track data so get_patch_action builds correct obs.
+#         # PatchEnv.reset() is never called in AgentEnv — so we must seed its caches here.
+#         # _precompute_track_widths is expensive (200 ray casts) — only do it once per env,
+#         # not every episode reset.
+#         if self.patch_env is not None:
+#             self.patch_env._occ_map    = self._occ_map
+#             self.patch_env._resolution = self._resolution
+#             self.patch_env._origin     = self._origin
+#             self.patch_env.track_spline  = self.track_spline
+#             self.patch_env.track_length  = self.track_length
+#             if self.patch_env._tw_s_vals is None:
+#                 self.patch_env._precompute_track_widths(n_samples=200)
+
+#         xs = np.asarray(track.centerline.xs, dtype=np.float32)
+#         ys = np.asarray(track.centerline.ys, dtype=np.float32)
+#         spawn_idx = int(np.random.randint(0, xs.shape[0])) if self.cfg.random_spawn else 0
+#         spawn_idx = max(0, min(spawn_idx, xs.shape[0] - 1))
+#         patch_x, patch_y = float(xs[spawn_idx]), float(ys[spawn_idx])
+#         next_idx = (spawn_idx + 1) % xs.shape[0]
+#         patch_theta = float(np.arctan2(
+#             float(ys[next_idx] - ys[spawn_idx]),
+#             float(xs[next_idx] - xs[spawn_idx])
+#         ))
+
+#         self.patch = DynamicPatch(
+#             x=patch_x, y=patch_y, theta=patch_theta,
+#             v=0.5, a=self.cfg.patch_a, b=self.cfg.patch_b
+#         )
+#         self.prev_patch_theta = patch_theta
+#         self.patch_yaw_rate = 0.0
+#         self.patch_steer = 0.0
+#         if self.patch_env is not None:
+#             self.patch_env.patch = self.patch
+#         perp_dx = -np.sin(patch_theta)
+#         perp_dy = np.cos(patch_theta)
+
+#         if self.cfg.agents_random_spawn:
+#             a = max(float(self.patch.a), 1e-3)
+#             b = max(float(self.patch.b), 1e-3)
+#             min_sep = 0.30
+#             max_tries = 50
+#             cos_t, sin_t = np.cos(patch_theta), np.sin(patch_theta)
+
+#             def _sample_in_ellipse():
+#                 for _ in range(200):
+#                     xr = np.random.uniform(-b * 0.5, b * 0.5)
+#                     yr = np.random.uniform(-a * 0.5, a * 0.5)
+#                     if (xr / b) ** 2 + (yr / a) ** 2 < 0.25:
+#                         wx = patch_x + cos_t * yr - sin_t * xr
+#                         wy = patch_y + sin_t * yr + cos_t * xr
+#                         return wx, wy
+#                 return patch_x, patch_y
+
+#             for _ in range(max_tries):
+#                 w0x, w0y = _sample_in_ellipse()
+#                 w1x, w1y = _sample_in_ellipse()
+#                 if np.hypot(w0x - w1x, w0y - w1y) >= min_sep:
+#                     break
+
+#             poses = np.array([
+#                 [patch_x, patch_y, patch_theta],  # car 0 = patch car, at center
+#                 [w0x, w0y, patch_theta],           # car 1 = agent 0
+#                 [w1x, w1y, patch_theta],           # car 2 = agent 1
+#             ], dtype=np.float32)
+#         else:
+#             offset = 0.50
+#             poses = np.array([
+#                 [patch_x, patch_y, patch_theta],                                              # car 0 = patch car
+#                 [patch_x + offset * perp_dx, patch_y + offset * perp_dy, patch_theta],       # car 1 = agent 0 (left)
+#                 [patch_x - offset * perp_dx, patch_y - offset * perp_dy, patch_theta],       # car 2 = agent 1 (right)
+#             ], dtype=np.float32)
+
+#         base_obs, _ = self.f110.reset(poses=poses)
+#         self.current_base_obs = base_obs
+
+#         # Sync DynamicPatch geometry from the physical patch car (f110 car 0)
+#         self._sync_patch_from_car0(base_obs)
+
+#         # Pre-cache 24D joint obs for CTDE: [ego_12D | partner_12D]
+#         ego0 = np.nan_to_num(self._build_agent_obs_for(0, base_obs),
+#                               nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+#         ego1 = np.nan_to_num(self._build_agent_obs_for(1, base_obs),
+#                               nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+#         self._step_obs[0] = np.concatenate([ego0, ego1])  # agent0: ego=0, partner=1
+#         self._step_obs[1] = np.concatenate([ego1, ego0])  # agent1: ego=1, partner=0
+#         self._pending_actions = [None, None]
+#         self._step_rewards    = [0.0, 0.0]
+#         self._step_terminated = False
+#         self._step_truncated  = False
+#         self._step_info       = {}
+
+#         obs = self._step_obs[self._ego_idx]  # 24D joint obs already built above
+#         return obs.copy(), {}
+
+#     def _execute_combined_step(self, action0: np.ndarray, action1: np.ndarray):
+#         """Execute one physics step with independent actions for each agent.
+
+#         action0: [steer_delta, speed_delta] for physical agent 0
+#         action1: [steer_delta, speed_delta] for physical agent 1
+
+#         Updates _step_obs, _step_rewards, _step_terminated, _step_truncated,
+#         _step_info in-place. Called by AgentView when both actions are ready.
+#         """
+#         self.step_count += 1
+#         dt = self.cfg.control_dt
+
+#         # --- Frozen patch policy acts on DynamicPatch state (synced from car 0) ---
+#         if self.patch_env is not None:
+#             self.patch_env.patch = self.patch
+#             patch_action = self.patch_env.get_patch_action(self.patch, self.track_spline)
+#             steer_p = float(np.clip(patch_action[0], -0.4189, 0.4189))
+#             speed_p = float(np.clip(patch_action[1], 0.5, 10.0))
+#             a_p = float(np.clip(patch_action[2], 1.0, self.cfg.patch_a))
+#             b_p = float(np.clip(patch_action[3], 1.0, self.cfg.patch_b))
+#         else:
+#             steer_p, speed_p, a_p, b_p = 0.0, 2.0, self.cfg.patch_a, self.cfg.patch_b
+
+#         # --- Decode agent actions (steer/speed deltas on top of patch baseline) ---
+#         def _decode(raw):
+#             sd = float(np.nan_to_num(raw[0], nan=0.0, posinf=0.4189, neginf=-0.4189))
+#             vd = float(np.nan_to_num(raw[1], nan=0.0))
+#             s  = float(np.clip(steer_p + sd, -0.4189, 0.4189))
+#             v  = float(np.clip(speed_p + vd, 0.5, 10.0))
+#             return s, v
+
+#         s0, v0 = _decode(action0)
+#         s1, v1 = _decode(action1)
+
+#         # --- Step all 3 cars together ---
+#         # car 0 = patch car (frozen policy), cars 1,2 = learning agents
+#         base_obs, _, _, _, _ = self.f110.step(
+#             np.array([[steer_p, speed_p],   # patch car: frozen policy command
+#                       [s0, v0],             # agent 0
+#                       [s1, v1]], dtype=np.float32)  # agent 1
+#         )
+#         self.current_base_obs = base_obs
+
+#         # --- Sync patch geometry from car 0's physical position (with inertia) ---
+#         prev_theta = self.patch.theta
+#         self._sync_patch_from_car0(base_obs)
+#         d_theta = (self.patch.theta - prev_theta + np.pi) % (2 * np.pi) - np.pi
+#         self.patch_yaw_rate = d_theta / dt
+
+#         # Update patch shape (a, b can grow/shrink per policy output)
+#         self.patch.update_shape(a_p, b_p, dt, max_a=self.cfg.patch_a, max_b=self.cfg.patch_b)
+
+#         # --- Patch wall collision (uses real physical patch position now) ---
+#         patch_wall_hit = False
+#         if self._occ_map is not None:
+#             patch_wall_hit, _ = self.patch.check_patch_boundary_wall_collision(
+#                 self._occ_map, self._resolution, self._origin,
+#                 n_points=32,
+#                 violation_threshold=self.cfg.patch_boundary_violation_threshold,
+#             )
+
+#         # --- Per-agent inside-patch check (logical agents 0,1 = f110 cars 1,2) ---
+#         dist_norm_list = []
+#         for i in range(2):
+#             fi = i + 1  # f110 car index for logical agent i
+#             x = float(base_obs["poses_x"][fi])
+#             y = float(base_obs["poses_y"][fi])
+#             x_rel, y_rel = self.patch.world_to_patch_frame(x, y)
+#             dist_norm = float(np.sqrt(
+#                 (x_rel / max(self.patch.a, 1e-3)) ** 2 +
+#                 (y_rel / max(self.patch.b, 1e-3)) ** 2
+#             ))
+#             dist_norm_list.append(dist_norm)
+
+#         # Inter-agent distance (cars 1 and 2)
+#         x0w, y0w = float(base_obs["poses_x"][1]), float(base_obs["poses_y"][1])
+#         x1w, y1w = float(base_obs["poses_x"][2]), float(base_obs["poses_y"][2])
+#         inter_dist = float(np.hypot(x0w - x1w, y0w - y1w))
+#         inter_collision = inter_dist < self.cfg.inter_agent_collision_dist
+
+#         # --- Per-agent reward and termination ---
+#         total_reward = 0.0
+#         terminated_flags = []
+#         reasons = []
+#         for i in range(2):
+#             r = self._compute_agent_reward(dist_norm_list[i], self.prev_dist_norms[i], inter_collision)
+#             term, trunc, reason = self._check_agent_termination(i, dist_norm_list[i], inter_collision)
+#             self._step_rewards[i] = float(np.clip(r, -200.0, 200.0))
+#             total_reward += r
+#             terminated_flags.append(term or trunc)
+#             reasons.append(reason)
+#         self.prev_dist_norms = list(dist_norm_list)
+
+#         total_reward = float(np.clip(total_reward / 2.0, -200.0, 200.0))
+#         self.episode_reward += total_reward
+#         terminated = any(terminated_flags) or patch_wall_hit
+#         truncated  = self.step_count >= self.cfg.max_steps
+#         if patch_wall_hit:
+#             reason = "patch_wall_collision"
+#         else:
+#             reason = next((r for r in reasons if r is not None), "max_steps" if truncated else None)
+
+#         # --- Build 24D joint obs for CTDE: [ego_12D | partner_12D] ---
+#         ego0 = np.nan_to_num(self._build_agent_obs_for(0, base_obs),
+#                               nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+#         ego1 = np.nan_to_num(self._build_agent_obs_for(1, base_obs),
+#                               nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+#         self._step_obs[0] = np.concatenate([ego0, ego1])
+#         self._step_obs[1] = np.concatenate([ego1, ego0])
+
+#         if terminated or truncated:
+#             self._episode_count += 1
+#             if reason == "patch_wall_collision":
+#                 self._term_counts["patch_wall"] += 1
+#             elif reason and "inter_collision" in reason:
+#                 self._term_counts["inter_collision"] += 1
+#             elif reason and "out_of_patch" in reason:
+#                 self._term_counts["out_of_patch"] += 1
+#             else:
+#                 self._term_counts["max_steps"] += 1
+#             if self._episode_count % 200 == 0:
+#                 n = self._episode_count
+#                 print(
+#                     f"[AgentEnv ep={n}] out_of_patch={self._term_counts['out_of_patch']/n*100:.1f}%  "
+#                     f"inter_collision={self._term_counts['inter_collision']/n*100:.1f}%  "
+#                     f"patch_wall={self._term_counts['patch_wall']/n*100:.1f}%  "
+#                     f"max_steps={self._term_counts['max_steps']/n*100:.1f}%  "
+#                     f"| now: inter_dist={inter_dist:.3f}m  patch_v={self.patch.v:.2f}"
+#                 )
+
+#         self._step_terminated = terminated
+#         self._step_truncated  = truncated
+#         self._step_info = {
+#             "episode_reward": self.episode_reward,
+#             "Episode_steps": self.step_count,
+#             "step_reward": total_reward,
+#             "termination_reason": reason,
+#             "inter_agent_dist": float(inter_dist),
+#             "agent0_speed": float(v0),
+#             "agent1_speed": float(v1),
+#         }
+
+#     def step(self, action):
+#         """Standalone step (backward compat). Both agents use the same action.
+#         For true parameter sharing use AgentView instead of this directly.
+#         """
+#         action = np.asarray(action, dtype=np.float32)
+#         self._execute_combined_step(action, action)
+#         # Return ego obs (randomised _ego_idx) + average reward
+#         obs = self._step_obs[self._ego_idx]
+#         avg_reward = float(np.mean(self._step_rewards))
+#         return obs, avg_reward, self._step_terminated, self._step_truncated, self._step_info
+
+#     def render(self):
+#         return self.f110.render()
+
+#     def _visualize(self):
+#         """Visualize patch and agents with wall collision info."""
+#         # --- First call: setup figure and per-visualisation cache ---
+#         if self._fig is None:
+#             plt.ion()
+#             self._fig, self._ax = plt.subplots(figsize=(8, 6))
+#             self._ax.set_aspect('equal')
+#             self._ax.grid(True, alpha=0.3)
+#             self._vis_bg_image = None
+#             self._vis_bg_bounds = None
+#             self._vis_dynamic_artists = []
+#             self._vis_occ_cache = None
+#             plt.show(block=False)
+
+#         ax = self._ax
+
+#         # --- Remove dynamic artists from the previous frame (no ax.clear()) ---
+#         for artist in self._vis_dynamic_artists:
+#             try:
+#                 artist.remove()
+#             except Exception:
+#                 pass
+#         self._vis_dynamic_artists = []
+
+#         # --- Occupancy map: fetched once and cached (it never changes) ---
+#         occ_map = resolution = origin = None
+#         if self._vis_occ_cache is None and self.base_env is not None:
+#             try:
+#                 _, occ_map, resolution, origin = self.base_env.get_track_data()
+#                 self._vis_occ_cache = (occ_map, resolution, origin)
+#             except Exception as e:
+#                 print(f"Warning: Could not get track data: {type(e).__name__}: {e}")
+#         if self._vis_occ_cache is not None:
+#             occ_map, resolution, origin = self._vis_occ_cache
+
+#         # --- Redraw background imshow only when the view window shifts ---
+#         cx, cy = self.patch.x, self.patch.y
+#         margin = max(self.patch.a, self.patch.b) + 10
+#         if occ_map is not None:
+#             px_min = max(0, int((cx - margin - origin[0]) / resolution))
+#             px_max = min(occ_map.shape[1], int((cx + margin - origin[0]) / resolution))
+#             py_min = max(0, int((cy - margin - origin[1]) / resolution))
+#             py_max = min(occ_map.shape[0], int((cy + margin - origin[1]) / resolution))
+#             new_bounds = (px_min, px_max, py_min, py_max)
+
+#             if self._vis_bg_bounds != new_bounds and px_max > px_min and py_max > py_min:
+#                 if self._vis_bg_image is not None:
+#                     try:
+#                         self._vis_bg_image.remove()
+#                     except Exception:
+#                         pass
+#                 region = occ_map[py_min:py_max, px_min:px_max]
+#                 xw0 = px_min * resolution + origin[0]
+#                 xw1 = px_max * resolution + origin[0]
+#                 yw0 = py_min * resolution + origin[1]
+#                 yw1 = py_max * resolution + origin[1]
+#                 # Build RGBA image: one rasterised call instead of contourf vector ops
+#                 rgba = np.zeros((*region.shape, 4), dtype=np.uint8)
+#                 rgba[region < 0.5] = [51, 51, 51, 204]    # dark walls
+#                 rgba[region >= 0.5] = [220, 220, 220, 60]  # light free space
+#                 self._vis_bg_image = ax.imshow(
+#                     rgba, extent=[xw0, xw1, yw0, yw1],
+#                     origin='lower', aspect='auto', zorder=0, interpolation='nearest')
+#                 self._vis_bg_bounds = new_bounds
+
+#         # --- Agent positions ---
+#         agent_positions = []
+#         if self.current_base_obs is not None:
+#             for i in range(self.num_agents):
+#                 x = float(self.current_base_obs["poses_x"][i])
+#                 y = float(self.current_base_obs["poses_y"][i])
+#                 theta = float(self.current_base_obs["poses_theta"][i])
+#                 v = float(self.current_base_obs["linear_vels_x"][i])
+#                 agent_positions.append((x, y, theta, v))
+#         else:
+#             agent_positions = [(self.patch.x, self.patch.y, self.patch.theta, 0.0)] * self.num_agents
+
+#         agents_inside = sum(1 for x, y, _, _ in agent_positions if self.patch.is_inside(x, y))
+
+#         # --- Wall collision check ---
+#         patch_wall_collision = False
+#         violated = []
+#         if occ_map is not None and resolution is not None and origin is not None:
+#             patch_wall_collision, violated = self.patch.check_patch_boundary_wall_collision(
+#                 occ_map, resolution, origin, n_points=32)
+
+#         wall_status = f"⚠️ WALL! ({len(violated)} pts)" if patch_wall_collision else "Clear"
+#         ax.set_title(
+#             f'Patch Funnel V1 | Step {self.step_count}\n'
+#             f'Patch: v={self.patch.v:.1f}m/s, size=({self.patch.a:.1f}, {self.patch.b:.1f}) | '
+#             f'Inside: {agents_inside}/{self.num_agents} | {wall_status}',
+#             fontsize=11, color='red' if patch_wall_collision else 'black'
+#         )
+
+#         # --- Patch ellipse ---
+#         if patch_wall_collision:
+#             face_color, edge_color, alpha = 'red', 'darkred', 0.4
+#         elif agents_inside == self.num_agents:
+#             face_color, edge_color, alpha = 'cyan', 'darkblue', 0.3
+#         else:
+#             face_color, edge_color, alpha = 'yellow', 'orange', 0.3
+
+#         ellipse = Ellipse(
+#             xy=(self.patch.x, self.patch.y),
+#             width=self.patch.a * 2, height=self.patch.b * 2,
+#             angle=np.degrees(self.patch.theta),
+#             facecolor=face_color, edgecolor=edge_color, alpha=alpha, linewidth=3
+#         )
+#         ax.add_patch(ellipse)
+#         self._vis_dynamic_artists.append(ellipse)
+
+#         # --- Patch boundary points ---
+#         for bx, by in self.patch.get_boundary_points(16):
+#             ln, = ax.plot(bx, by, 'k.', markersize=4, alpha=0.5)
+#             self._vis_dynamic_artists.append(ln)
+
+#         # --- Patch center and velocity arrow ---
+#         ln, = ax.plot(self.patch.x, self.patch.y, 'b+', markersize=15, markeredgewidth=2)
+#         self._vis_dynamic_artists.append(ln)
+#         vx, vy = self.patch.get_velocity_vector()
+#         arr = ax.arrow(self.patch.x, self.patch.y, vx * 0.3, vy * 0.3,
+#                        head_width=0.2, head_length=0.15, fc='blue', ec='blue', linewidth=2)
+#         self._vis_dynamic_artists.append(arr)
+
+#         # --- Agents ---
+#         colors = ['red', 'orange']
+#         collisions = self.current_base_obs.get("collisions", [0.0, 0.0]) if self.current_base_obs is not None else [0.0, 0.0]
+#         for i, (x, y, theta, v) in enumerate(agent_positions):
+#             inside = self.patch.is_inside(x, y)
+#             collision = float(collisions[i]) > 0.5
+#             color = colors[i % len(colors)]
+#             marker, size = ('X', 18) if collision else ('o', 12) if inside else ('s', 14)
+#             ln, = ax.plot(x, y, marker, color=color, markersize=size,
+#                           markeredgecolor='black', markeredgewidth=2)
+#             self._vis_dynamic_artists.append(ln)
+#             arr = ax.arrow(x, y, v * np.cos(theta) * 0.2, v * np.sin(theta) * 0.2,
+#                            head_width=0.1, head_length=0.05, fc=color, ec=color, alpha=0.7)
+#             self._vis_dynamic_artists.append(arr)
+#             txt = ax.text(x + 0.3, y + 0.3, f'R{i}', fontsize=8, fontweight='bold')
+#             self._vis_dynamic_artists.append(txt)
+
+#         # --- Info box ---
+#         txt = ax.text(0.02, 0.98, f'Reward: {self.episode_reward:.1f}\n',
+#                       transform=ax.transAxes, fontsize=10, verticalalignment='top',
+#                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
+#         self._vis_dynamic_artists.append(txt)
+
+#         # --- View limits ---
+#         view_margin = max(self.patch.a, self.patch.b) + 5
+#         ax.set_xlim(cx - view_margin, cx + view_margin)
+#         ax.set_ylim(cy - view_margin, cy + view_margin)
+
+#         try:
+#             ax.figure.canvas.draw()
+#             ax.figure.canvas.flush_events()
+#         except Exception:
+#             pass
+
+#     def close(self):
+#         if hasattr(self, '_fig') and self._fig is not None:
+#             import matplotlib.pyplot as plt
+#             plt.close(self._fig)
+#             self._fig = None
+#             self._ax = None
+#         self.f110.close()
+
+
+# class AgentView(gym.Env):
+#     """Single-agent view into a shared AgentEnv for true parameter sharing.
+
+#     Two AgentView instances (agent_idx=0 and agent_idx=1) wrap ONE AgentEnv.
+#     Each independently predicts [steer_delta, speed_delta] for its own physical
+#     agent. Physics executes once BOTH actions are submitted, so the two views
+#     must be stepped in order (agent_idx=0 before agent_idx=1 within the same
+#     DummyVecEnv call).
+
+#     Training setup in training.py:
+#         envs = []
+#         for _ in range(N_AGENT_ENVS):
+#             shared = AgentEnv(cfg)
+#             envs.append(lambda env=shared: AgentView(env, 0))
+#             envs.append(lambda env=shared: AgentView(env, 1))
+#         vec_env = DummyVecEnv(envs)
+
+#     This gives 2*N_AGENT_ENVS SB3 slots that all share the SAME network weights
+#     (parameter sharing) while each agent independently controls its own vehicle.
+#     """
+
+#     metadata = {"render_modes": ["human", "rgb_array", None]}
+
+#     def __init__(self, shared_env: "AgentEnv", agent_idx: int):
+#         super().__init__()
+#         assert agent_idx in (0, 1), "agent_idx must be 0 or 1"
+#         self.env = shared_env
+#         self.agent_idx = agent_idx
+
+#         # Identical spaces to AgentEnv (CTDE: 24D obs, 2D action)
+#         self.action_space = spaces.Box(
+#             low=np.array([-0.4189, -1.0], dtype=np.float32),
+#             high=np.array([0.4189,  1.0], dtype=np.float32),
+#             dtype=np.float32,
+#         )
+#         # 24D = ego_12D + partner_12D — actor only uses [:12], critic uses [:24]
+#         self.observation_space = spaces.Box(
+#             low=-np.inf, high=np.inf, shape=(24,), dtype=np.float32,
+#         )
+
+#     # ------------------------------------------------------------------
+#     # reset
+#     # ------------------------------------------------------------------
+#     def reset(self, seed=None, options=None):
+#         if self.agent_idx == 0:
+#             # Agent 0 owns the reset — runs physics reset and seeds _step_obs
+#             self.env.reset(seed=seed, options=options)
+#             # _step_obs[0] and [1] are already set by AgentEnv.reset()
+#         # Both views just return their own cached obs
+#         obs = self.env._step_obs[self.agent_idx]
+#         if obs is None:
+#             # Fallback: env hasn't been reset yet by agent_idx=0 — trigger it now
+#             self.env.reset(seed=seed, options=options)
+#             obs = self.env._step_obs[self.agent_idx]
+#         return obs.copy(), {}
+
+#     # ------------------------------------------------------------------
+#     # step
+#     # ------------------------------------------------------------------
+#     def step(self, action):
+#         action = np.asarray(action, dtype=np.float32)
+#         self.env._pending_actions[self.agent_idx] = action
+
+#         if all(a is not None for a in self.env._pending_actions):
+#             # Both actions ready — execute one physics step
+#             self.env._execute_combined_step(
+#                 self.env._pending_actions[0],
+#                 self.env._pending_actions[1],
+#             )
+#             self.env._pending_actions = [None, None]
+
+#         obs        = self.env._step_obs[self.agent_idx].copy()
+#         reward     = self.env._step_rewards[self.agent_idx]
+#         terminated = self.env._step_terminated
+#         truncated  = self.env._step_truncated
+#         info       = dict(self.env._step_info)
+#         info["agent_idx"] = self.agent_idx
+#         return obs, reward, terminated, truncated, info
+
+#     # ------------------------------------------------------------------
+#     # passthrough
+#     # ------------------------------------------------------------------
+#     def render(self):
+#         return self.env.render()
+
+#     def close(self):
+#         if self.agent_idx == 0:
+#             self.env.close()
 
 
 # ===========================================================================
@@ -984,27 +996,32 @@ class AgentView(gym.Env):
 # ===========================================================================
 
 class JointEnv:
-    """Shared physics backend for joint patch + agent training.
+    """Shared physics backend for joint patch car + single agent training.
 
-    Not a gym.Env itself — wrapped by JointPatchView and JointAgentView.
+    Not a gym.Env itself — wrapped by JointPatchView and AgentEnv (pz_env).
 
     Slot layout in _pending_actions / _step_obs / _step_rewards:
         slot 0 = patch
         slot 1 = agent 0
-        slot 2 = agent 1
+
+    f110 layout: car 0 = learning agent, car 1 = patch car (real f110 physics).
+    DynamicPatch is used only for ellipse geometry tracking.
 
     Coordination between training phases:
         _patch_action_fn(patch_obs) → ndarray[4]
-            Used by JointAgentView when both agent slots are ready.
             Returns patch [steer, speed, a_cmd, b_cmd].
             If None: default action is used.
-        _agent_action_fn(obs0, obs1) → (ndarray[2], ndarray[2])
-            Used by JointPatchView to auto-fill agent slots.
-            If None: zeros used for both agents.
+        _agent_action_fn(obs0) → ndarray[2]
+            Used by JointPatchView to auto-fill agent slot.
+            If None: zeros used for the agent.
     """
 
-    PATCH_OBS_DIM = 15
-    AGENT_OBS_DIM = 24  # CTDE: ego 12D + partner 12D
+    # f110 layout: car 0 = learning agent; car 1 = patch car (ellipse center).
+    PATCH_CAR_F110_IDX = 1
+    AGENT_F110_IDX = (0,)
+
+    PATCH_OBS_DIM = 6    # SIMPLIFIED: [s_norm, ey, speed, yaw, a, b] (removed split/merge complexity)
+    AGENT_OBS_DIM = 21   # ego-centric + 5D split context (zeros when no split)
 
     def __init__(self, cfg: JointEnvConfig):
         self.cfg = cfg
@@ -1032,31 +1049,32 @@ class JointEnv:
 
         self.step_count = 0
         self.episode_reward_patch = 0.0
-        self.episode_reward_agents = [0.0, 0.0]
+        self.episode_reward_agents = [0.0]
         self.prev_patch_s = 0.0
         self.patch_lap_s = 0.0    # cumulative Frenet distance for lap detection
         self.patch_lap_count = 0
         self.patch_prev_steer = 0.0   # for steer_rate penalty (PatchEnv parity)
+        self.patch_prev_s = None      # for progress calculation (PatchEnv parity)
         self.patch_no_progress = 0    # stuck counter (PatchEnv parity)
         self.patch_yaw_rate = 0.0
         self.current_base_obs = None
-        self.prev_dist_norms = [0.0, 0.0]
+        self.prev_dist_norms = [0.0]
         self._episode_count = 0
         self._term_counts = {
             "out_of_patch": 0, "inter_collision": 0,
             "max_steps": 0, "patch_wall": 0,
         }
 
-        self._pending_actions: list = [None, None, None]
-        self._step_obs: list = [None, None, None]
-        self._step_rewards: list = [0.0, 0.0, 0.0]
+        self._pending_actions: list = [None, None]
+        self._step_obs: list = [None, None]
+        self._step_rewards: list = [0.0, 0.0]
         self._step_terminated: bool = False
         self._step_truncated: bool = False
         self._step_info: dict = {}
 
         # Frozen policy functions — set by training loop between phases
         self._patch_action_fn = None   # Callable(patch_obs) → ndarray[4]
-        self._agent_action_fn = None   # Callable(obs0, obs1) → (ndarray[2], ndarray[2])
+        self._agent_action_fn = None   # Callable(obs0) → ndarray[2]
         # Set to True by pz_env when real agent actions are being passed directly
         # (vs Phase 1 where _agent_action_fn is None and dummy [0,0] actions are used)
         self._real_agents_active: bool = False
@@ -1093,6 +1111,15 @@ class JointEnv:
         idx = min(idx, len(self._tw_half_w) - 1)
         return float(self._tw_half_w[idx])
 
+    def _wrap_ds(self, ds: float) -> float:
+        """Wrap distance increment to handle lap wraparound."""
+        if self.track_length is None or not np.isfinite(self.track_length):
+            return ds  # Safe fallback
+        L = float(self.track_length)
+        if L <= 0:
+            return ds
+        return (ds + 0.5 * L) % L - 0.5 * L
+
     # ------------------------------------------------------------------
     # Obs builders
     # ------------------------------------------------------------------
@@ -1107,85 +1134,162 @@ class JointEnv:
         except Exception:
             return 0.0, 0.0
 
-    def _build_patch_obs(self, base_obs) -> np.ndarray:
-        """15D patch obs — agent-agnostic: uses aggregated agent info, not per-agent slots.
-
-        [s_norm, ey, v, theta, wall_left, wall_right, ahead_half_w,
-         a, b, curvature, patch_yaw_rate,
-         centroid_x_norm, centroid_y_norm,   ← mean position of ALL assigned agents
-         n_inside_norm,                       ← fraction of agents inside patch [0,1]
-         nearest_dist_norm]                   ← closest agent's dist_norm
+    def _compute_max_steering_angle(self, b_cmd: float, ey: float, v: float) -> float:
         """
+        Constrain steering angle based on patch boundary hitting track walls.
+
+        The car IS the patch center. The patch extends ±b/2 from the car's position.
+        As the car steers, it drifts laterally, moving the patch boundaries with it.
+        Compute the maximum steering angle that keeps the patch boundaries within
+        the track walls (does not cause patch boundary collision).
+
+        Args:
+            b_cmd: current patch half-width (lateral extent from center)
+            ey: lateral error (car position relative to centerline)
+            v: current longitudinal speed
+
+        Returns:
+            max_steer: maximum safe steering angle in radians (prevents boundary hit)
+        """
+        wheelbase = self.cfg.wheelbase
+        dt = self.cfg.control_dt
+        safety_margin = 0.05  # 5cm buffer before patch boundary
+
+        # Available space left and right from current position
+        # Left boundary is at ey = b/2, right boundary at ey = -b/2
+        margin_left = b_cmd / 2.0 - ey  # distance to left patch boundary
+        margin_right = ey + b_cmd / 2.0  # distance to right patch boundary
+
+        # Ensure margins are positive (safety check)
+        margin_left = max(margin_left - safety_margin, 0.0)
+        margin_right = max(margin_right - safety_margin, 0.0)
+
+        # Stop speed case: no steering constraint
+        if v < 0.01:
+            return self.cfg.steering_max
+
+        # For a bicycle model, steering angle relates to lateral drift via:
+        # Δey ≈ v * sin(steer) * dt + 0.5 * (v²/wheelbase) * tan(steer) * dt²
+        # For small angles: Δey ≈ v * steer * dt + 0.5 * (v²/wheelbase) * steer * dt²
+        # Simplified: Δey ≈ (v * dt) * (1 + v*dt/(2*wheelbase)) * steer
+
+        scale_factor = 1.0 + v * dt / (2.0 * wheelbase)
+        drift_per_radian = v * dt * scale_factor
+
+        # Max steering to stay within margins
+        if drift_per_radian > 1e-3:
+            max_steer_left = margin_left / drift_per_radian
+            max_steer_right = margin_right / drift_per_radian
+        else:
+            return self.cfg.steering_max
+
+        # Return the minimum constraint (most restrictive)
+        max_steer = min(abs(max_steer_left), abs(max_steer_right))
+        max_steer = np.clip(max_steer, 0.0, self.cfg.steering_max)
+
+        return float(max_steer)
+
+    def _build_patch_obs(self, base_obs) -> np.ndarray:
+        """6D patch obs — SIMPLIFIED FOR DEBUGGING (removed split/merge complexity)."""
         s, ey = self._patch_to_frenet()
         s_norm = s / max(float(self.track_length), 1.0)
-        half_w = max(self._lookup_half_w(s), 1e-3)
-        ahead_s = (s + self.cfg.patch_lookahead_dist) % float(self.track_length)
-        ahead_half_w = max(self._lookup_half_w(ahead_s), 1e-3)
-        wall_left  = float(np.clip(half_w - ey, 0.0, 20.0))
-        wall_right = float(np.clip(half_w + ey, 0.0, 20.0))
-        try:
-            curvature = float(self.track_spline.calc_curvature(s))
-        except Exception:
-            curvature = 0.0
 
-        a = max(float(self.patch.a), 1e-3)
-        b = max(float(self.patch.b), 1e-3)
+        # === SIMPLIFIED: removed wall_left, wall_right, ahead_half_w, curvature, lane_id ===
+        # half_w = max(self._lookup_half_w(s), 1e-3)
+        # ahead_s = (s + self.cfg.patch_lookahead_dist) % float(self.track_length)
+        # ahead_half_w = max(self._lookup_half_w(ahead_s), 1e-3)
+        # wall_left = float(np.clip(half_w - ey, 0.0, 20.0))
+        # wall_right = float(np.clip(half_w + ey, 0.0, 20.0))
+        # try:
+        #     curvature = float(self.track_spline.calc_curvature(float(s)))
+        # except Exception:
+        #     curvature = 0.0
 
-        # Aggregate over all agents — works for any N agents
-        n_agents = len(base_obs["poses_x"])
-        patch_positions = [
-            self.patch.world_to_patch_frame(
-                float(base_obs["poses_x"][i]), float(base_obs["poses_y"][i]))
-            for i in range(n_agents)
-        ]
-        dist_norms = [
-            float(np.sqrt((px / a) ** 2 + (py / b) ** 2))
-            for px, py in patch_positions
-        ]
-        centroid_x = float(np.mean([px for px, _ in patch_positions]))
-        centroid_y = float(np.mean([py for _, py in patch_positions]))
-        n_inside   = sum(1 for d in dist_norms if d <= 1.0) / max(n_agents, 1)
-        nearest_d  = float(min(dist_norms))
-
-        return np.array([
-            s_norm, ey, float(self.patch.v), float(self.patch.theta),
-            wall_left, wall_right, ahead_half_w, a, b, curvature,
-            float(np.clip(self.patch_yaw_rate, -10.0, 10.0)),
-            float(np.clip(centroid_x / b, -5.0, 5.0)),
-            float(np.clip(centroid_y / a, -5.0, 5.0)),
-            float(n_inside),
-            float(np.clip(nearest_d, 0.0, 5.0)),
-        ], dtype=np.float32)
+        return np.array(
+            [
+                s_norm,
+                float(ey),
+                float(self.patch.v),
+                float(self.patch.theta),
+                float(self.patch.a),
+                float(self.patch.b),
+            ],
+            dtype=np.float32,
+        )
 
     def _build_agent_obs_for(self, ego: int, base_obs) -> np.ndarray:
-        """12D ego-centric obs for agent `ego` (0 or 1). f110 cars are 0 and 1."""
-        other = 1 - ego
+        """21D ego-centric obs: 16D base + 5D split context (placeholders if no split).
+
+        With a single learning agent (car 0) and patch car (car 1), the "other agent"
+        slots are filled with zeros since there is no second learning agent.
+        """
+        fe = self.AGENT_F110_IDX[ego]
+        fp = self.PATCH_CAR_F110_IDX
         a = max(float(self.patch.a), 1e-3)
         b = max(float(self.patch.b), 1e-3)
 
-        def _patch_pos(fi):
+        def _patch_pos(fi: int):
             return self.patch.world_to_patch_frame(
-                float(base_obs["poses_x"][fi]), float(base_obs["poses_y"][fi]))
+                float(base_obs["poses_x"][fi]), float(base_obs["poses_y"][fi])
+            )
 
-        def _speed(fi):
+        def _speed(fi: int):
             vx = float(base_obs["linear_vels_x"][fi]) if "linear_vels_x" in base_obs else 0.0
             vy = float(base_obs["linear_vels_y"][fi]) if "linear_vels_y" in base_obs else 0.0
             return float(np.hypot(vx, vy))
 
-        def _heading_rel(fi):
+        def _heading_rel(fi: int):
             yaw = float(base_obs["poses_theta"][fi]) if "poses_theta" in base_obs else 0.0
             return float((yaw - self.patch.theta + np.pi) % (2 * np.pi) - np.pi)
 
-        ex, ey_e = _patch_pos(ego)
-        ox, oy_o = _patch_pos(other)
-        return np.array([
-            ex / b, ey_e / a,
-            ox / b, oy_o / a,
-            ex - ox, ey_e - oy_o,
-            float(np.clip(self.patch_yaw_rate, -10.0, 10.0)),
-            float(self.patch.v), a, b,
-            _speed(ego), _heading_rel(ego),
-        ], dtype=np.float32)
+        ex, ey_e = _patch_pos(fe)
+        # No second learning agent — zero out other-agent position
+        ox, oy_o = 0.0, 0.0
+        px_w = float(base_obs["poses_x"][fp])
+        py_w = float(base_obs["poses_y"][fp])
+        pdx, pdy = self.patch.world_to_patch_frame(px_w, py_w)
+        # No second agent → inter_agent distance is large (no collision possible)
+        inter_agent = 999.0
+        dist_patch_car = float(
+            np.hypot(
+                float(base_obs["poses_x"][fe]) - px_w,
+                float(base_obs["poses_y"][fe]) - py_w,
+            )
+        )
+        dn = float(
+            np.sqrt((ex / a) ** 2 + (ey_e / b) ** 2)
+        )
+        n_inside = 0.0
+        for fi in self.AGENT_F110_IDX:
+            x_r, y_r = _patch_pos(fi)
+            di = float(np.sqrt((x_r / a) ** 2 + (y_r / b) ** 2))
+            if di <= 1.0:
+                n_inside += 1.0
+
+        base16 = np.array(
+            [
+                ex / b,
+                ey_e / a,
+                ox / b,
+                oy_o / a,
+                pdx,
+                pdy,
+                _speed(fe),
+                _heading_rel(fe),
+                float(self.patch.v),
+                float(np.clip(self.patch_yaw_rate, -10.0, 10.0)),
+                a,
+                b,
+                inter_agent,
+                dist_patch_car,
+                dn,
+                n_inside,
+            ],
+            dtype=np.float32,
+        )
+        # Split context: reserved for multi-zone — zeros until split geometry is active
+        split5 = np.zeros(5, dtype=np.float32)
+        return np.concatenate([base16, split5])
 
     def _build_all_obs(self, base_obs) -> None:
         patch_obs = np.nan_to_num(
@@ -1194,59 +1298,44 @@ class JointEnv:
         ego0 = np.nan_to_num(
             self._build_agent_obs_for(0, base_obs), nan=0.0, posinf=10.0, neginf=-10.0
         ).astype(np.float32)
-        ego1 = np.nan_to_num(
-            self._build_agent_obs_for(1, base_obs), nan=0.0, posinf=10.0, neginf=-10.0
-        ).astype(np.float32)
         self._step_obs[0] = patch_obs
-        self._step_obs[1] = np.concatenate([ego0, ego1])  # agent0: ego=0, partner=1
-        self._step_obs[2] = np.concatenate([ego1, ego0])  # agent1: ego=1, partner=0
+        self._step_obs[1] = ego0
 
     # ------------------------------------------------------------------
     # Reward / termination
     # ------------------------------------------------------------------
 
-    def _compute_agent_reward(self, dist_norm: float, prev_dist_norm: float,
-                              inter_collision: bool, agent_speed: float,
-                              agent_steer: float = 0.0,
-                              inter_dist: float = 999.0) -> float:
-        # Continuous distance-based reward — NO hard boundary, smooth gradient everywhere.
-        # Agents always get signal to move toward patch center, even when far outside.
-        # Speed-matching fires everywhere — agents must match patch speed whether inside or outside
-        speed_err = abs(agent_speed - self.patch.v) / max(self.patch.v, 0.5)
-        speed_match = 20.0 * max(0.0, 1.0 - speed_err)
+    def _compute_agent_reward(self, dist_norm: float,
+                              patch_car_collision: bool,
+                              patch_car_dist: float = 999.0) -> float:
+        """Flat inside / warning ramp / outside penalty + patch-car repulsion.
 
-        steer_err = abs(agent_steer - self.patch.steering) / 0.4189
-        steer_match = 10.0 * max(0.0, 1.0 - steer_err)
+        Zones (by normalised distance to ellipse center):
+            dn <= warning_zone_start (0.85): flat +inside_reward  — anywhere inside is fine
+            warning_zone_start < dn <= 1.0:  linear ramp from +inside_reward → 0
+            dn > 1.0:                        steep penalty proportional to overshoot
+        """
+        wz = self.cfg.warning_zone_start  # 0.85
 
-        # Safe inner zone: based on minimum patch width (b_cmd_min) not current width.
-        # An agent inside this zone is safe even when the patch shrinks to its smallest.
-        # With b_cmd_min=1.0 and spawn offset=0.5m: spawn_zone = 0.5/1.0 = 0.5
-        spawn_zone = 0.5 / max(self.cfg.patch_b_cmd_min, 1e-3)
-        if dist_norm <= spawn_zone:
-            # Zone 1: near center (spawn zone) — maximum reward, Gaussian peaks at 0
-            reward = self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
-            reward += 50.0 * (prev_dist_norm - dist_norm)  # pull toward center
-        elif dist_norm < 1.0:
-            # Zone 2: inside patch but drifting away from center — reduced reward + pull back
-            reward = 0.5 * self.cfg.inside_patch_reward * float(np.exp(-2.0 * dist_norm ** 2))
-            reward += 100.0 * (prev_dist_norm - dist_norm)  # still pull toward center
+        if dist_norm <= wz:
+            # Comfortable interior — flat reward, no center bias
+            reward = self.cfg.inside_reward
+        elif dist_norm <= 1.0:
+            # Warning zone — linear ramp from full reward to zero at boundary
+            t = (dist_norm - wz) / (1.0 - wz)  # 0 at wz, 1 at boundary
+            reward = self.cfg.inside_reward * (1.0 - t)
         else:
-            # Zone 3: at/beyond patch edge — penalty + strong recovery gradient
+            # Outside — steep penalty, capped so gradient doesn't explode
             reward = -self.cfg.out_of_patch_penalty * min(dist_norm - 1.0, 1.0)
-            # reward += 50.0 * (prev_dist_norm - dist_norm)
 
-        # Speed and steer matching fire in all zones
-        reward += speed_match
-        reward += steer_match
-
-        # Gradient repulsion: smooth penalty that ramps up before hard collision threshold.
-        # Fires when agents are within repulsion_zone but haven't fully collided yet.
-        if inter_dist < self.cfg.repulsion_zone and not inter_collision:
-            t = (self.cfg.repulsion_zone - inter_dist) / max(
-                self.cfg.repulsion_zone - self.cfg.inter_agent_collision_dist, 1e-6)
+        # Repulsion: agent vs patch car — keeps them from colliding
+        if patch_car_dist < self.cfg.repulsion_zone and not patch_car_collision:
+            t = (self.cfg.repulsion_zone - patch_car_dist) / max(
+                self.cfg.repulsion_zone - self.cfg.patch_car_collision_dist, 1e-6)
             reward -= self.cfg.repulsion_weight * float(np.clip(t, 0.0, 1.0))
-        
-        if inter_collision:
+
+        # Hard penalty on actual collision with patch car
+        if patch_car_collision:
             reward -= self.cfg.inter_collision_penalty
 
         return float(np.nan_to_num(np.clip(reward, -100.0, 100.0), nan=0.0))
@@ -1255,11 +1344,93 @@ class JointEnv:
                                  inter_collision: bool) -> tuple:
         if inter_collision:
             return True, False, f"agent{agent_idx}_inter_collision"
-        if dist_norm > 1.35:
+        if dist_norm > self.cfg.agent_out_of_patch_threshold:
             return True, False, f"agent{agent_idx}_out_of_patch"
         if self.step_count >= self.cfg.max_steps:
             return False, True, "max_steps"
         return False, False, None
+
+    def _compute_patch_reward_for(
+        self,
+        patch: "DynamicPatch",
+        lane_id: int,
+        prev_s: float,
+        prev_steer: float,
+        no_progress: int,
+        dt: float,
+        lap_bonus: float = 0.0,
+        cached_collision: bool = False,
+    ) -> tuple:
+        """
+        Compute patch reward using PatchEnv._compute_reward_for logic (reused from PatchCarEnv Phase 0).
+        Returns (reward_clipped, new_prev_s, new_prev_steer, new_no_progress, terms_dict).
+
+        This eliminates duplication: both Phase 0 (PatchCarEnv) and Phase A (JointEnv) now use
+        identical patch reward logic.
+        """
+        s, ey_track = self._patch_to_frenet()
+        ds = self._wrap_ds(s - prev_s) if prev_s is not None else 0.0
+
+        # Lookup track half-width at current position (O(1) using precomputed array)
+        half_w = max(self._lookup_half_w(s), 1e-3)
+        if lane_id == 1:
+            ey = ey_track - (half_w / 2.0)
+        elif lane_id == 2:
+            ey = ey_track + (half_w / 2.0)
+        else:
+            ey = ey_track
+
+        steer_cmd = float(getattr(patch, "steering", 0.0))
+        steer_rate = abs(steer_cmd - prev_steer) / max(dt, 1e-6)
+        yaw_rate = float((patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd))
+        spin_excess = max(0.0, abs(yaw_rate) - self.cfg.spin_yawrate_threshold)
+
+        # Use the pre-computed collision (occupancy map boundary check only)
+        collision = cached_collision
+
+        # Stuck counter
+        if abs(ds) < self.cfg.stuck_progress_eps:
+            no_progress += 1
+        else:
+            no_progress = 0
+
+        # Lane-centering penalty in split mode
+        lane_center_penalty = 0.0
+        if lane_id != 0:
+            lane_center_penalty = self.cfg.lane_centering_weight * abs(ey)
+
+        a_now = float(max(patch.a, 1e-3))
+        b_now = float(max(patch.b, 1e-3))
+        base_area = float(self.cfg.patch_a * self.cfg.patch_b)
+        current_area = a_now * b_now
+        area_ratio = current_area / max(base_area, 1e-3)
+        area_excess = max(0.0, area_ratio - 1.0)
+
+        reward_raw = (
+            self.cfg.reward_progress_scale * ds
+            - self.cfg.reward_crosstrack_weight * abs(ey)
+            - lane_center_penalty
+            - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
+            - self.cfg.reward_steer_rate_weight * steer_rate
+            - self.cfg.reward_spin_weight * spin_excess
+            - (self.cfg.patch_wall_penalty if collision else 0.0)
+            - self.cfg.shape_area_penalty_weight * area_excess
+            - self.cfg.time_penalty_per_sec * float(dt)
+            + float(lap_bonus)
+        )
+        if no_progress >= self.cfg.stuck_no_progress_steps:
+            reward_raw -= self.cfg.stuck_penalty
+
+        reward_clipped = float(np.clip(reward_raw, -100.0, 100.0))
+
+        terms = {
+            "s": float(s), "ey": float(ey), "ds": float(ds),
+            "collision": bool(collision), "no_progress": int(no_progress),
+            "reward_raw": float(reward_raw), "reward_clipped": float(reward_clipped),
+            "yaw_rate": float(yaw_rate),
+            "spin_excess": float(spin_excess),
+        }
+        return reward_clipped, float(s), steer_cmd, no_progress, terms
 
     # ------------------------------------------------------------------
     # Reset
@@ -1270,13 +1441,14 @@ class JointEnv:
             np.random.seed(seed)
         self.step_count = 0
         self.episode_reward_patch = 0.0
-        self.episode_reward_agents = [0.0, 0.0]
-        self.prev_dist_norms = [0.0, 0.0]
+        self.episode_reward_agents = [0.0]
+        self.prev_dist_norms = [0.0]
         self.patch_lap_s = 0.0
         self.patch_lap_count = 0
         self.patch_prev_steer = 0.0
+        self.patch_prev_s = None      # Reset for new episode
         self.patch_no_progress = 0
-        self._pending_actions = [None, None, None]
+        self._pending_actions = [None, None]
 
         self.f110.ensure_initialized()
         track, self._occ_map, self._resolution, self._origin = self.f110.get_track_data()
@@ -1310,98 +1482,155 @@ class JointEnv:
         perp_dx = -np.sin(patch_theta)
         perp_dy = np.cos(patch_theta)
         offset = 0.50
-        poses = np.array([
-            [patch_x + offset * perp_dx, patch_y + offset * perp_dy, patch_theta],
-            [patch_x - offset * perp_dx, patch_y - offset * perp_dy, patch_theta],
-        ], dtype=np.float32)
+        # Car 0 = learning agent; car 1 = patch car (ellipse anchor)
+        poses = np.array(
+            [
+                [patch_x + offset * perp_dx, patch_y + offset * perp_dy, patch_theta],
+                [patch_x, patch_y, patch_theta],
+            ],
+            dtype=np.float32,
+        )
 
         base_obs, _ = self.f110.reset(poses=poses)
         self.current_base_obs = base_obs
+        pidx = self.PATCH_CAR_F110_IDX
+        vx = float(base_obs["linear_vels_x"][pidx])
+        vy = float(base_obs["linear_vels_y"][pidx])
+        self.patch.sync_from_pose(
+            float(base_obs["poses_x"][pidx]),
+            float(base_obs["poses_y"][pidx]),
+            float(base_obs["poses_theta"][pidx]),
+            float(np.hypot(vx, vy)),
+            0.0,
+        )
         self._build_all_obs(base_obs)
-        self._step_rewards    = [0.0, 0.0, 0.0]
+        self._step_rewards = [0.0, 0.0]
         self._step_terminated = False
-        self._step_truncated  = False
-        self._step_info       = {}
+        self._step_truncated = False
+        self._step_info = {}
 
-        # Initialise prev_dist_norms from actual spawn positions so first-step
-        # center-pull shaping is zero (not a spurious penalty from 0.0 baseline).
         a = max(float(self.patch.a), 1e-3)
         b = max(float(self.patch.b), 1e-3)
         self.prev_dist_norms = []
-        for i in range(2):
+        for i in self.AGENT_F110_IDX:
             xr, yr = self.patch.world_to_patch_frame(
-                float(base_obs["poses_x"][i]), float(base_obs["poses_y"][i]))
-            self.prev_dist_norms.append(
-                float(np.sqrt((xr / a) ** 2 + (yr / b) ** 2))
+                float(base_obs["poses_x"][i]), float(base_obs["poses_y"][i])
             )
+            self.prev_dist_norms.append(float(np.sqrt((xr / a) ** 2 + (yr / b) ** 2)))
 
     # ------------------------------------------------------------------
     # Joint physics step
     # ------------------------------------------------------------------
 
+    def _respawn_patch_car(self, base_obs: dict) -> dict:
+        """Teleport patch car (index 1) to a new centerline pose; keep agent 0 fixed."""
+        track, _, _, _ = self.f110.get_track_data()
+        xs = np.asarray(track.centerline.xs, dtype=np.float32)
+        ys = np.asarray(track.centerline.ys, dtype=np.float32)
+        spawn_idx = int(np.random.randint(0, xs.shape[0]))
+        spawn_idx = max(0, min(spawn_idx, xs.shape[0] - 1))
+        px = float(xs[spawn_idx])
+        py = float(ys[spawn_idx])
+        next_idx = (spawn_idx + 1) % xs.shape[0]
+        pth = float(
+            np.arctan2(
+                float(ys[next_idx] - ys[spawn_idx]),
+                float(xs[next_idx] - xs[spawn_idx]),
+            )
+        )
+        poses = np.array(
+            [
+                [
+                    float(base_obs["poses_x"][0]),
+                    float(base_obs["poses_y"][0]),
+                    float(base_obs["poses_theta"][0]),
+                ],
+                [px, py, pth],
+            ],
+            dtype=np.float32,
+        )
+        o, _ = self.f110.reset(poses=poses)
+        return o
+
     def _execute_joint_step(self, patch_action: np.ndarray,
-                            action0: np.ndarray, action1: np.ndarray) -> None:
-        """Execute one full physics step for patch + 2 agents."""
+                            action0: np.ndarray) -> None:
+        """Execute one full physics step: f110 car 0 = agent, car 1 = patch car."""
         self.step_count += 1
         dt = self.cfg.control_dt
+        pidx = self.PATCH_CAR_F110_IDX
 
         steer_p = float(np.clip(np.nan_to_num(patch_action[0]), -0.4189, 0.4189))
         speed_p = float(np.clip(np.nan_to_num(patch_action[1]), 0.5, 10.0))
-        a_p = float(np.clip(np.nan_to_num(patch_action[2]),
-                            self.cfg.patch_a_cmd_min, self.cfg.patch_a))
-        b_p = float(np.clip(np.nan_to_num(patch_action[3]),
-                            self.cfg.patch_b_cmd_min, self.cfg.patch_b))
+        a_p = float(np.clip(
+            np.nan_to_num(patch_action[2]),
+            self.cfg.patch_a_cmd_min, self.cfg.patch_a_cmd_max,
+        ))
+        b_p = float(np.clip(
+            np.nan_to_num(patch_action[3]),
+            self.cfg.patch_b_cmd_min, self.cfg.patch_b_cmd_max,
+        ))
+
+        has_learned_agents = (
+            self._agent_action_fn is not None
+        ) or self._real_agents_active
+
+        if self._agent_action_fn is not None:
+            obs0 = self._step_obs[1]
+            if obs0 is not None:
+                action0 = self._agent_action_fn(obs0)
+
+        s0 = float(np.clip(np.nan_to_num(action0[0]), -0.4189, 0.4189))
+        v0 = float(np.clip(np.nan_to_num(action0[1]), 0.5, 10.0))
+        self._last_agent_steers = [s0]
+
+        if not has_learned_agents:
+            s0, v0 = 0.0, 0.5
 
         prev_theta = self.patch.theta
         prev_s, _ = self._patch_to_frenet()
-        self.patch.step(speed_p, steer_p, dt)
+
+        # --- Constrain steering based on patch boundary ---
+        # The f110 car now respects the patch inflation (b_p)
+        # TODO: Debug why this causes worker crash in SubprocVecEnv
+        # if self.track_spline is not None:
+        #     _, ey_current = self._patch_to_frenet()
+        #     v_current = float(self.patch.v) if hasattr(self, 'patch') and self.patch else speed_p
+        #     max_steer = self._compute_max_steering_angle(b_p, ey_current, v_current)
+        #     if abs(steer_p) > max_steer:
+        #         steer_p = np.sign(steer_p) * max_steer
+
+        base_obs, _, _, _, _ = self.f110.step(
+            np.array(
+                [[s0, v0], [steer_p, speed_p]],
+                dtype=np.float32,
+            )
+        )
+        self.current_base_obs = base_obs
+
+        vx = float(base_obs["linear_vels_x"][pidx])
+        vy = float(base_obs["linear_vels_y"][pidx])
+        self.patch.sync_from_pose(
+            float(base_obs["poses_x"][pidx]),
+            float(base_obs["poses_y"][pidx]),
+            float(base_obs["poses_theta"][pidx]),
+            float(np.hypot(vx, vy)),
+            steer_p,
+        )
         d_theta = (self.patch.theta - prev_theta + np.pi) % (2 * np.pi) - np.pi
         self.patch_yaw_rate = d_theta / dt
-        self.patch.update_shape(a_p, b_p, dt,
-                                max_a=self.cfg.patch_a, max_b=self.cfg.patch_b)
 
-        # True when real agent actions are running (Phase 2 via pz_env, or Phase 1 with
-        # a trained agent snapshot set as _agent_action_fn).
-        has_real_agents = (self._agent_action_fn is not None) or self._real_agents_active
+        s_mid, _ = self._patch_to_frenet()
+        hw_mid = self._lookup_half_w(s_mid)
+        max_b_dyn = min(self.cfg.patch_b, hw_mid * 0.90)
+        self.patch.update_shape(
+            a_p, b_p, dt, max_a=self.cfg.patch_a, max_b=max_b_dyn
+        )
 
-        if has_real_agents:
-            # If _agent_action_fn is set (Phase 1 iteration 2+), override passed actions
-            # with the frozen agent policy.
-            if self._agent_action_fn is not None:
-                obs0 = self._step_obs[1]
-                obs1 = self._step_obs[2]
-                if obs0 is not None and obs1 is not None:
-                    action0, action1 = self._agent_action_fn(obs0, obs1)
-            s0 = float(np.clip(np.nan_to_num(action0[0]), -0.4189, 0.4189))
-            v0 = float(np.clip(np.nan_to_num(action0[1]), 0.5, 12.0))
-            s1 = float(np.clip(np.nan_to_num(action1[0]), -0.4189, 0.4189))
-            v1 = float(np.clip(np.nan_to_num(action1[1]), 0.5, 12.0))
-            self._last_agent_steers = [s0, s1]  # stored for _compute_agent_reward
-            base_obs, _, _, _, _ = self.f110.step(
-                np.array([[s0, v0], [s1, v1]], dtype=np.float32)
-            )
-            self.current_base_obs = base_obs
-        else:
-            # Phase 1 iteration 1: patch trains alone — no f110 simulation needed.
-            # Agents are at patch center in the obs (well-defined, and ignored for rewards).
-            px, py, pth = self.patch.x, self.patch.y, self.patch.theta
-            base_obs = {
-                "poses_x":       np.array([px, px], dtype=np.float32),
-                "poses_y":       np.array([py, py], dtype=np.float32),
-                "poses_theta":   np.array([pth, pth], dtype=np.float32),
-                "linear_vels_x": np.zeros(2, dtype=np.float32),
-                "linear_vels_y": np.zeros(2, dtype=np.float32),
-            }
-            self.current_base_obs = base_obs
-
-        # Patch progress reward + lap detection
         curr_s, _ = self._patch_to_frenet()
         L = float(self.track_length)
         ds = float(np.nan_to_num(((curr_s - prev_s + L / 2.0) % L) - L / 2.0, nan=0.0))
 
-        # Lap bonus: accumulate ds and fire bonus each time a full lap is completed.
-        # This is the primary incentive for the patch to go fast — same as PatchEnv.
-        self.patch_lap_s += max(0.0, ds)   # only forward progress counts
+        self.patch_lap_s += max(0.0, ds)
         lap_bonus = 0.0
         if self.patch_lap_s >= L:
             self.patch_lap_count += 1
@@ -1415,134 +1644,182 @@ class JointEnv:
                 n_points=32,
                 violation_threshold=self.cfg.patch_boundary_violation_threshold,
             )
+        if "collisions" in base_obs:
+            c = np.asarray(base_obs["collisions"]).reshape(-1)
+            if c.shape[0] > pidx and bool(c[pidx] > 0.5):
+                patch_wall_hit = True
 
-        dist_norm_list = []
-        for i in range(2):
-            px = float(np.nan_to_num(base_obs["poses_x"][i], nan=self.patch.x))
-            py = float(np.nan_to_num(base_obs["poses_y"][i], nan=self.patch.y))
+        dist_norm_list: list[float] = []
+        for fi in self.AGENT_F110_IDX:
+            px = float(np.nan_to_num(base_obs["poses_x"][fi], nan=self.patch.x))
+            py = float(np.nan_to_num(base_obs["poses_y"][fi], nan=self.patch.y))
             xr, yr = self.patch.world_to_patch_frame(px, py)
-            dn = float(np.nan_to_num(np.sqrt(
-                (xr / max(self.patch.a, 1e-3)) ** 2 +
-                (yr / max(self.patch.b, 1e-3)) ** 2
-            ), nan=2.0))  # default to "outside" if NaN
+            dn = float(
+                np.nan_to_num(
+                    np.sqrt(
+                        (xr / max(self.patch.a, 1e-3)) ** 2
+                        + (yr / max(self.patch.b, 1e-3)) ** 2
+                    ),
+                    nan=2.0,
+                )
+            )
             dist_norm_list.append(dn)
 
-        px0 = float(np.nan_to_num(base_obs["poses_x"][0], nan=self.patch.x))
-        py0 = float(np.nan_to_num(base_obs["poses_y"][0], nan=self.patch.y))
-        px1 = float(np.nan_to_num(base_obs["poses_x"][1], nan=self.patch.x))
-        py1 = float(np.nan_to_num(base_obs["poses_y"][1], nan=self.patch.y))
-        inter_dist = float(np.hypot(px0 - px1, py0 - py1))
-        inter_collision = inter_dist < self.cfg.inter_agent_collision_dist
-
+        px0 = float(base_obs["poses_x"][0])
+        py0 = float(base_obs["poses_y"][0])
+        pxc = float(base_obs["poses_x"][pidx])
+        pyc = float(base_obs["poses_y"][pidx])
+        # Agent-to-patch-car distance for repulsion and collision
+        d0p = float(np.hypot(px0 - pxc, py0 - pyc))
+        hit_patch_car = d0p < self.cfg.patch_car_collision_dist
 
         agents_inside = sum(1.0 for dn in dist_norm_list if dn <= 1.0)
 
-        # has_real_agents already computed above (before the f110 branch).
-        effective_inside = agents_inside if self._real_agents_active else 0.0
-
-        # --- Patch reward: identical to PatchEnv._compute_reward_for + agents_inside_bonus ---
-        # Speed is fully decoupled from agent presence: patch always gets full progress reward
-        # regardless of whether agents are inside. agents_inside_bonus is a separate additive
-        # bonus — it tells the patch "having passengers is good" without capping its speed.
-        # Agents must chase the patch independently; the patch optimises purely for fast laps.
-        curr_s_for_ey, ey = self._patch_to_frenet()   # ey = crosstrack error (m)
-
-        steer_cmd  = float(getattr(self.patch, "steering", 0.0))
+        _, ey = self._patch_to_frenet()
+        steer_cmd = float(getattr(self.patch, "steering", 0.0))
         steer_rate = abs(steer_cmd - self.patch_prev_steer) / max(dt, 1e-6)
-        yaw_rate   = float((self.patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd))
+        yaw_rate = float(
+            (self.patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd)
+        )
         spin_excess = max(0.0, abs(yaw_rate) - self.cfg.spin_yawrate_threshold)
 
-        if abs(ds) < self.cfg.stuck_progress_eps:
-            self.patch_no_progress += 1
-        else:
-            self.patch_no_progress = 0
+        # --- PATCH REWARD: Reuse PatchEnv._compute_reward_for logic ---
+        # (Commented out duplicate logic below; now using helper method)
+        #
+        # if abs(ds) < self.cfg.stuck_progress_eps:
+        #     self.patch_no_progress += 1
+        # else:
+        #     self.patch_no_progress = 0
+        #
+        # reward_raw = (
+        #     self.cfg.reward_progress_scale * ds
+        #     - self.cfg.reward_crosstrack_weight * abs(ey)
+        #     - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
+        #     - self.cfg.reward_steer_rate_weight * steer_rate
+        #     - self.cfg.reward_spin_weight * spin_excess
+        #     + lap_bonus
+        #     - (self.cfg.patch_wall_penalty if patch_wall_hit else 0.0)
+        # )
+        # if self.patch_no_progress >= self.cfg.stuck_no_progress_steps:
+        #     reward_raw -= self.cfg.stuck_penalty
+        #
+        # self.patch_prev_steer = steer_cmd
+        # patch_reward = float(np.nan_to_num(np.clip(reward_raw, -100.0, 100.0), nan=0.0))
 
-        reward_raw = (
-            self.cfg.reward_progress_scale * ds                  # full progress — not gated by agents
-            - self.cfg.reward_crosstrack_weight * abs(ey)
-            - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
-            - self.cfg.reward_steer_rate_weight * steer_rate
-            - self.cfg.reward_spin_weight * spin_excess
-            # + self.cfg.agents_inside_bonus * effective_inside    # additive bonus, doesn't gate speed
-            + lap_bonus
-            - (self.cfg.patch_wall_penalty if patch_wall_hit else 0.0)
+        # Call PatchEnv's reward logic (same as PatchCarEnv uses in Phase 0)
+        patch_reward, patch_s_now, _, self.patch_no_progress, _ = self._compute_patch_reward_for(
+            self.patch, lane_id=0,  # patch is always in primary lane
+            prev_s=self.patch_prev_s, prev_steer=self.patch_prev_steer,
+            no_progress=self.patch_no_progress, dt=dt,
+            lap_bonus=lap_bonus, cached_collision=patch_wall_hit,
         )
-        if self.patch_no_progress >= self.cfg.stuck_no_progress_steps:
-            reward_raw -= self.cfg.stuck_penalty
+        self.patch_prev_s = patch_s_now  # Update for next step
 
-        self.patch_prev_steer = steer_cmd
+        respawned_patch = False
+        if patch_wall_hit and self._real_agents_active:
+            base_obs = self._respawn_patch_car(base_obs)
+            self.current_base_obs = base_obs
+            vx = float(base_obs["linear_vels_x"][pidx])
+            vy = float(base_obs["linear_vels_y"][pidx])
+            self.patch.sync_from_pose(
+                float(base_obs["poses_x"][pidx]),
+                float(base_obs["poses_y"][pidx]),
+                float(base_obs["poses_theta"][pidx]),
+                float(np.hypot(vx, vy)),
+                0.0,
+            )
+            patch_wall_hit = False
+            respawned_patch = True
+            dist_norm_list = []
+            for fi in self.AGENT_F110_IDX:
+                px = float(base_obs["poses_x"][fi])
+                py = float(base_obs["poses_y"][fi])
+                xr, yr = self.patch.world_to_patch_frame(px, py)
+                dist_norm_list.append(
+                    float(
+                        np.sqrt(
+                            (xr / max(self.patch.a, 1e-3)) ** 2
+                            + (yr / max(self.patch.b, 1e-3)) ** 2
+                        )
+                    )
+                )
+            px0 = float(base_obs["poses_x"][0])
+            py0 = float(base_obs["poses_y"][0])
+            pxc = float(base_obs["poses_x"][pidx])
+            pyc = float(base_obs["poses_y"][pidx])
+            d0p = float(np.hypot(px0 - pxc, py0 - pyc))
+            hit_patch_car = d0p < self.cfg.patch_car_collision_dist
 
-        patch_reward = float(np.nan_to_num(np.clip(reward_raw, -100.0, 100.0), nan=0.0))
-
-        terminated_flags = []
-        reasons = []
-        for i in range(2):
-            vx = float(np.nan_to_num(base_obs.get("linear_vels_x", [0.0, 0.0])[i], nan=0.0))
-            vy = float(np.nan_to_num(base_obs.get("linear_vels_y", [0.0, 0.0])[i], nan=0.0))
-            agent_speed = float(np.hypot(vx, vy))
-            agent_steer = getattr(self, "_last_agent_steers", [0.0, 0.0])[i]
-            r = self._compute_agent_reward(
-                dist_norm_list[i], self.prev_dist_norms[i], inter_collision, agent_speed,
-                agent_steer=agent_steer, inter_dist=inter_dist)
-            r = float(np.nan_to_num(r, nan=0.0))
-            term, trunc, reason = self._check_agent_termination(
-                i, dist_norm_list[i], inter_collision)
-            self._step_rewards[i + 1] = float(np.clip(r, -100.0, 100.0))
-            self.episode_reward_agents[i] += r
-            terminated_flags.append(term or trunc)
-            reasons.append(reason)
+        # Single agent reward/termination
+        ic = hit_patch_car
+        r = self._compute_agent_reward(
+            dist_norm_list[0],
+            patch_car_collision=ic,
+            patch_car_dist=d0p,
+        )
+        r = float(np.nan_to_num(r, nan=0.0))
+        term, trunc, reason = self._check_agent_termination(
+            0, dist_norm_list[0], ic
+        )
+        self._step_rewards[1] = float(np.clip(r, -100.0, 100.0))
+        self.episode_reward_agents[0] += r
+        agent_terminated_flag = term or trunc
         self.prev_dist_norms = list(dist_norm_list)
 
-        # Inertia (τ=0.5s in patch.py) now prevents the patch from outrunning agents.
-        # The -300 penalty was a workaround for instant velocity — no longer needed.
-        # agents_frac=0 → zero progress reward already handles the alignment signal.
         self._step_rewards[0] = patch_reward
         self.episode_reward_patch += patch_reward
 
-        # During Phase 1 (no real agents), stationary dummy agents immediately leave the patch
-        # and would terminate the episode in ~10 steps.  Only count agent termination when a
-        # real agent policy is running.
-        agent_terminated = self._real_agents_active and any(terminated_flags)
-        terminated = agent_terminated or patch_wall_hit
-        truncated  = self.step_count >= self.cfg.max_steps
-        reason = next((r for r in reasons if r is not None and has_real_agents),
-                      "patch_wall" if patch_wall_hit else
-                      "max_steps" if truncated else None)
+        agent_terminated = self._real_agents_active and agent_terminated_flag
+        patch_terminates = patch_wall_hit and not self._real_agents_active
+        terminated = agent_terminated or patch_terminates
+        truncated = self.step_count >= self.cfg.max_steps
+
+        if patch_terminates:
+            reason = "patch_wall"
+        elif agent_terminated:
+            pass  # reason already set by _check_agent_termination
+        elif truncated:
+            reason = "max_steps"
+        else:
+            reason = None
 
         self._build_all_obs(base_obs)
 
         if terminated or truncated:
             self._episode_count += 1
-            key = ("inter_collision" if reason and "inter_collision" in (reason or "")
-                   else "out_of_patch" if reason and "out_of_patch" in (reason or "")
-                   else "patch_wall" if reason == "patch_wall"
-                   else "max_steps")
+            key = (
+                "inter_collision"
+                if reason and "inter_collision" in (reason or "")
+                else "out_of_patch"
+                if reason and "out_of_patch" in (reason or "")
+                else "patch_wall"
+                if reason == "patch_wall"
+                else "max_steps"
+            )
             self._term_counts[key] += 1
             if self._episode_count % 200 == 0:
                 n = self._episode_count
                 print(
                     f"[JointEnv ep={n}] "
                     f"out_of_patch={self._term_counts['out_of_patch']/n*100:.1f}%  "
-                    f"inter_collision={self._term_counts['inter_collision']/n*100:.1f}%  "
                     f"patch_wall={self._term_counts['patch_wall']/n*100:.1f}%  "
                     f"max_steps={self._term_counts['max_steps']/n*100:.1f}%  "
-                    f"patch_v={self.patch.v:.2f}  inter_dist={inter_dist:.3f}"
+                    f"patch_v={self.patch.v:.2f}  d0p={d0p:.3f}"
                 )
 
         self._step_terminated = terminated
-        self._step_truncated  = truncated
-        mean_agent_reward = float(np.mean(self.episode_reward_agents))
+        self._step_truncated = truncated
+        agent_reward = float(self.episode_reward_agents[0])
         self._step_info = {
-            # keys expected by TrainingCallback
-            "episode_reward": mean_agent_reward,
+            "episode_reward": agent_reward,
             "Episode_steps": self.step_count,
             "termination_reason": reason,
-            # joint-specific extras
             "episode_reward_patch": self.episode_reward_patch,
-            "episode_reward_agents": mean_agent_reward,
+            "episode_reward_agents": agent_reward,
             "patch_reward": patch_reward,
-            "inter_agent_dist": float(inter_dist),
+            "agent_patch_dist": float(d0p),
             "agents_inside": int(agents_inside),
+            "patch_respawned": bool(respawned_patch),
         }
 
     def _visualize(self):
@@ -1609,28 +1886,40 @@ class JointEnv:
                     origin='lower', aspect='auto', zorder=0, interpolation='nearest')
                 self._vis_bg_bounds = new_bounds
 
-        # Agent positions from current_base_obs
+        # Car 0 = agent; car 1 = patch car
         agent_positions = []
         if self.current_base_obs is not None:
             bobs = self.current_base_obs
-            for i in range(2):
+            n_c = len(bobs["poses_x"])
+            for i in range(n_c):
                 x = float(bobs["poses_x"][i])
                 y = float(bobs["poses_y"][i])
                 theta = float(bobs["poses_theta"][i])
-                v = float(bobs["linear_vels_x"][i])
+                vx = float(bobs["linear_vels_x"][i])
+                vy = float(bobs["linear_vels_y"][i])
+                v = float(np.hypot(vx, vy))
                 agent_positions.append((x, y, theta, v))
-        agents_inside = sum(1 for x, y, _, _ in agent_positions if self.patch.is_inside(x, y))
+        agents_inside = sum(
+            1
+            for i, (x, y, _, _) in enumerate(agent_positions)
+            if i < 1 and self.patch.is_inside(x, y)
+        )
 
         # Wall collision check
         patch_wall_collision = False
         if occ_map is not None:
             patch_wall_collision, _ = self.patch.check_patch_boundary_wall_collision(
-                occ_map, resolution, origin, n_points=32)
+                occ_map,
+                resolution,
+                origin,
+                n_points=32,
+                violation_threshold=self.cfg.patch_boundary_violation_threshold,
+            )
 
         ax.set_title(
             f'Joint Funnel | Step {self.step_count}\n'
             f'Patch: v={self.patch.v:.1f}m/s  size=({self.patch.a:.1f},{self.patch.b:.1f}) | '
-            f'Inside: {agents_inside}/2 | '
+            f'Inside: {agents_inside}/1 | '
             f'{"⚠ WALL" if patch_wall_collision else "Clear"}',
             fontsize=11, color='red' if patch_wall_collision else 'black'
         )
@@ -1638,7 +1927,7 @@ class JointEnv:
         # Patch ellipse
         if patch_wall_collision:
             fc, ec, alpha = 'red', 'darkred', 0.4
-        elif agents_inside == 2:
+        elif agents_inside == 1:
             fc, ec, alpha = 'cyan', 'darkblue', 0.3
         else:
             fc, ec, alpha = 'yellow', 'orange', 0.3
@@ -1665,14 +1954,15 @@ class JointEnv:
                        head_width=0.2, head_length=0.15, fc='blue', ec='blue', linewidth=2)
         self._vis_dynamic_artists.append(arr)
 
-        # Agents
-        colors = ['red', 'orange']
+        # Cars: A0 (agent), P (patch car)
+        colors = ['red', 'blue']
+        labels = ['A0', 'P']
         collisions = (self.current_base_obs.get("collisions", [0.0, 0.0])
                       if self.current_base_obs is not None else [0.0, 0.0])
         for i, (x, y, theta, v) in enumerate(agent_positions):
-            inside = self.patch.is_inside(x, y)
-            collision = float(collisions[i]) > 0.5
-            color = colors[i]
+            inside = self.patch.is_inside(x, y) if i < 1 else True
+            collision = float(collisions[i]) > 0.5 if i < len(collisions) else False
+            color = colors[i] if i < len(colors) else 'gray'
             marker, size = ('X', 18) if collision else ('o', 12) if inside else ('s', 14)
             ln, = ax.plot(x, y, marker, color=color, markersize=size,
                           markeredgecolor='black', markeredgewidth=2)
@@ -1680,13 +1970,14 @@ class JointEnv:
             arr = ax.arrow(x, y, v * np.cos(theta) * 0.2, v * np.sin(theta) * 0.2,
                            head_width=0.1, head_length=0.05, fc=color, ec=color, alpha=0.7)
             self._vis_dynamic_artists.append(arr)
-            txt = ax.text(x + 0.3, y + 0.3, f'A{i}', fontsize=8, fontweight='bold')
+            lbl = labels[i] if i < len(labels) else str(i)
+            txt = ax.text(x + 0.3, y + 0.3, lbl, fontsize=8, fontweight='bold')
             self._vis_dynamic_artists.append(txt)
 
         # Info box
-        ep_rew = float(np.mean(self.episode_reward_agents))
+        ep_rew = float(self.episode_reward_agents[0])
         txt = ax.text(0.02, 0.98,
-                      f'Ep reward (agents): {ep_rew:.1f}\nPatch reward: {self.episode_reward_patch:.1f}',
+                      f'Ep reward (agent): {ep_rew:.1f}\nPatch reward: {self.episode_reward_patch:.1f}',
                       transform=ax.transAxes, fontsize=9, verticalalignment='top',
                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
         self._vis_dynamic_artists.append(txt)
@@ -1717,7 +2008,7 @@ class JointEnv:
 class JointPatchView(gym.Env):
     """Gym interface for the patch agent in joint training.
 
-    obs:    15D  [Frenet state + track width + agent positions in patch frame]
+    obs:    11D  [same layout as PatchEnv / PatchCarEnv: Frenet + track width + a,b + lane_id]
     action: 4D   [steer, speed, a_cmd, b_cmd]
 
     Physics executes immediately (does not wait for AgentViews).
@@ -1733,7 +2024,7 @@ class JointPatchView(gym.Env):
         self.action_space = spaces.Box(
             low=np.array([-0.4189, 0.5, cfg.patch_a_cmd_min, cfg.patch_b_cmd_min],
                          dtype=np.float32),
-            high=np.array([0.4189, 10.0, cfg.patch_a, cfg.patch_b], dtype=np.float32),
+            high=np.array([0.4189, 10.0, cfg.patch_a_cmd_max, cfg.patch_b], dtype=np.float32),
         )
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(JointEnv.PATCH_OBS_DIM,), dtype=np.float32,
@@ -1750,15 +2041,13 @@ class JointPatchView(gym.Env):
     def step(self, patch_action):
         patch_action = np.asarray(patch_action, dtype=np.float32)
         obs0 = self.env._step_obs[1]
-        obs1 = self.env._step_obs[2]
-        if self.env._agent_action_fn is not None and obs0 is not None and obs1 is not None:
-            action0, action1 = self.env._agent_action_fn(obs0, obs1)
+        if self.env._agent_action_fn is not None and obs0 is not None:
+            action0 = self.env._agent_action_fn(obs0)
         else:
-            action0 = action1 = np.zeros(2, dtype=np.float32)
+            action0 = np.zeros(2, dtype=np.float32)
         self.env._execute_joint_step(
             patch_action,
             np.asarray(action0, dtype=np.float32),
-            np.asarray(action1, dtype=np.float32),
         )
         obs = self.env._step_obs[0].copy()
         info = dict(self.env._step_info)
@@ -1766,7 +2055,60 @@ class JointPatchView(gym.Env):
         return obs, self.env._step_rewards[0], self.env._step_terminated, \
                self.env._step_truncated, info
 
+    def set_agent_action_fn(self, fn):
+        """Inject frozen agent policy — callable from SubprocVecEnv.env_method."""
+        self.env._agent_action_fn = fn
+
+    def load_frozen_agent_npz(self, path):
+        """Load frozen agent weights from .npz and build a numpy-only forward pass.
+
+        Designed for SubprocVecEnv: only a file path (string) crosses the pipe,
+        so there are no pickle/cloudpickle issues with PyTorch objects.
+        """
+        if path is None:
+            self.env._agent_action_fn = None
+            return
+
+        data = dict(np.load(path, allow_pickle=False))
+        pi_weights, pi_biases = [], []
+        for i in range(0, 100, 2):
+            wk = f"pi_w_{i}"
+            bk = f"pi_b_{i}"
+            if wk not in data:
+                break
+            pi_weights.append(data[wk])
+            pi_biases.append(data[bk])
+        act_w = data["act_w"]
+        act_b = data["act_b"]
+        use_tanh = bool(data["use_tanh"]) if "use_tanh" in data else True
+        has_vnorm = "vnorm_mean" in data
+        if has_vnorm:
+            vnorm_mean = data["vnorm_mean"]
+            vnorm_var = data["vnorm_var"]
+            vnorm_clip = float(data["vnorm_clip"])
+            vnorm_eps = float(data["vnorm_eps"])
+
+        def _forward(obs):
+            x = obs.astype(np.float32)
+            if has_vnorm:
+                x = np.clip(
+                    (x - vnorm_mean) / np.sqrt(vnorm_var + vnorm_eps),
+                    -vnorm_clip, vnorm_clip,
+                ).astype(np.float32)
+            for w, b in zip(pi_weights, pi_biases):
+                x = x @ w.T + b
+                x = np.tanh(x) if use_tanh else np.maximum(x, 0.0)
+            return (x @ act_w.T + act_b).astype(np.float32)
+
+        def _agent_fn(obs0):
+            return _forward(obs0)
+
+        self.env._agent_action_fn = _agent_fn
+
     def render(self):
+        """Show live visualization if render_mode='human'."""
+        if self.env.cfg.render_mode == "human":
+            self.env._visualize()
         return None
 
     def close(self):
@@ -1864,17 +2206,20 @@ class PatchEnv(gym.Env):
                            self.cfg.a_cmd_max, self.cfg.b_cmd_max], dtype=np.float32),
             dtype=np.float32,
         )
+        # Lidar beams — same count as ppo_experiment.py ENV_CONFIG["num_beams"]
+        # self.num_beams = self.cfg.num_beams
+        # Holds the most recent f110 obs dict so _get_scan() can pull scan[0]
+        self._current_base_obs = None
 
-        # Observation space: 11D
-        #   [s, ey, v, theta, wall_left, wall_right, ahead_half_w, a, b, curvature, lane_id]
-        #   ahead_half_w : half track-width at lookahead_dist metres ahead — proactive split signal
+        # Observation space: [s_norm, ey, v, theta, wall_l, wall_r, ahead_hw, a, b, curv, lane_id] + scan OLD
+        # Observation space; [s_norm, ey, v, theta, a, b]
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(11,),
+            # shape=(11 + self.num_beams,),
+            shape=(6,),
             dtype=np.float32,
         )
-        
         # No f110 agent needed — collision detection uses occupancy map directly
         # F110EnvAdapter is kept only to load the map and track data
         # num_agents=1 required: the simulator accesses agents[0] during init.
@@ -1885,6 +2230,7 @@ class PatchEnv(gym.Env):
                 reset_type=self.cfg.base_reset_type,
                 control_input=("speed", "steering_angle"),
                 timestep=self.cfg.control_dt,
+                # extra_params={"num_beams": self.cfg.num_beams},
             ),
             render_mode=self.cfg.render_mode,
         )
@@ -1975,6 +2321,25 @@ class PatchEnv(gym.Env):
         except Exception:
             return 3.0
 
+    # def _get_scan(self) -> np.ndarray:
+    #     """Extract scan for car 0 from the most recent f110 obs.
+    #     Matches ppo_experiment.py F1tenthWrapper._get_scan — pad/trim to num_beams,
+    #     replace NaN with 10.0 (max lidar range proxy).
+    #     """
+    #     base = self._current_base_obs
+    #     if base is not None and "scans" in base:
+    #         scan = np.asarray(base["scans"][0], dtype=np.float32)
+    #     else:
+    #         scan = np.zeros(self.num_beams, dtype=np.float32)
+
+    #     if scan.shape[0] != self.num_beams:
+    #         if scan.shape[0] > self.num_beams:
+    #             scan = scan[:self.num_beams]
+    #         else:
+    #             scan = np.pad(scan, (0, self.num_beams - scan.shape[0]))
+
+    #     return np.nan_to_num(scan, nan=10.0, posinf=10.0, neginf=0.0)
+        
     def _build_obs_for(self, patch: "DynamicPatch", lane_id: int) -> np.ndarray:
         """
         Build 11-dim observation for a single patch:
@@ -1984,7 +2349,7 @@ class PatchEnv(gym.Env):
         """
         if self.track_spline is None:
             raise RuntimeError("track_spline not initialized!")
-
+        # scan = self._get_scan()
         s, ey_track = self.track_spline.calc_arclength_inaccurate(
             float(patch.x), float(patch.y)
         )
@@ -1994,37 +2359,38 @@ class PatchEnv(gym.Env):
         b     = float(patch.b)
 
         s_norm = float(s) / max(float(self.track_length), 1.0)
-        # Use precomputed lookup — O(1), no ray casting during rollout
-        half_w      = max(self._lookup_half_w(s), 1e-3)
-        ahead_s     = float(s + self.cfg.lookahead_dist) % float(self.track_length)
-        ahead_half_w = max(self._lookup_half_w(ahead_s), 1e-3)
 
-        # Cache for split/merge decision in step() — always update (primary patch calls this first)
-        self._last_ahead_half_w = ahead_half_w
+        # === SIMPLIFIED OBSERVATION (6D) FOR DEBUGGING ===
+        # Removed: wall_left, wall_right, ahead_half_w, curvature, lane_id
+        # Reason: Isolate patch dynamics without split/merge complexity
 
-        try:
-            curvature = float(self.track_spline.calc_curvature(float(s)))
-        except Exception:
-            curvature = 0.0
+        # ey = ey_track  # Use raw track cross-track error (no lane offset)
+        # (lane_id logic is commented out below)
 
-        if lane_id == 1:
-            ey = ey_track - (half_w / 2.0)
-            lane_half_w = half_w / 2.0
-        elif lane_id == 2:
-            ey = ey_track + (half_w / 2.0)
-            lane_half_w = half_w / 2.0
-        else:
-            ey = ey_track
-            lane_half_w = half_w
+        # # COMMENTED OUT: Track width lookup for split/merge
+        # half_w      = max(self._lookup_half_w(s), 1e-3)
+        # ahead_s     = float(s + self.cfg.lookahead_dist) % float(self.track_length)
+        # ahead_half_w = max(self._lookup_half_w(ahead_s), 1e-3)
+        # self._last_ahead_half_w = ahead_half_w
+        # try:
+        #     curvature = float(self.track_spline.calc_curvature(float(s)))
+        # except Exception:
+        #     curvature = 0.0
+        # if lane_id == 1:
+        #     ey = ey_track - (half_w / 2.0)
+        #     lane_half_w = half_w / 2.0
+        # elif lane_id == 2:
+        #     ey = ey_track + (half_w / 2.0)
+        #     lane_half_w = half_w / 2.0
+        # else:
+        #     ey = ey_track
+        #     lane_half_w = half_w
+        # wall_left  = float(np.clip(lane_half_w - ey, 0.0, 20.0))
+        # wall_right = float(np.clip(lane_half_w + ey, 0.0, 20.0))
 
-        wall_left  = float(np.clip(lane_half_w - ey, 0.0, 20.0))
-        wall_right = float(np.clip(lane_half_w + ey, 0.0, 20.0))
-
+        # === SIMPLIFIED OBSERVATION ===
         return np.array(
-            [s_norm, ey, speed, yaw, wall_left, wall_right, ahead_half_w,
-             a, b, curvature, float(lane_id)],
-            dtype=np.float32,
-        )
+            [s_norm, ey_track, speed, yaw, a, b]).astype(np.float32)
 
     # Freenet helper functions 
     def _wrap_ds(self, ds: float) -> float:
@@ -2050,148 +2416,217 @@ class PatchEnv(gym.Env):
         except (AttributeError, TypeError):
             return 0.0, 0.0
 
+    def _lane_center_pose(self, s: float, lane_id: int) -> tuple[float, float, float]:
+        """World (x, y, psi) for lane center at arc length s. lane_id 1 = left, 2 = right."""
+        if self.track_spline is None or self.track_length is None:
+            return 0.0, 0.0, 0.0
+        L = float(self.track_length)
+        s_wrapped = float(s) % L if L > 0 else float(s)
+        try:
+            xc, yc = self.track_spline.calc_position(s_wrapped)
+            psi = float(self.track_spline.calc_yaw(s_wrapped))
+        except Exception:
+            return 0.0, 0.0, 0.0
+        half_w = max(self._lookup_half_w(s_wrapped), 1e-3)
+        offset = half_w / 2.0
+        lx = -float(np.sin(psi))
+        ly = float(np.cos(psi))
+        if lane_id == 1:
+            x = float(xc + offset * lx)
+            y = float(yc + offset * ly)
+        elif lane_id == 2:
+            x = float(xc - offset * lx)
+            y = float(yc - offset * ly)
+        else:
+            x, y = float(xc), float(yc)
+        return x, y, psi
+
+    def _ego_and_other_lane_ids(self, x: float, y: float) -> tuple[int, int]:
+        """Which lane (1=left, 2=right) is closest to (x,y); return (ego_lane, other_lane)."""
+        if self.track_spline is None:
+            return 1, 2
+        try:
+            s, _ = self.track_spline.calc_arclength_inaccurate(float(x), float(y))
+        except Exception:
+            return 1, 2
+        x1, y1, _ = self._lane_center_pose(s, 1)
+        x2, y2, _ = self._lane_center_pose(s, 2)
+        d1 = float(np.hypot(x - x1, y - y1))
+        d2 = float(np.hypot(x - x2, y - y2))
+        if d1 <= d2:
+            return 1, 2
+        return 2, 1
+
+    def _sync_follower_zone_from_spline(
+        self,
+        leader_patch: "DynamicPatch",
+        zone_patch: "DynamicPatch",
+        zone_lane_id: int,
+        steering_cmd: float,
+        dt: float,
+        a_cmd: float,
+        b_cmd: float,
+    ) -> None:
+        """Place zone_patch on the lane center at the same s as leader (map-based follower zone)."""
+        s, _ = self._patch_to_frenet(leader_patch)
+        x, y, psi = self._lane_center_pose(s, zone_lane_id)
+        zone_patch.sync_from_pose(
+            x, y, psi, float(leader_patch.v), float(steering_cmd),
+        )
+        s_i, _ = self._patch_to_frenet(zone_patch)
+        hw_i = self._lookup_half_w(s_i)
+        max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
+        zone_patch.update_shape(
+            a_cmd, b_cmd, dt,
+            max_a=self.cfg.a_cmd_max, max_b=max_b_i,
+        )
+
     def _estimate_track_width_at(self, patch: "DynamicPatch") -> float:
         """Estimate local track width at the given patch pose using occupancy map."""
         return self._estimate_track_width_at_pos(
             float(patch.x), float(patch.y), float(patch.theta)
         )
 
-    def _compute_reward_w_frenet(
-        self,
-        lidar_info: dict,
-        dt: float,
-        lap_bonus: float = 0.0,
-    ) -> float:
-        """
-        Simplified reward matching single-agent PPO exactly.
-        Only Frenet-based terms: progress, cross-track, steering penalties, collision, stuck, lap bonus, time penalty.
-        """
-        # Frenet features
-        s, ey_track = self._patch_to_frenet()
-        ds = self._wrap_ds(s - self.prev_s) if self.prev_s is not None else 0.0
+    # def _compute_reward_w_frenet(
+    #     self,
+    #     lidar_info: dict,
+    #     dt: float,
+    #     lap_bonus: float = 0.0,
+    # ) -> float:
+    #     """
+    #     Legacy single-agent lidar reward path (not wired from step(); unused).
 
-        # In split mode, ey is relative to lane centerline, not track centerline
-        track_width = self._estimate_current_track_width()
-        half_w = max(track_width / 2.0, 1e-3)
-        if self.lane_id == 1:
-            ey = ey_track - (half_w / 2.0)
-        elif self.lane_id == 2:
-            ey = ey_track + (half_w / 2.0)
-        else:
-            ey = ey_track
+    #     Simplified reward matching single-agent PPO exactly.
+    #     Only Frenet-based terms: progress, cross-track, steering penalties, collision, stuck, lap bonus, time penalty.
+    #     """
+    #     # Frenet features
+    #     s, ey_track = self._patch_to_frenet()
+    #     ds = self._wrap_ds(s - self.prev_s) if self.prev_s is not None else 0.0
 
-        # Patch controls / yaw-rate proxy (same as single-agent uses agent controls)
-        steer_cmd = float(self.patch.steering)
-        steer_rate = abs(steer_cmd - self.prev_steer) / max(dt, 1e-6)
-        yaw_rate = float((self.patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd))
-        spin_excess = max(0.0, abs(yaw_rate) - self.cfg.spin_yawrate_threshold)
+    #     # In split mode, ey is relative to lane centerline, not track centerline
+    #     track_width = self._estimate_current_track_width()
+    #     half_w = max(track_width / 2.0, 1e-3)
+    #     if self.lane_id == 1:
+    #         ey = ey_track - (half_w / 2.0)
+    #     elif self.lane_id == 2:
+    #         ey = ey_track + (half_w / 2.0)
+    #     else:
+    #         ey = ey_track
 
-        # Collision proxy from lidar (same as single-agent)
-        min_dist = float(lidar_info["min_dist"])
-        collision_lidar = (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)
+    #     # Patch controls / yaw-rate proxy (same as single-agent uses agent controls)
+    #     steer_cmd = float(self.patch.steering)
+    #     steer_rate = abs(steer_cmd - self.prev_steer) / max(dt, 1e-6)
+    #     yaw_rate = float((self.patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd))
+    #     spin_excess = max(0.0, abs(yaw_rate) - self.cfg.spin_yawrate_threshold)
+
+    #     # Collision proxy from lidar (same as single-agent)
+    #     min_dist = float(lidar_info["min_dist"])
+    #     collision_lidar = (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist)
         
-        # Collision from patch boundary discretization
-        patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
+    #     # Collision from patch boundary discretization
+    #     patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
         
-        # Combined collision flag (either lidar or patch boundary collision)
-        collision = collision_lidar or patch_boundary_collision
+    #     # Combined collision flag (either lidar or patch boundary collision)
+    #     collision = collision_lidar or patch_boundary_collision
 
-        # Stuck counter (same as single-agent)
-        if abs(ds) < self.cfg.stuck_progress_eps:
-            self.no_progress_counter += 1
-        else:
-            self.no_progress_counter = 0
+    #     # Stuck counter (same as single-agent)
+    #     if abs(ds) < self.cfg.stuck_progress_eps:
+    #         self.no_progress_counter += 1
+    #     else:
+    #         self.no_progress_counter = 0
 
-        # Lane-centering penalty in split mode:
-        # ey is already relative to lane centerline, so penalize deviation from it
-        lane_center_penalty = 0.0
-        if self.lane_id != 0:
-            lane_center_penalty = self.cfg.lane_centering_weight * abs(ey)
+    #     # Lane-centering penalty in split mode:
+    #     # ey is already relative to lane centerline, so penalize deviation from it
+    #     lane_center_penalty = 0.0
+    #     if self.lane_id != 0:
+    #         lane_center_penalty = self.cfg.lane_centering_weight * abs(ey)
 
-        # Core reward
-        reward_raw = (
-            self.cfg.reward_progress_scale * ds
-            - self.cfg.reward_crosstrack_weight * abs(ey)
-            - lane_center_penalty                           # extra penalty in split mode
-            - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
-            - self.cfg.reward_steer_rate_weight * steer_rate
-            - self.cfg.reward_spin_weight * spin_excess
-            - (self.cfg.collision_penalty if collision else 0.0)
-        )
+    #     # Core reward
+    #     reward_raw = (
+    #         self.cfg.reward_progress_scale * ds
+    #         - self.cfg.reward_crosstrack_weight * abs(ey)
+    #         - lane_center_penalty                           # extra penalty in split mode
+    #         - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
+    #         - self.cfg.reward_steer_rate_weight * steer_rate
+    #         - self.cfg.reward_spin_weight * spin_excess
+    #         - (self.cfg.collision_penalty if collision else 0.0)
+    #     )
 
 
-        a_now = float(max(self.patch.a, 1e-3))
-        b_now = float(max(self.patch.b, 1e-3))
-        base_area = float(self.cfg.patch_a * self.cfg.patch_b)  # area at spawn size
-        current_area = a_now * b_now
-        area_ratio = current_area / max(base_area, 1e-3)
-        area_excess = max(0.0, area_ratio - 1.0)  # 0 if <= base area
+    #     a_now = float(max(self.patch.a, 1e-3))
+    #     b_now = float(max(self.patch.b, 1e-3))
+    #     base_area = float(self.cfg.patch_a * self.cfg.patch_b)  # area at spawn size
+    #     current_area = a_now * b_now
+    #     area_ratio = current_area / max(base_area, 1e-3)
+    #     area_excess = max(0.0, area_ratio - 1.0)  # 0 if <= base area
 
-        # Per-step time penalty (same as single-agent)
-        # reward_raw -= self.cfg.time_penalty_per_sec * dt
-        reward_raw -= self.cfg.shape_area_penalty_weight * area_excess
+    #     # Per-step time penalty (same as single-agent)
+    #     reward_raw -= self.cfg.time_penalty_per_sec * dt
+    #     reward_raw -= self.cfg.shape_area_penalty_weight * area_excess
 
-        # Event-based lap bonus (same as single-agent)
-        reward_raw += float(lap_bonus)
+    #     # Event-based lap bonus (same as single-agent)
+    #     reward_raw += float(lap_bonus)
 
-        # Stuck penalty (same as single-agent)
-        if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
-            reward_raw -= self.cfg.stuck_penalty
+    #     # Stuck penalty (same as single-agent)
+    #     if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
+    #         reward_raw -= self.cfg.stuck_penalty
 
-        # Update bookkeeping
-        self.prev_s = s
-        self.prev_steer = steer_cmd
+    #     # Update bookkeeping
+    #     self.prev_s = s
+    #     self.prev_steer = steer_cmd
         
-        reward_clipped = float(np.clip(reward_raw, -100.0, 100.0))
+    #     reward_clipped = float(np.clip(reward_raw, -100.0, 100.0))
         
-        # Simplified reward terms (matching single-agent)
-        self._last_reward_terms = {
-            "s": float(s),
-            "ey": float(ey),
-            "ds": float(ds),
-            "steer_cmd": float(steer_cmd),
-            "steer_rate": float(steer_rate),
-            "yaw_rate_proxy": float(yaw_rate),
-            "spin_excess": float(spin_excess),
-            "collision_proxy": bool(collision),
-            "collision_lidar": bool(collision_lidar),
-            "collision_patch_boundary": bool(patch_boundary_collision),
-            "reward_raw": float(reward_raw),
-            "reward_clipped": float(reward_clipped),
-            "reward_was_clipped": bool(abs(reward_raw) > 100.0),
-            "no_progress_counter": int(self.no_progress_counter),
-        }
+    #     # Simplified reward terms (matching single-agent)
+    #     self._last_reward_terms = {
+    #         "s": float(s),
+    #         "ey": float(ey),
+    #         "ds": float(ds),
+    #         "steer_cmd": float(steer_cmd),
+    #         "steer_rate": float(steer_rate),
+    #         "yaw_rate_proxy": float(yaw_rate),
+    #         "spin_excess": float(spin_excess),
+    #         "collision_proxy": bool(collision),
+    #         "collision_lidar": bool(collision_lidar),
+    #         "collision_patch_boundary": bool(patch_boundary_collision),
+    #         "reward_raw": float(reward_raw),
+    #         "reward_clipped": float(reward_clipped),
+    #         "reward_was_clipped": bool(abs(reward_raw) > 100.0),
+    #         "no_progress_counter": int(self.no_progress_counter),
+    #     }
         return reward_clipped
         
-    def _check_termination(self, lidar_info: dict):
-        """
-        Simplified termination matching single-agent PPO exactly.
-        Only: collision (lidar or patch boundary), stuck, max_steps.
-        """
-        terminated = False
-        truncated = False
-        reason = None
+    # def _check_termination(self, lidar_info: dict):
+    #     """
+    #     Legacy lidar-based termination (not wired from step(); unused).
 
-        # 1) Collision from lidar (same as single-agent)
-        min_dist = float(lidar_info["min_dist"])
-        if (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist):
-            return True, False, "collision_lidar"
+    #     Simplified termination matching single-agent PPO exactly.
+    #     Only: collision (lidar or patch boundary), stuck, max_steps.
+    #     """
+    #     terminated = False
+    #     truncated = False
+    #     reason = None
 
-        # 2) Collision from patch boundary discretization
-        patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
-        if patch_boundary_collision:
-            return True, False, "collision_patch_boundary"
+    #     # 1) Collision from lidar (same as single-agent)
+    #     min_dist = float(lidar_info["min_dist"])
+    #     if (not np.isfinite(min_dist)) or (min_dist < self.cfg.collision_min_dist):
+    #         return True, False, "collision_lidar"
 
-        # 3) Stuck termination (same as single-agent)
-        if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
-            return True, False, "stuck_no_progress"
+    #     # 2) Collision from patch boundary discretization
+    #     patch_boundary_collision = lidar_info.get("patch_boundary_collision", False)
+    #     if patch_boundary_collision:
+    #         return True, False, "collision_patch_boundary"
 
-        # 4) Time limit (same as single-agent)
-        if self.step_count >= self.cfg.max_steps:
-            truncated = True
-            reason = "max_steps"
+    #     # 3) Stuck termination (same as single-agent)
+    #     if self.no_progress_counter >= self.cfg.stuck_no_progress_steps:
+    #         return True, False, "stuck_no_progress"
 
-        return terminated, truncated, reason
+    #     # 4) Time limit (same as single-agent)
+    #     if self.step_count >= self.cfg.max_steps:
+    #         truncated = True
+    #         reason = "max_steps"
+
+    #     return terminated, truncated, reason
         
     # ------------------------------------------------------------------
     # Per-patch helpers
@@ -2228,6 +2663,7 @@ class PatchEnv(gym.Env):
         dt: float,
         lap_bonus: float = 0.0,
         cached_collision: bool = False,
+        sim_yaw_rate: Optional[float] = None,
     ) -> tuple:
         """
         Compute reward for one patch.
@@ -2247,7 +2683,10 @@ class PatchEnv(gym.Env):
 
         steer_cmd   = float(getattr(patch, "steering", 0.0))
         steer_rate  = abs(steer_cmd - prev_steer) / max(dt, 1e-6)
-        yaw_rate    = float((patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd))
+        if sim_yaw_rate is not None and np.isfinite(sim_yaw_rate):
+            yaw_rate = float(sim_yaw_rate)
+        else:
+            yaw_rate = float((patch.v / max(self.cfg.wheelbase, 1e-6)) * np.tan(steer_cmd))
         spin_excess = max(0.0, abs(yaw_rate) - self.cfg.spin_yawrate_threshold)
 
         # Use the pre-computed collision (occupancy map boundary check only — no Frenet proxy)
@@ -2280,6 +2719,7 @@ class PatchEnv(gym.Env):
             - self.cfg.reward_spin_weight * spin_excess
             - (self.cfg.collision_penalty if collision else 0.0)
             - self.cfg.shape_area_penalty_weight * area_excess
+            - self.cfg.time_penalty_per_sec * float(dt)
             + float(lap_bonus)
         )
         if no_progress >= self.cfg.stuck_no_progress_steps:
@@ -2291,19 +2731,22 @@ class PatchEnv(gym.Env):
             "s": float(s), "ey": float(ey), "ds": float(ds),
             "collision": bool(collision), "no_progress": int(no_progress),
             "reward_raw": float(reward_raw), "reward_clipped": float(reward_clipped),
+            "yaw_rate": float(yaw_rate),
+            "spin_excess": float(spin_excess),
         }
         return reward_clipped, float(s), steer_cmd, no_progress, terms
 
     def _check_termination_for(
         self,
-        patch: "DynamicPatch",
         no_progress: int,
-        cached_collision: bool,
+        patch_occ_collision: bool,
     ) -> tuple:
         """Check termination for a single patch. Returns (terminated, reason).
-        Uses pre-computed occupancy-map collision — no duplicate expensive call.
+
+        PatchCarEnv uses only occupancy patch-boundary checks (not F110 mesh collisions):
+        the ellipse is the safety envelope, so termination matches that criterion alone.
         """
-        if cached_collision:
+        if patch_occ_collision:
             return True, "collision_patch_boundary"
         if no_progress >= self.cfg.stuck_no_progress_steps:
             return True, "stuck_no_progress"
@@ -2311,69 +2754,48 @@ class PatchEnv(gym.Env):
 
     def _do_split(self) -> None:
         """
-        Split the single full-track patch into two lane patches (left / right).
+        Split into two zones: [ego, follower].
 
-        Math
-        ----
-        offset  = current half_w / 2
-                  Places each child at its lane centreline in the CURRENT wide section.
-                  As the track narrows ahead the walls guide each child into its toll lane.
-
-        lane_b  = ahead_half_w * 0.85
-                  Sizes each child to fit the UPCOMING narrow lane, not parent.b/2.
-                  0.85 gives a 15% safety margin inside the lane.
-                  Also capped at parent.b/2 so children are never wider than the parent.
-
-        Both children share the parent heading and steering.
-        Steering is NOT mirrored — both lanes face the same road curvature so
-        both patches need to turn the same direction.
+        - Index 0 (ego): stays tied to the leader vehicle pose (bicycle or f110 in step()).
+        - Index 1 (follower): lane center on the spline at the same arc length as ego,
+          opposite lane (map-based), matching deployment (one robot + virtual corridor).
         """
-        parent      = self.active_patches[0]
+        parent = self.active_patches[0]
         parent_s, _ = self._patch_to_frenet(parent)
+        parent_steer = float(getattr(parent, "steering", 0.0))
 
-        # Current half-width determines lateral spawn offset
-        half_w_now = max(self._lookup_half_w(parent_s), 1e-3)
-        offset     = half_w_now / 2.0
-
-        # Size each child to fit the AHEAD (narrow) lane
         lane_b = max(
             min(self._last_ahead_half_w * 0.85, parent.b / 2.0),
             0.3,
         )
 
-        # Lateral unit vector perpendicular to heading (world frame)
-        # Rotate heading +90 degrees: lat = (-sin(theta), cos(theta))
-        lat_x = -float(np.sin(parent.theta))
-        lat_y  =  float(np.cos(parent.theta))
+        ego_lane, other_lane = self._ego_and_other_lane_ids(float(parent.x), float(parent.y))
 
-        parent_steer = float(getattr(parent, "steering", 0.0))
-
-        # Left-lane patch (lane_id=1) — offset left of centreline
-        left_patch = DynamicPatch(
-            x=parent.x + offset * lat_x,
-            y=parent.y + offset * lat_y,
-            theta=parent.theta,
-            v=parent.v,
-            a=parent.a,
-            b=lane_b,
+        ego_patch = DynamicPatch(
+            x=float(parent.x),
+            y=float(parent.y),
+            theta=float(parent.theta),
+            v=float(parent.v),
+            a=float(parent.a),
+            b=float(lane_b),
         )
-        left_patch.steering = parent_steer
+        ego_patch.steering = parent_steer
 
-        # Right-lane patch (lane_id=2) — offset right of centreline
-        right_patch = DynamicPatch(
-            x=parent.x - offset * lat_x,
-            y=parent.y - offset * lat_y,
-            theta=parent.theta,
-            v=parent.v,
-            a=parent.a,
-            b=lane_b,
+        ox, oy, opsi = self._lane_center_pose(parent_s, other_lane)
+        other_patch = DynamicPatch(
+            x=ox,
+            y=oy,
+            theta=float(opsi),
+            v=float(parent.v),
+            a=float(parent.a),
+            b=float(lane_b),
         )
-        right_patch.steering = parent_steer   # same steer — same curvature
+        other_patch.steering = parent_steer
 
-        self.active_patches   = [left_patch, right_patch]
-        self.lane_ids         = [1, 2]
-        self.prev_s_list      = [parent_s, parent_s]
-        self.prev_steer_list  = [parent_steer, parent_steer]
+        self.active_patches = [ego_patch, other_patch]
+        self.lane_ids = [ego_lane, other_lane]
+        self.prev_s_list = [float(parent_s), float(parent_s)]
+        self.prev_steer_list = [parent_steer, parent_steer]
         self.no_progress_list = [0, 0]
 
 
@@ -2422,6 +2844,7 @@ class PatchEnv(gym.Env):
         self.lap_progress = 0.0
         self.lap_count = 0
         self.lap_start_step = 0
+        self._last_sim_yaw_rate = 0.0
 
         # Initialize Frenet spline — one get_track_data() call, cache everything
         self.f110.ensure_initialized()
@@ -2478,7 +2901,8 @@ class PatchEnv(gym.Env):
             self.no_progress_list = [0]
 
             # Reset base env with a dummy pose — 1 agent required by the simulator
-            self.f110.reset(poses=np.array([[patch_x, patch_y, patch_theta]], dtype=np.float32))
+            self._current_base_obs, _ = self.f110.reset(
+                poses=np.array([[patch_x, patch_y, patch_theta]], dtype=np.float32))
 
             # Build and return observation for primary patch
             obs = self._build_obs()
@@ -2495,7 +2919,8 @@ class PatchEnv(gym.Env):
             self.prev_steer_list  = [0.0]
             self.no_progress_list = [0]
 
-            self.f110.reset(poses=np.array([[patch_x, patch_y, patch_theta]], dtype=np.float32))
+            self._current_base_obs, _ = self.f110.reset(
+                poses=np.array([[patch_x, patch_y, patch_theta]], dtype=np.float32))
 
             obs = self._build_obs()
             obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
@@ -2533,19 +2958,30 @@ class PatchEnv(gym.Env):
             self.cfg.b_cmd_min, self.cfg.b_cmd_max))
 
         # --- Step each active patch ---
-        for i, patch in enumerate(self.active_patches):
-            # Both patches get the SAME steering — they face identical road curvature.
-            # Mirroring would turn patch_1 the wrong way on every curve.
+        # Split layout: [0]=ego (bicycle integration), [1]=follower zone (spline lane center).
+        if len(self.active_patches) == 1:
+            patch = self.active_patches[0]
             patch.steering = steering_cmd
             patch.step(speed_cmd, steering_cmd, dt)
-
-            # Cap max_b to 90% of the current lane half-width so the patch physically
-            # cannot grow wider than the lane it is in, even if b_cmd is large.
             s_i, _ = self._patch_to_frenet(patch)
-            hw_i   = self._lookup_half_w(s_i)
+            hw_i = self._lookup_half_w(s_i)
             max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
             patch.update_shape(a_cmd, b_cmd, dt,
                                max_a=self.cfg.a_cmd_max, max_b=max_b_i)
+        else:
+            # ego = self.active_patches[0]
+            # other = self.active_patches[1]
+            # ego.steering = steering_cmd
+            # ego.step(speed_cmd, steering_cmd, dt)
+            # s_i, _ = self._patch_to_frenet(ego)
+            # hw_i = self._lookup_half_w(s_i)
+            # max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
+            # ego.update_shape(a_cmd, b_cmd, dt,
+            #                  max_a=self.cfg.a_cmd_max, max_b=max_b_i)
+            # self._sync_follower_zone_from_spline(
+            #     ego, other, self.lane_ids[1], steering_cmd, dt, a_cmd, b_cmd,
+            # )
+            pass
 
         # --- Lap detection (use primary patch) ---
         primary = self.active_patches[0]
@@ -2564,6 +3000,16 @@ class PatchEnv(gym.Env):
                         np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
                     )
                     self.lap_start_step = self.step_count
+
+        # === SPLIT/MERGE DISABLED FOR DEBUGGING ===
+        # if self.active_patches:
+        #     self._build_obs_for(self.active_patches[0], self.lane_ids[0])
+        # if self.cfg.split_mode:
+        #     in_split = (len(self.active_patches) > 1)
+        #     if not in_split and self._last_ahead_half_w < self.cfg.split_ahead_half_w:
+        #         self._do_split()
+        #     elif in_split and self._last_ahead_half_w > self.cfg.merge_ahead_half_w:
+        #         self._do_merge()
 
         # --- Per-patch reward + termination ---
         total_reward = 0.0
@@ -2590,7 +3036,7 @@ class PatchEnv(gym.Env):
             total_reward += r
 
             terminated_i, reason_i = self._check_termination_for(
-                patch, new_no_progress, col_i
+                new_no_progress, col_i
             )
             if terminated_i and not any_terminated:
                 any_terminated = True
@@ -2603,16 +3049,6 @@ class PatchEnv(gym.Env):
         n = max(len(self.active_patches), 1)
         reward = float(np.nan_to_num(total_reward / n, nan=-10.0, posinf=100.0, neginf=-100.0))
         self.episode_reward += reward
-
-        # --- Split / merge transitions (only when split_mode=True) ---
-        # _last_ahead_half_w was set by _build_obs_for inside _build_obs() above —
-        # no second obs build needed here.
-        if self.cfg.split_mode:
-            in_split = (len(self.active_patches) > 1)
-            if not in_split and self._last_ahead_half_w < self.cfg.split_ahead_half_w:
-                self._do_split()
-            elif in_split and self._last_ahead_half_w > self.cfg.merge_ahead_half_w:
-                self._do_merge()
 
         # --- Truncation check ---
         truncated = False
@@ -2644,9 +3080,15 @@ class PatchEnv(gym.Env):
         return obs, reward, any_terminated, truncated, info
 
     def render(self):
+        """Matplotlib overlay + f1tenth pygame window (both need updates each step)."""
+        rgb = None
         if self.cfg.render_mode == "human":
             self._visualize()
-        return None
+        # f1tenth_gym only draws the car/track in its window when base_env.render() runs;
+        # without this call the pygame surface stays black even though physics steps.
+        if self.cfg.render_mode in ("human", "rgb_array"):
+            rgb = self.f110.render()
+        return rgb
 
     def _visualize(self):
         """Visualize all active patches, track walls, and episode info."""
@@ -2732,7 +3174,12 @@ class PatchEnv(gym.Env):
             if occ_map is not None:
                 try:
                     p_col, _ = p.check_patch_boundary_wall_collision(
-                        occ_map, resolution, origin, n_points=32)
+                        occ_map,
+                        resolution,
+                        origin,
+                        n_points=32,
+                        violation_threshold=self.cfg.patch_boundary_violation_threshold,
+                    )
                 except Exception:
                     pass
             if p_col:
@@ -2839,6 +3286,266 @@ class PatchEnv(gym.Env):
         return np.asarray(action).flatten()
 
 
+class PatchCarEnv(PatchEnv):
+    """
+    Patch training with a real f110 car as the patch center (car 0).
+
+    Same 11D observation and reward as PatchEnv, but pose/velocity come from
+    `f110.step` instead of `DynamicPatch.step` bicycle integration. Ellipse
+    shape (a, b) still uses `update_shape` with first-order lag.
+
+    Kinematics for the primary patch match the single-car `ppo_experiment` wrapper:
+    longitudinal speed from `linear_vels_x`, heading from `poses_theta`, and spin
+    penalty from `ang_vels_z` (not finite-differenced heading).
+
+    Episode termination for collisions uses only the patch boundary vs occupancy
+    map (same as PatchEnv). F110 physics collision flags are exposed in info as
+    `f110_collision` for debugging but do not end the episode or affect reward.
+    """
+
+    def _compute_max_steering_angle(self, b_cmd: float, ey: float, v: float) -> float:
+        """
+        Constrain steering angle based on patch boundary hitting track walls.
+
+        The car IS the patch center. The patch extends ±b/2 from the car's position.
+        As the car steers, it drifts laterally, moving the patch boundaries with it.
+        Compute the maximum steering angle that keeps the patch boundaries within
+        the track walls (does not cause patch boundary collision).
+
+        Args:
+            b_cmd: current patch half-width (lateral extent from center)
+            ey: lateral error (car position relative to centerline)
+            v: current longitudinal speed
+
+        Returns:
+            max_steer: maximum safe steering angle in radians (prevents boundary hit)
+        """
+        wheelbase = self.cfg.wheelbase
+        dt = self.cfg.control_dt
+        safety_margin = 0.05  # 5cm buffer before patch boundary
+
+        # Available space left and right from current position
+        # Left boundary is at ey = b/2, right boundary at ey = -b/2
+        margin_left = b_cmd / 2.0 - ey  # distance to left patch boundary
+        margin_right = ey + b_cmd / 2.0  # distance to right patch boundary
+
+        # Ensure margins are positive (safety check)
+        margin_left = max(margin_left - safety_margin, 0.0)
+        margin_right = max(margin_right - safety_margin, 0.0)
+
+        # Stop speed case: no steering constraint
+        if v < 0.01:
+            return self.cfg.steering_max
+
+        # For a bicycle model, steering angle relates to lateral drift via:
+        # Δey ≈ v * sin(steer) * dt + 0.5 * (v²/wheelbase) * tan(steer) * dt²
+        # For small angles: Δey ≈ v * steer * dt + 0.5 * (v²/wheelbase) * steer * dt²
+        # Simplified: Δey ≈ (v * dt) * (1 + v*dt/(2*wheelbase)) * steer
+
+        scale_factor = 1.0 + v * dt / (2.0 * wheelbase)
+        drift_per_radian = v * dt * scale_factor
+
+        # Max steering to stay within margins
+        if drift_per_radian > 1e-3:
+            max_steer_left = margin_left / drift_per_radian
+            max_steer_right = margin_right / drift_per_radian
+        else:
+            return self.cfg.steering_max
+
+        # Return the minimum constraint (most restrictive)
+        max_steer = min(abs(max_steer_left), abs(max_steer_right))
+        max_steer = np.clip(max_steer, 0.0, self.cfg.steering_max)
+
+        return float(max_steer)
+
+    def step(self, action):
+        self.step_count += 1
+        dt = self.cfg.control_dt
+        lap_bonus = 0.0
+        lap_time = None
+
+        steering_cmd = float(np.clip(
+            np.nan_to_num(action[0], nan=0.0, posinf=0.4189, neginf=-0.4189),
+            -0.4189, 0.4189))
+        speed_cmd = float(np.clip(
+            np.nan_to_num(action[1], nan=0.5, posinf=10.0, neginf=0.5),
+            0.5, 10.0))
+        a_cmd = float(np.clip(
+            np.nan_to_num(action[2], nan=self.cfg.a_cmd_min,
+                          posinf=self.cfg.a_cmd_max, neginf=self.cfg.a_cmd_min),
+            self.cfg.a_cmd_min, self.cfg.a_cmd_max))
+        b_cmd = float(np.clip(
+            np.nan_to_num(action[3], nan=self.cfg.b_cmd_min,
+                          posinf=self.cfg.b_cmd_max, neginf=self.cfg.b_cmd_min),
+            self.cfg.b_cmd_min, self.cfg.b_cmd_max))
+
+        # --- Constrain steering based on patch boundary ---
+        # The f110 car now respects the patch inflation (b_cmd)
+        # Compute current lateral error and speed
+        if len(self.active_patches) > 0 and self.track_spline is not None:
+            patch = self.active_patches[0]
+            _, ey_current = self._patch_to_frenet(patch)
+            v_current = float(patch.v)
+
+            # Compute max safe steering angle given patch boundary and current position
+            max_steer = self._compute_max_steering_angle(b_cmd, ey_current, v_current)
+
+            # Constrain steering to not exceed max
+            if abs(steering_cmd) > max_steer:
+                steering_cmd = np.sign(steering_cmd) * max_steer
+
+        base_obs, _, _, _, _ = self.f110.step(
+            np.array([[steering_cmd, speed_cmd]], dtype=np.float32)
+        )
+        # Store for _get_scan() — same pattern as ppo_experiment.py F1tenthWrapper
+        self._current_base_obs = base_obs
+
+        # Match test_PPO/.../ppo_experiment.py F1tenthWrapper: same scalars for pose/speed/spin.
+        yaw = float(base_obs["poses_theta"][0]) if "poses_theta" in base_obs else 0.0
+        longitudinal_speed = (
+            float(base_obs["linear_vels_x"][0]) if "linear_vels_x" in base_obs else 0.0
+        )
+        yaw_rate_sim = (
+            float(base_obs["ang_vels_z"][0]) if "ang_vels_z" in base_obs else 0.0
+        )
+        self._last_sim_yaw_rate = float(np.nan_to_num(yaw_rate_sim, nan=0.0))
+
+        # === SINGLE PATCH ONLY (split/merge disabled) ===
+        if len(self.active_patches) == 1:
+            p0 = self.active_patches[0]
+            p0.steering = steering_cmd
+            p0.sync_from_pose(
+                float(base_obs["poses_x"][0]),
+                float(base_obs["poses_y"][0]),
+                yaw,
+                longitudinal_speed,
+                steering_cmd,
+            )
+            s_i, _ = self._patch_to_frenet(p0)
+            hw_i = self._lookup_half_w(s_i)
+            max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
+            p0.update_shape(a_cmd, b_cmd, dt,
+                            max_a=self.cfg.a_cmd_max, max_b=max_b_i)
+        else:
+            # === MULTI-PATCH (SPLIT MODE) DISABLED FOR DEBUGGING ===
+            # ego = self.active_patches[0]
+            # other = self.active_patches[1]
+            # ego.steering = steering_cmd
+            # ego.sync_from_pose(
+            #     float(base_obs["poses_x"][0]),
+            #     float(base_obs["poses_y"][0]),
+            #     yaw,
+            #     longitudinal_speed,
+            #     steering_cmd,
+            # )
+            # s_i, _ = self._patch_to_frenet(ego)
+            # hw_i = self._lookup_half_w(s_i)
+            # max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
+            # ego.update_shape(a_cmd, b_cmd, dt,
+            #                  max_a=self.cfg.a_cmd_max, max_b=max_b_i)
+            # self._sync_follower_zone_from_spline(
+            #     ego, other, self.lane_ids[1], steering_cmd, dt, a_cmd, b_cmd,
+            # )
+            pass  # Should never reach here since split/merge is disabled
+
+        f110_collision = False
+        if "collisions" in base_obs:
+            c = base_obs["collisions"]
+            f110_collision = bool(np.asarray(c).reshape(-1)[0] > 0.5)
+
+        primary = self.active_patches[0]
+        s_now, ey_now = self._patch_to_frenet(primary)
+        if self.track_spline is not None and self.track_length is not None and self.track_length > 0.0:
+            self.lap_progress = float(np.clip(s_now / self.track_length, 0.0, 1.0))
+            prev_s_primary = self.prev_s_list[0]
+            if prev_s_primary is not None:
+                raw_ds = float(s_now - prev_s_primary)
+                wrapped_ds = float(self._wrap_ds(raw_ds))
+                if raw_ds < -0.5 * float(self.track_length) and wrapped_ds > 0.0:
+                    self.lap_count += 1
+                    lap_time = (self.step_count - self.lap_start_step) * dt
+                    lap_time = max(float(lap_time), 1e-3)
+                    lap_bonus = self.cfg.lap_finish_bonus * float(
+                        np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
+                    )
+                    self.lap_start_step = self.step_count
+
+        # === SPLIT/MERGE DISABLED FOR DEBUGGING ===
+        # if self.active_patches:
+        #     self._build_obs_for(self.active_patches[0], self.lane_ids[0])
+        # if self.cfg.split_mode:
+        #     in_split = (len(self.active_patches) > 1)
+        #     if not in_split and self._last_ahead_half_w < self.cfg.split_ahead_half_w:
+        #         self._do_split()
+        #     elif in_split and self._last_ahead_half_w > self.cfg.merge_ahead_half_w:
+        #         self._do_merge()
+
+        total_reward = 0.0
+        any_terminated = False
+        termination_reason = None
+        all_terms = {}
+
+        for i, (patch, lane_id) in enumerate(zip(self.active_patches, self.lane_ids)):
+            patch_hit = self._collision_for(patch)
+            bonus_i = lap_bonus if i == 0 else 0.0
+            sim_yr = getattr(self, "_last_sim_yaw_rate", None) if i == 0 else None
+            r, new_s, new_steer, new_no_progress, terms = self._compute_reward_for(
+                patch, lane_id,
+                self.prev_s_list[i], self.prev_steer_list[i],
+                self.no_progress_list[i],
+                dt, lap_bonus=bonus_i,
+                cached_collision=patch_hit,
+                sim_yaw_rate=sim_yr,
+            )
+            self.prev_s_list[i] = new_s
+            self.prev_steer_list[i] = new_steer
+            self.no_progress_list[i] = new_no_progress
+
+            total_reward += r
+
+            terminated_i, reason_i = self._check_termination_for(
+                new_no_progress, patch_hit
+            )
+            if terminated_i and not any_terminated:
+                any_terminated = True
+                termination_reason = reason_i
+
+            for k, v in terms.items():
+                all_terms[f"p{i}_{k}"] = v
+
+        n = max(len(self.active_patches), 1)
+        reward = float(np.nan_to_num(total_reward / n, nan=-10.0, posinf=100.0, neginf=-100.0))
+        self.episode_reward += reward
+
+        truncated = False
+        if self.step_count >= self.cfg.max_steps:
+            truncated = True
+            termination_reason = termination_reason or "max_steps"
+
+        obs = self._build_obs()
+        obs = np.nan_to_num(obs, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
+
+        info = {
+            "episode_reward":     self.episode_reward,
+            "lap_progress":       self.lap_progress,
+            "Episode_steps":      self.step_count,
+            "step_reward":        reward,
+            "termination_reason": termination_reason,
+            "lap_count":          int(self.lap_count),
+            "lap_bonus":          float(lap_bonus),
+            "lap_time":           None if lap_time is None else float(lap_time),
+            "frenet_s":           float(s_now),
+            "frenet_ey":          float(ey_now),
+            "num_active_patches": len(self.active_patches),
+            "lane_ids":           list(self.lane_ids),
+            "primary_b":          float(self.active_patches[0].b),
+            "f110_collision":   bool(f110_collision),
+        }
+        info.update(all_terms)
+
+        return obs, reward, any_terminated, truncated, info
+
+
 # ---------------------------------------------------------------------------
 # CTDE policy for multi-agent PPO (MAPPO)
 # ---------------------------------------------------------------------------
@@ -2930,8 +3637,8 @@ def make_patch_env(
             domain_randomize=domain_randomize,
             num_agents=2,
             render_mode=None,
-            random_spawn=True, #change this to true so the patch agent learns well the entire track 
-            split_mode=False,
+            random_spawn=True,  # full-track coverage for patch policy
+            # split_mode=False,    # === SPLIT/MERGE DISABLED FOR DEBUGGING ===
             # navigation_mode=navigation_mode,
             # debug_print_every_n_steps=debug_print_every_n_steps,
             # debug_print_episode_end=debug_print_episode_end,
@@ -2939,7 +3646,7 @@ def make_patch_env(
             # use_base_done_termination=use_base_done_termination,
             # patch_only_mode=patch_only_mode,
         )
-        env = PatchEnv(cfg)
+        env = PatchCarEnv(cfg)
         env.reset(seed=seed + rank)
         return env
 
