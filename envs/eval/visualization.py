@@ -127,7 +127,7 @@ def evaluate_patch_policy(
             num_agents=2,
             render_mode="human" if render else None,
             domain_randomize=False,
-            random_spawn=False,
+            random_spawn=True,
             split_mode=True,
         )
     )
@@ -410,13 +410,13 @@ def evaluate_agent_policy(
         import gymnasium as gym
         from gymnasium import spaces
         class _DummyPatchEnv(gym.Env):
-            observation_space = spaces.Box(-np.inf, np.inf, shape=(11,), dtype=np.float32)
+            observation_space = spaces.Box(-np.inf, np.inf, shape=(267,), dtype=np.float32)  # Updated to 267D (11 scalars + 256 grid)
             action_space = spaces.Box(
                 low=np.array([-0.4189, 0.5, 0.325, 0.25], dtype=np.float32),
                 high=np.array([0.4189, 10.0, 2.5, 1.5], dtype=np.float32),
             )
-            def reset(self, **kw): return np.zeros(4, dtype=np.float32), {}
-            def step(self, a): return np.zeros(4, dtype=np.float32), 0.0, False, False, {}
+            def reset(self, **kw): return np.zeros(267, dtype=np.float32), {}  # Updated to match 267D observation
+            def step(self, a): return np.zeros(267, dtype=np.float32), 0.0, False, False, {}
         from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv as _DVE
         patch_env.patch_vecnorm = VecNormalize.load(patch_vecnorm_path, _DVE([_DummyPatchEnv]))
         patch_env.patch_vecnorm.training = False
@@ -682,7 +682,7 @@ def evaluate_joint_policy(
             # agent1_action, _ = agent_ppo.predict(_norm_agent(agent1_obs), deterministic=True)
 
             # --- step ---
-            env._execute_joint_step(
+            env._step_with_frozen_policy(
                 np.asarray(patch_action, dtype=np.float32),
                 np.asarray(agent0_action, dtype=np.float32),
                 # np.asarray(agent1_action, dtype=np.float32),

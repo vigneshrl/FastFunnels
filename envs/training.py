@@ -1,39 +1,5 @@
-# /u/atk9sb/.local/lib/python3.12/site-packages/stable_baselines3/common/vec_env/vec_monitor.py:44: UserWarning: The environment is already wrapped with a `Monitor` wrapperbut you are wrapping it with a `VecMonitor` wrapper, the `Monitor` statistics will beoverwritten by the `VecMonitor` ones.
-#   warnings.warn(
-# Traceback (most recent call last):
-#   File "<frozen runpy>", line 198, in _run_module_as_main
-#   File "<frozen runpy>", line 88, in _run_code
-#   File "/bigtemp/atk9sb/FastFunnels/envs/training.py", line 1104, in <module>
-#     train_joint_sb3(
-#   File "/bigtemp/atk9sb/FastFunnels/envs/training.py", line 937, in train_joint_sb3
-#     agent_raw = ConcatVecEnv([_make_markov_vec() for _ in range(num_envs)])
-#                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/u/atk9sb/.local/lib/python3.12/site-packages/supersuit/vector/concat_vec_env.py", line 23, in __init__
-#     self.vec_envs = vec_envs = [vec_env_fn() for vec_env_fn in vec_env_fns]
-#                                 ^^^^^^^^^^^^
-# TypeError: 'MarkovVectorEnv' object is not callable
-
-# what is this above issue which is not letting me to run the agent policy training??
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import argparse
+import dataclasses
 import json
 import os
 import time
@@ -47,12 +13,17 @@ import torch.nn as nn
 
 try:
     from .ppo_policy import (
-        make_patch_env, make_agent_env, PatchEnv, PatchEnvConfig, JointEnvConfig,
+        make_patch_env, PatchEnv, PatchEnvConfig, JointEnvConfig,
     )
 except ImportError:
     from envs.ppo_policy import (
-        make_patch_env, make_agent_env, PatchEnv, PatchEnvConfig, JointEnvConfig,
+        make_patch_env, PatchEnv, PatchEnvConfig, JointEnvConfig,
     )
+
+try:
+    from .cnn_extractor import HybridCNNExtractor
+except ImportError:
+    from envs.cnn_extractor import HybridCNNExtractor
 
 try:
     from stable_baselines3 import PPO
@@ -94,7 +65,7 @@ class SaveBestWithVecNormalize(BaseCallback):
         self.check_freq = int(check_freq)
         self.best_model_path = os.path.join(save_dir, model_name)
         self.best_vecnorm_path = os.path.join(save_dir, model_name + "_vecnorm.pkl")
-        self.best_mean_reward = -1e18
+        self.best_mean_ep_len = -1e18
 
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq != 0:
@@ -103,12 +74,15 @@ class SaveBestWithVecNormalize(BaseCallback):
         if len(self.model.ep_info_buffer) == 0:
             return True
 
+        mean_ep_len = float(np.mean([ep["l"] for ep in self.model.ep_info_buffer]))
         mean_reward = float(np.mean([ep["r"] for ep in self.model.ep_info_buffer]))
-        print(f"Num timesteps: {self.num_timesteps} | Mean train reward: {mean_reward:.2f}")
+        print(f"Num timesteps: {self.num_timesteps} | Mean ep_len: {mean_ep_len:.0f} | Mean reward: {mean_reward:.2f}")
 
-        if mean_reward > self.best_mean_reward:
-            self.best_mean_reward = mean_reward
-            print(f"Saving new best: {mean_reward:.2f}")
+        # Track by episode LENGTH not reward — longer episodes = better navigation.
+        # Under penalty-heavy rewards, short episodes can have higher reward than long ones.
+        if mean_ep_len > self.best_mean_ep_len:
+            self.best_mean_ep_len = mean_ep_len
+            print(f"Saving new best (ep_len={mean_ep_len:.0f})")
             self.model.save(self.best_model_path)
 
             if isinstance(self.training_env, VecNormalize):
@@ -264,6 +238,26 @@ class TrainingCallback(BaseCallback):
                     if hasattr(self.training_env, "save"):
                         self.training_env.save(os.path.join(self.save_dir, "best_vecnormalize.pkl"))
                     print(f"  New best model: {avg_r:.2f}")
+
+                # Push custom metrics to WandB (in addition to the SB3 TB sync)
+                if WANDB_AVAILABLE:
+                    try:
+                        import wandb as _wandb
+                        if _wandb.run is not None:
+                            log = {
+                                f"{self.policy_name}/avg_reward": avg_r,
+                                f"{self.policy_name}/avg_ep_len": avg_len,
+                                f"{self.policy_name}/steps_per_sec": tps,
+                            }
+                            for reason, cnt in recent_reason_counts.items():
+                                log[f"{self.policy_name}/reason_{reason}"] = cnt / max(len(self.recent_reasons[-50:]), 1)
+                            if not np.isnan(avg_cmd_speed):
+                                log[f"{self.policy_name}/cmd_speed"] = avg_cmd_speed
+                                log[f"{self.policy_name}/cmd_abs_steer"] = avg_cmd_abs_steer
+                            _wandb.log(log, step=self.num_timesteps)
+                    except Exception:
+                        pass
+
                 self.last_log_time = now
                 self.last_log_timesteps = self.num_timesteps
 
@@ -291,7 +285,7 @@ def train_patch_policy(
     total_timesteps: int = 500000,
     save_path: str = "patch_policy_models",
     checkpoint_freq: int = 2000,
-    NUM_ENVS: int = 4,
+    NUM_ENVS: int = 8,
     resume_from: Optional[str] = None,
     domain_randomize: bool = False,
     norm_reward: bool = False,
@@ -315,8 +309,24 @@ def train_patch_policy(
 
     wandb_run = None
     if WANDB_AVAILABLE:
+        _cfg_dict = dataclasses.asdict(PatchEnvConfig())
         wandb_run = wandb.init(
             project=wandb_project,
+            config={
+                "mode": "patch_solo",
+                "reward_steer_bias_weight": _cfg_dict["reward_steer_bias_weight"],
+                "reward_spin_weight": _cfg_dict["reward_spin_weight"],
+                "spin_yawrate_threshold": _cfg_dict["spin_yawrate_threshold"],
+                "reward_speed_weight": _cfg_dict["reward_speed_weight"],
+                "collision_penalty": _cfg_dict["collision_penalty"],
+                "stuck_no_progress_steps": _cfg_dict["stuck_no_progress_steps"],
+                "stuck_penalty": _cfg_dict["stuck_penalty"],
+                "reward_progress_scale": _cfg_dict["reward_progress_scale"],
+                "reward_crosstrack_weight": _cfg_dict["reward_crosstrack_weight"],
+                "time_penalty_per_sec": _cfg_dict["time_penalty_per_sec"],
+                "max_steps": _cfg_dict["max_steps"],
+                "patch_env_full": _cfg_dict,
+            },
             sync_tensorboard=True,
             save_code=True,
         )
@@ -377,8 +387,24 @@ def train_patch_policy(
     #     # Keep PPO minibatches exact to avoid partial batches.
     #     batch_size = 256 if total_rollout % 256 == 0 else 128
 
+    # Detect GPU automatically, fall back to CPU if not available
+    _device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[train_patch_policy] Using device: {_device}")
+
     if resume_from and os.path.exists(resume_from + ".zip"):
-        model = PPO.load(resume_from, env=env, device="cpu")
+        model = PPO.load(resume_from, env=env, device=_device)
+        # Restore VecNormalize stats so the policy sees the same obs scale it was trained on.
+        # Convention: vecnorm lives next to the model file as best_vecnormalize.pkl
+        import pickle as _pkl
+        _vn_path = os.path.join(os.path.dirname(resume_from), "best_vecnormalize.pkl")
+        if os.path.exists(_vn_path) and isinstance(env, VecNormalize):
+            with open(_vn_path, "rb") as _f:
+                _saved_vn = _pkl.load(_f)
+            env.obs_rms = _saved_vn.obs_rms
+            env.ret_rms = _saved_vn.ret_rms
+            print(f"[resume] Loaded VecNormalize stats from {_vn_path}")
+        else:
+            print(f"[resume] WARNING: VecNormalize not found at {_vn_path} — obs stats reset")
     else:
         model = PPO(
             "MlpPolicy",
@@ -392,13 +418,17 @@ def train_patch_policy(
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.001,
+            ent_coef=0.001,  # 0.01 caused entropy explosion (std→32); spinning fixed by reward penalties now
             vf_coef=0.5,
             max_grad_norm=0.5,
             verbose=1,
             use_sde=False,
-            # device="cpu",
-            policy_kwargs= dict(net_arch=dict(pi=[256, 256], vf=[256, 256]))
+            device=_device,
+            policy_kwargs=dict(
+                features_extractor_class=HybridCNNExtractor,
+                features_extractor_kwargs=dict(features_dim=256),
+                net_arch=dict(pi=[128, 128], vf=[128, 128]),
+            )
         )
 
     save_best_cb = SaveBestWithVecNormalize(save_dir=run_dir, check_freq=rollout_steps)
@@ -752,7 +782,10 @@ def train_joint_sb3(
     patch_solo_timesteps: int = 10_000_000,
     resume_patch: str = "",
     resume_agents: str = "",
-    norm_reward: bool = True,
+    norm_reward: bool = False,
+    agent_only: bool = False,
+    pretrained_patch_path: str = "",
+    pretrained_patch_vecnorm: str = "",
     wandb_project: str = "joint_sb3_training",
     wandb_entity: Optional[str] = None,
     wandb_run_name: Optional[str] = None, ):
@@ -772,6 +805,15 @@ def train_joint_sb3(
     if not SUPERSUIT_AVAILABLE:
         raise RuntimeError("supersuit is required: pip install supersuit")
 
+    # === JOINT TRAINING DISABLED — only agent_only path is supported ===
+    # Use train_patch_policy() to produce the frozen patch checkpoint, then
+    # call this function with agent_only=True and pretrained_patch_path=...
+    if not agent_only:
+        raise NotImplementedError(
+            "Joint training (Phase A/B alternation) is disabled. "
+            "Run with --agent_only=True and a pretrained_patch_path."
+        )
+
     try:
         from .pz_env import AgentEnv
     except ImportError:
@@ -789,16 +831,30 @@ def train_joint_sb3(
 
     wandb_run = None
     if WANDB_AVAILABLE:
+        _patch_cfg = dataclasses.asdict(PatchEnvConfig())
         wandb_run = wandb.init(
             project=wandb_project,
             entity=wandb_entity,
             name=wandb_run_name or f"joint_sb3_{run_id}",
             config={
+                "mode": "joint_sb3",
                 "total_timesteps": total_timesteps,
                 "patch_solo_timesteps": patch_solo_timesteps,
                 "num_envs": num_envs,
                 "num_cpus": num_cpus,
                 "phase_steps": phase_steps,
+                # key reward knobs — visible as flat fields in wandb run table
+                "reward_steer_bias_weight": _patch_cfg["reward_steer_bias_weight"],
+                "reward_spin_weight": _patch_cfg["reward_spin_weight"],
+                "spin_yawrate_threshold": _patch_cfg["spin_yawrate_threshold"],
+                "collision_penalty": _patch_cfg["collision_penalty"],
+                "stuck_no_progress_steps": _patch_cfg["stuck_no_progress_steps"],
+                "stuck_penalty": _patch_cfg["stuck_penalty"],
+                "reward_progress_scale": _patch_cfg["reward_progress_scale"],
+                "time_penalty_per_sec": _patch_cfg["time_penalty_per_sec"],
+                "max_steps": _patch_cfg["max_steps"],
+                # full config nested for completeness
+                "patch_env_full": _patch_cfg,
             },
             sync_tensorboard=True,
             save_code=True,
@@ -822,126 +878,158 @@ def train_joint_sb3(
           f"agent n_steps={agent_n_steps} batch={agent_batch} | "
           f"phase_steps={phase_steps} | device={_device}")
 
+    if agent_only:
+        agent_n_steps = max(64, phase_steps)
+        agent_batch = max(64, agent_n_steps * num_envs // 8)
+        print(f"[joint_sb3 agent_only] agent n_steps={agent_n_steps} batch={agent_batch}")
+
     patch_dir = os.path.join(run_dir, "patch")
     agent_dir = os.path.join(run_dir, "agents")
     os.makedirs(patch_dir, exist_ok=True)
     os.makedirs(agent_dir, exist_ok=True)
 
     # ------------------------------------------------------------------
-    # Patch training: optional solo PatchCarEnv (f110 ×1), then JointPatchView (f110 ×3).
-    # Frozen agent policy injected via env_method + .npz (joint patch vec only).
+    # Patch loading: agent_only mode loads the frozen patch from a
+    # pretrained checkpoint produced by train_patch_policy. Joint patch
+    # training (Phase 0 solo + Phase A on JointPatchView) is disabled.
     # ------------------------------------------------------------------
-    try:
-        from .ppo_policy import (
-            JointEnv, JointEnvConfig, JointPatchView, PatchCarEnv, PatchEnvConfig,
-        )
-    except ImportError:
-        from envs.ppo_policy import (
-            JointEnv, JointEnvConfig, JointPatchView, PatchCarEnv, PatchEnvConfig,
-        )
+    # === JOINT TRAINING DISABLED — JointPatchView/JointEnv imports removed ===
+    # try:
+    #     from .ppo_policy import (
+    #         JointEnv, JointEnvConfig, JointPatchView, PatchCarEnv, PatchEnvConfig,
+    #     )
+    # except ImportError:
+    #     from envs.ppo_policy import (
+    #         JointEnv, JointEnvConfig, JointPatchView, PatchCarEnv, PatchEnvConfig,
+    #     )
 
-    patch_cb = TrainingCallback(
-        save_dir=patch_dir,
-        save_freq=max(1, checkpoint_freq // num_envs),
-        policy_name="patch_sb3",
-    )
-    save_patch_best = SaveBestWithVecNormalize(save_dir=patch_dir, check_freq=patch_n_steps,
-                                               model_name="best_model")
+    # === JOINT TRAINING DISABLED — patch_cb/save_patch_best unused ===
+    # patch_cb = TrainingCallback(
+    #     save_dir=patch_dir,
+    #     save_freq=max(1, checkpoint_freq // num_envs),
+    #     policy_name="patch_sb3",
+    # )
+    # save_patch_best = SaveBestWithVecNormalize(save_dir=patch_dir, check_freq=patch_n_steps,
+    #                                            model_name="best_model")
 
-    def _make_patch_car():
-        cfg = PatchEnvConfig(split_mode=True, random_spawn=True)
-        env = PatchCarEnv(cfg)
-        env.reset()
-        return Monitor(env)
+    # === JOINT TRAINING DISABLED — Phase 0 PatchCarEnv builder unused here ===
+    # def _make_patch_car():
+    #     cfg = PatchEnvConfig(split_mode=True, random_spawn=True)
+    #     env = PatchCarEnv(cfg)
+    #     env.reset()
+    #     return Monitor(env)
 
-    def _make_joint_patch_env():
-        try:
-            print("[DEBUG] Creating JointEnv...")
-            shared = JointEnv(JointEnvConfig(render_mode=None))
-            print("[DEBUG] JointEnv created, calling reset...")
-            shared.reset()
-            print("[DEBUG] JointEnv reset successful")
-            print("[DEBUG] Creating JointPatchView...")
-            view = JointPatchView(shared)
-            print("[DEBUG] JointPatchView created")
-            return Monitor(view)
-        except Exception as e:
-            print(f"[ERROR] Failed to create JointEnv: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+    # === JOINT TRAINING DISABLED — JointPatchView builder ===
+    # def _make_joint_patch_env():
+    #     try:
+    #         print("[DEBUG] Creating JointEnv...")
+    #         shared = JointEnv(JointEnvConfig(render_mode=None))
+    #         print("[DEBUG] JointEnv created, calling reset...")
+    #         shared.reset()
+    #         print("[DEBUG] JointEnv reset successful")
+    #         print("[DEBUG] Creating JointPatchView...")
+    #         view = JointPatchView(shared)
+    #         print("[DEBUG] JointPatchView created")
+    #         return Monitor(view)
+    #     except Exception as e:
+    #         print(f"[ERROR] Failed to create JointEnv: {type(e).__name__}: {e}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         raise
 
     patch_ppo = None
-    patch_car_vec = None
-    _solo_obs_rms = None
-    if patch_solo_timesteps > 0 and not resume_patch:
-        if num_envs > 1:
-            patch_car_vec = SubprocVecEnv(
-                [_make_patch_car for _ in range(num_envs)],
-                start_method="fork",
-            )
-        else:
-            patch_car_vec = DummyVecEnv([_make_patch_car])
-        patch_car_vec = VecMonitor(patch_car_vec)
-        if norm_reward:
-            patch_car_vec = VecNormalize(
-                patch_car_vec, norm_obs=True, norm_reward=False, clip_obs=10.0,
-            )
-        patch_ppo = PPO(
-            "MlpPolicy", patch_car_vec,
-            tensorboard_log=os.path.join(tb_log_dir, "patch_solo"),
-            n_steps=patch_n_steps, batch_size=patch_batch, n_epochs=10,
-            gamma=0.99, gae_lambda=0.95, clip_range=0.2,
-            ent_coef=0.05,
-            vf_coef=0.5, max_grad_norm=0.5,
-            device=_device, verbose=1,
-        )
-        print(f"[joint_sb3] Phase 0: PatchCarEnv solo f110 for {patch_solo_timesteps} steps")
-        patch_ppo.learn(
-            patch_solo_timesteps,
-            callback=[patch_cb, save_patch_best],
-            reset_num_timesteps=True,
-            progress_bar=False,
-        )
-        patch_ppo.save(os.path.join(patch_dir, "patch_after_solo"))
-        _solo_obs_rms = patch_car_vec.obs_rms if isinstance(patch_car_vec, VecNormalize) else None
-        if isinstance(patch_car_vec, VecNormalize):
-            patch_car_vec.save(os.path.join(patch_dir, "patch_after_solo_vecnormalize.pkl"))
-        patch_car_vec.close()
-        patch_car_vec = None
+    # patch_car_vec = None
+    # _solo_obs_rms = None
 
-    # TEMPORARY: Use DummyVecEnv for Phase A to see actual worker errors
-    # TODO: Switch back to SubprocVecEnv once JointEnv is verified stable
-    print(f"[DEBUG] Creating patch_vec with DummyVecEnv (num_envs={num_envs})")
-    # patch_vec = DummyVecEnv([_make_joint_patch_env for _ in range(num_envs)])
-    if num_envs > 1:
-        patch_vec = SubprocVecEnv(
-            [_make_joint_patch_env for _ in range(num_envs)],
-            start_method="fork",
-        )
-    else:
-        patch_vec = DummyVecEnv([_make_joint_patch_env])
-    patch_vec = VecMonitor(patch_vec)
-    if norm_reward:
-        patch_vec = VecNormalize(patch_vec, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
+    # === JOINT TRAINING DISABLED — Phase 0 solo + Phase A patch training removed ===
+    # if not agent_only:
+    #     if patch_solo_timesteps > 0 and not resume_patch:
+    #         if num_envs > 1:
+    #             patch_car_vec = SubprocVecEnv(
+    #                 [_make_patch_car for _ in range(num_envs)],
+    #                 start_method="fork",
+    #             )
+    #         else:
+    #             patch_car_vec = DummyVecEnv([_make_patch_car])
+    #         patch_car_vec = VecMonitor(patch_car_vec)
+    #         if norm_reward:
+    #             patch_car_vec = VecNormalize(
+    #                 patch_car_vec, norm_obs=True, norm_reward=False, clip_obs=10.0,
+    #             )
+    #         patch_ppo = PPO(
+    #             "MlpPolicy", patch_car_vec,
+    #             tensorboard_log=os.path.join(tb_log_dir, "patch_solo"),
+    #             n_steps=patch_n_steps, batch_size=patch_batch, n_epochs=10,
+    #             gamma=0.99, gae_lambda=0.95, clip_range=0.2,
+    #             ent_coef=0.05,
+    #             vf_coef=0.5, max_grad_norm=0.5,
+    #             device=_device, verbose=1,
+    #         )
+    #         print(f"[joint_sb3] Phase 0: PatchCarEnv solo f110 for {patch_solo_timesteps} steps")
+    #         patch_ppo.learn(
+    #             patch_solo_timesteps,
+    #             callback=[patch_cb, save_patch_best],
+    #             reset_num_timesteps=True,
+    #             progress_bar=False,
+    #         )
+    #         patch_ppo.save(os.path.join(patch_dir, "patch_after_solo"))
+    #         _solo_obs_rms = patch_car_vec.obs_rms if isinstance(patch_car_vec, VecNormalize) else None
+    #         if isinstance(patch_car_vec, VecNormalize):
+    #             patch_car_vec.save(os.path.join(patch_dir, "patch_after_solo_vecnormalize.pkl"))
+    #         patch_car_vec.close()
+    #         patch_car_vec = None
+    #
+    #     # TEMPORARY: Use DummyVecEnv for Phase A to see actual worker errors
+    #     # TODO: Switch back to SubprocVecEnv once JointEnv is verified stable
+    #     print(f"[DEBUG] Creating patch_vec with DummyVecEnv (num_envs={num_envs})")
+    #     # patch_vec = DummyVecEnv([_make_joint_patch_env for _ in range(num_envs)])
+    #     if num_envs > 1:
+    #         patch_vec = SubprocVecEnv(
+    #             [_make_joint_patch_env for _ in range(num_envs)],
+    #             start_method="fork",
+    #         )
+    #     else:
+    #         patch_vec = DummyVecEnv([_make_joint_patch_env])
+    #     patch_vec = VecMonitor(patch_vec)
+    #     if norm_reward:
+    #         patch_vec = VecNormalize(patch_vec, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
+    #
+    #     if resume_patch:
+    #         patch_ppo = PPO.load(resume_patch, env=patch_vec)
+    #     elif patch_ppo is not None:
+    #         # Phase 0 trained on 267D (scalars + occupancy grid)
+    #         # Phase A now also provides 267D (same format) so obs spaces match
+    #         patch_ppo.set_env(patch_vec)
+    #         # Transfer obs normalization stats from Phase 0
+    #         if _solo_obs_rms is not None and isinstance(patch_vec, VecNormalize):
+    #             patch_vec.obs_rms = _solo_obs_rms
+    #     else:
+    #         patch_ppo = PPO(
+    #             "MlpPolicy", patch_vec,
+    #             tensorboard_log=os.path.join(tb_log_dir, "patch"),
+    #             n_steps=patch_n_steps, batch_size=patch_batch, n_epochs=10,
+    #             gamma=0.99, gae_lambda=0.95, clip_range=0.2,
+    #             ent_coef=0.05,
+    #             vf_coef=0.5, max_grad_norm=0.5,
+    #             device=_device, verbose=1,
+    #         )
+    # else:
+    # agent_only: load frozen patch from checkpoint, no patch_vec
+    if not pretrained_patch_path:
+        raise ValueError("agent_only=True requires pretrained_patch_path")
 
-    if resume_patch:
-        patch_ppo = PPO.load(resume_patch, env=patch_vec)
-    elif patch_ppo is not None:
-        patch_ppo.set_env(patch_vec)
-        # Transfer obs normalization stats so policy sees same obs scale as Phase 0
-        if _solo_obs_rms is not None and isinstance(patch_vec, VecNormalize):
-            patch_vec.obs_rms = _solo_obs_rms
-    else:
-        patch_ppo = PPO(
-            "MlpPolicy", patch_vec,
-            tensorboard_log=os.path.join(tb_log_dir, "patch"),
-            n_steps=patch_n_steps, batch_size=patch_batch, n_epochs=10,
-            gamma=0.99, gae_lambda=0.95, clip_range=0.2,
-            ent_coef=0.05,
-            vf_coef=0.5, max_grad_norm=0.5,
-            device=_device, verbose=1,
-        )
+    _frozen_patch_ppo = PPO.load(pretrained_patch_path)
+    _frozen_patch_vn = None
+    if pretrained_patch_vecnorm and os.path.exists(pretrained_patch_vecnorm):
+        import pickle
+        with open(pretrained_patch_vecnorm, "rb") as f:
+            _frozen_patch_vn = pickle.load(f)
+        _frozen_patch_vn.training = False
+        _frozen_patch_vn.norm_reward = False
+
+    print(f"[joint_sb3 agent_only] Loaded frozen patch from {pretrained_patch_path}")
+    patch_vec = None   # signal for final cleanup
+    patch_ppo = None
 
     # ------------------------------------------------------------------
     # Agent vec env — built ONCE, never rebuilt.
@@ -969,7 +1057,7 @@ def train_joint_sb3(
     def _make_markov_vec():
         return MarkovVectorEnv(AgentEnv(patch_policy=_patch_holder))
 
-    agent_raw = ConcatVecEnv([_make_markov_vec() for _ in range(num_envs)])
+    agent_raw = ConcatVecEnv([_make_markov_vec for _ in range(num_envs)])
     agent_raw = SB3VecEnvWrapper(agent_raw)
     agent_vec = VecMonitor(agent_raw)
     if norm_reward:
@@ -983,117 +1071,142 @@ def train_joint_sb3(
     save_agent_best = SaveBestWithVecNormalize(save_dir=agent_dir, check_freq=agent_n_steps,
                                                model_name="best_model")
 
+    _agent_tb_log = os.path.join(tb_log_dir, "agent")
     if resume_agents:
-        agent_ppo = PPO.load(resume_agents, env=agent_vec)
+        agent_ppo = PPO.load(resume_agents, env=agent_vec,
+                             tensorboard_log=_agent_tb_log)
     else:
         agent_ppo = PPO(
             "MlpPolicy", agent_vec,
-            tensorboard_log=os.path.join(tb_log_dir, "agent"),
+            tensorboard_log=_agent_tb_log,
             n_steps=agent_n_steps, batch_size=agent_batch, n_epochs=10,
             gamma=0.99, gae_lambda=0.95, clip_range=0.2,
-            ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5,
+            ent_coef=0.02, vf_coef=0.5, max_grad_norm=0.5,
             device=_device, verbose=1,
         )
 
-    # Temp file for cross-process frozen agent policy transfer (patch SubprocVecEnv)
-    _frozen_agent_npz = os.path.join(run_dir, "_frozen_agent.npz")
+    # === JOINT TRAINING DISABLED — frozen-agent .npz handoff was used by Phase A ===
+    # _frozen_agent_npz = os.path.join(run_dir, "_frozen_agent.npz")
 
     # ------------------------------------------------------------------
-    # Alternating co-evolution loop
+    # Agent-only training: frozen patch policy is injected once, then PPO
+    # learns the agent for total_timesteps. No alternation, no Phase A.
     # ------------------------------------------------------------------
-    solo_done = patch_solo_timesteps > 0 and not resume_patch
-    total_steps = patch_solo_timesteps if solo_done else 0
-    iterations = max(1, total_timesteps // (2 * phase_steps))
-    print(f"Starting joint_sb3 training: {iterations} iterations, "
-          f"{phase_steps} steps/phase, {num_envs} envs"
-          + (f" (after {patch_solo_timesteps} solo patch steps)" if solo_done else ""))
+    # Build frozen patch closure and inject once — no alternation needed
+    _frozen_pol = _frozen_patch_ppo.policy
+    _frozen_vn  = _frozen_patch_vn
 
-    _has_trained_agents = False
-    patch_ppo_steps = patch_solo_timesteps if solo_done else 0
-    agent_ppo_steps = 0
+    def _frozen_patch_fn(obs, _pol=_frozen_pol, _vn=_frozen_vn):
+        obs_in = obs[np.newaxis]
+        if _vn is not None:
+            obs_in = _vn.normalize_obs(obs_in)
+        action, _ = _pol.predict(obs_in, deterministic=True)
+        return action[0]
 
-    for iteration in range(1, iterations + 1):
-        print(f"\n=== Iteration {iteration}/{iterations} ===")
+    _patch_holder.update(_frozen_patch_fn)
+    print(f"[joint_sb3 agent_only] Frozen patch injected. Training agents for {total_timesteps} steps.")
 
-        # ------------------------------------------------------------------
-        # Inject frozen agent policy into patch SubprocVecEnv workers.
-        # Workers load a .npz file (only a string crosses the pipe).
-        # ------------------------------------------------------------------
-        if _has_trained_agents:
-            patch_vec.env_method("load_frozen_agent_npz", _frozen_agent_npz)
-        else:
-            patch_vec.env_method("load_frozen_agent_npz", None)
+    agent_ppo.learn(
+        total_timesteps,
+        callback=[agent_cb, save_agent_best],
+        reset_num_timesteps=not bool(resume_agents),
+        progress_bar=False,
+    )
 
-        # Phase 1: train patch (do not reset SB3 timestep schedule on iter 1 if solo warmup ran)
-        patch_ppo.learn(
-            phase_steps,
-            callback=[patch_cb, save_patch_best],
-            reset_num_timesteps=(iteration == 1 and not solo_done),
-            progress_bar=False,
-        )
-        total_steps     += phase_steps
-        patch_ppo_steps += phase_steps
-
-        # Phase 2: train agent with frozen patch policy snapshot.
-        # Just swap the policy inside the mutable holder — no env rebuild needed.
-        _patch_snap = patch_ppo.policy
-        _patch_vn = patch_vec if isinstance(patch_vec, VecNormalize) else None
-
-        def _frozen_patch(obs: np.ndarray, _pol=_patch_snap, _vn=_patch_vn) -> np.ndarray:
-            obs_in = obs[np.newaxis]
-            if _vn is not None:
-                obs_in = _vn.normalize_obs(obs_in)
-            action, _ = _pol.predict(obs_in, deterministic=True)
-            return action[0]
-
-        _patch_holder.update(_frozen_patch)
-
-        agent_ppo.learn(
-            phase_steps,
-            callback=[agent_cb, save_agent_best],
-            reset_num_timesteps=(iteration == 1),
-            progress_bar=False,
-        )
-        total_steps     += phase_steps
-        agent_ppo_steps += phase_steps
-
-        # Save frozen agent weights for next iteration's patch phase
-        _agent_vn = agent_vec if isinstance(agent_vec, VecNormalize) else None
-        _save_frozen_agent_npz(agent_ppo.policy, _agent_vn, _frozen_agent_npz)
-        _has_trained_agents = True
-
-        if WANDB_AVAILABLE and wandb_run is not None:
-            patch_buf = patch_ppo.ep_info_buffer
-            agent_buf = agent_ppo.ep_info_buffer
-            log = {
-                "joint_sb3/total_steps":     total_steps,
-                "joint_sb3/patch_ppo_steps": patch_ppo_steps,
-                "joint_sb3/agent_ppo_steps": agent_ppo_steps,
-                "joint_sb3/iteration":       iteration,
-            }
-            if patch_buf:
-                log["joint_sb3/patch_ep_rew_mean"] = float(np.mean([e["r"] for e in patch_buf]))
-                log["joint_sb3/patch_ep_len_mean"] = float(np.mean([e["l"] for e in patch_buf]))
-            if agent_buf:
-                log["joint_sb3/agent_ep_rew_mean"] = float(np.mean([e["r"] for e in agent_buf]))
-                log["joint_sb3/agent_ep_len_mean"] = float(np.mean([e["l"] for e in agent_buf]))
-            wandb.log(log, step=total_steps)
-
-    # --- Save final ---
-    patch_ppo.save(os.path.join(patch_dir, "final_model"))
+    # Save final agent only
     agent_ppo.save(os.path.join(agent_dir, "final_model"))
-    if isinstance(patch_vec, VecNormalize):
-        patch_vec.save(os.path.join(patch_dir, "final_vecnormalize.pkl"))
     if isinstance(agent_vec, VecNormalize):
         agent_vec.save(os.path.join(agent_dir, "final_vecnormalize.pkl"))
-    patch_vec.close()
     agent_vec.close()
-    if os.path.exists(_frozen_agent_npz):
-        os.remove(_frozen_agent_npz)
     if WANDB_AVAILABLE and wandb_run is not None:
         wandb.finish()
-    print(f"joint_sb3 training complete. Models saved to {run_dir}")
-    return patch_ppo, agent_ppo
+    print(f"agent_only training complete. Models saved to {run_dir}")
+    return None, agent_ppo
+
+    # === JOINT TRAINING DISABLED — Phase A/B alternating loop ===
+    # else:
+    #     for iteration in range(1, iterations + 1):
+    #         print(f"\n=== Iteration {iteration}/{iterations} ===")
+    #
+    #         # ------------------------------------------------------------------
+    #         # Inject frozen agent policy into patch SubprocVecEnv workers.
+    #         # Workers load a .npz file (only a string crosses the pipe).
+    #         # ------------------------------------------------------------------
+    #         if _has_trained_agents:
+    #             patch_vec.env_method("load_frozen_agent_npz", _frozen_agent_npz)
+    #         else:
+    #             patch_vec.env_method("load_frozen_agent_npz", None)
+    #
+    #         # Phase 1: train patch (do not reset SB3 timestep schedule on iter 1 if solo warmup ran)
+    #         patch_ppo.learn(
+    #             phase_steps,
+    #             callback=[patch_cb, save_patch_best],
+    #             reset_num_timesteps=(iteration == 1 and not solo_done),
+    #             progress_bar=False,
+    #         )
+    #         total_steps     += phase_steps
+    #         patch_ppo_steps += phase_steps
+    #
+    #         # Phase 2: train agent with frozen patch policy snapshot.
+    #         # Just swap the policy inside the mutable holder — no env rebuild needed.
+    #         _patch_snap = patch_ppo.policy
+    #         _patch_vn = patch_vec if isinstance(patch_vec, VecNormalize) else None
+    #
+    #         def _frozen_patch(obs: np.ndarray, _pol=_patch_snap, _vn=_patch_vn) -> np.ndarray:
+    #             obs_in = obs[np.newaxis]
+    #             if _vn is not None:
+    #                 obs_in = _vn.normalize_obs(obs_in)
+    #             action, _ = _pol.predict(obs_in, deterministic=True)
+    #             return action[0]
+    #
+    #         _patch_holder.update(_frozen_patch)
+    #
+    #         agent_ppo.learn(
+    #             phase_steps,
+    #             callback=[agent_cb, save_agent_best],
+    #             reset_num_timesteps=(iteration == 1),
+    #             progress_bar=False,
+    #         )
+    #         total_steps     += phase_steps
+    #         agent_ppo_steps += phase_steps
+    #
+    #         # Save frozen agent weights for next iteration's patch phase
+    #         _agent_vn = agent_vec if isinstance(agent_vec, VecNormalize) else None
+    #         _save_frozen_agent_npz(agent_ppo.policy, _agent_vn, _frozen_agent_npz)
+    #         _has_trained_agents = True
+    #
+    #         if WANDB_AVAILABLE and wandb_run is not None:
+    #             patch_buf = patch_ppo.ep_info_buffer
+    #             agent_buf = agent_ppo.ep_info_buffer
+    #             log = {
+    #                 "joint_sb3/total_steps":     total_steps,
+    #                 "joint_sb3/patch_ppo_steps": patch_ppo_steps,
+    #                 "joint_sb3/agent_ppo_steps": agent_ppo_steps,
+    #                 "joint_sb3/iteration":       iteration,
+    #             }
+    #             if patch_buf:
+    #                 log["joint_sb3/patch_ep_rew_mean"] = float(np.mean([e["r"] for e in patch_buf]))
+    #                 log["joint_sb3/patch_ep_len_mean"] = float(np.mean([e["l"] for e in patch_buf]))
+    #             if agent_buf:
+    #                 log["joint_sb3/agent_ep_rew_mean"] = float(np.mean([e["r"] for e in agent_buf]))
+    #                 log["joint_sb3/agent_ep_len_mean"] = float(np.mean([e["l"] for e in agent_buf]))
+    #             wandb.log(log, step=total_steps)
+    #
+    #     # --- Save final ---
+    #     patch_ppo.save(os.path.join(patch_dir, "final_model"))
+    #     agent_ppo.save(os.path.join(agent_dir, "final_model"))
+    #     if isinstance(patch_vec, VecNormalize):
+    #         patch_vec.save(os.path.join(patch_dir, "final_vecnormalize.pkl"))
+    #     if isinstance(agent_vec, VecNormalize):
+    #         agent_vec.save(os.path.join(agent_dir, "final_vecnormalize.pkl"))
+    #     patch_vec.close()
+    #     agent_vec.close()
+    #     if os.path.exists(_frozen_agent_npz):
+    #         os.remove(_frozen_agent_npz)
+    #     if WANDB_AVAILABLE and wandb_run is not None:
+    #         wandb.finish()
+    #     print(f"joint_sb3 training complete. Models saved to {run_dir}")
+    #     return patch_ppo, agent_ppo
 
 
 if __name__ == "__main__":
@@ -1133,6 +1246,12 @@ if __name__ == "__main__":
     # joint_sb3-specific
     parser.add_argument("--num-cpus", type=int, default=4,
                         help="CPU workers for SuperSuit concat_vec_envs_v1 (joint_sb3 mode)")
+    parser.add_argument("--agent-only", action="store_true",
+                        help="Train agents only against a frozen patch (no Phase A)")
+    parser.add_argument("--pretrained-patch-path", type=str, default="",
+                        help="Path to frozen patch .zip checkpoint (agent_only mode)")
+    parser.add_argument("--pretrained-patch-vecnorm", type=str, default="",
+                        help="Path to patch VecNormalize .pkl (agent_only mode, optional)")
     args = parser.parse_args()
 
     if args.mode == "joint_sb3":
@@ -1147,35 +1266,45 @@ if __name__ == "__main__":
             resume_patch=args.resume_patch,
             resume_agents=args.resume_agents,
             norm_reward=not args.no_norm_reward,
+            agent_only=args.agent_only,
+            pretrained_patch_path=args.pretrained_patch_path,
+            pretrained_patch_vecnorm=args.pretrained_patch_vecnorm,
             wandb_project=args.wandb_project,
             wandb_entity=args.wandb_entity,
             wandb_run_name=args.wandb_run_name,
         )
-    elif args.mode == "joint":
-        train_joint_policy(
-            total_timesteps=args.timesteps,
-            save_path=args.save_path if args.save_path != "patch_policy_models" else "joint_policy_models",
-            checkpoint_freq=args.checkpoint_freq,
-            NUM_ENVS=args.num_envs,
-            phase_steps=args.phase_steps,
-            resume_patch=args.resume_patch,
-            resume_agents=args.resume_agents,
-            norm_reward=not args.no_norm_reward,
-            wandb_project=args.wandb_project,
-        )
-    elif args.mode == "agent":
-        train_agent_policy(
-            total_timesteps=args.timesteps,
-            save_path=args.save_path if args.save_path != "patch_policy_models" else "agent_policy_models",
-            checkpoint_freq=args.checkpoint_freq,
-            NUM_ENVS=args.num_envs,
-            resume_from=args.resume,
-            patch_checkpoint_path=args.patch_checkpoint,
-            patch_vecnorm_path=args.patch_vecnorm,
-            norm_reward=not args.no_norm_reward,
-            wandb_project=args.wandb_project,
-            wandb_entity=args.wandb_entity,
-            wandb_run_name=args.wandb_run_name,
+    # === JOINT TRAINING DISABLED — joint and agent modes routed through commented-out functions ===
+    # elif args.mode == "joint":
+    #     train_joint_policy(
+    #         total_timesteps=args.timesteps,
+    #         save_path=args.save_path if args.save_path != "patch_policy_models" else "joint_policy_models",
+    #         checkpoint_freq=args.checkpoint_freq,
+    #         NUM_ENVS=args.num_envs,
+    #         phase_steps=args.phase_steps,
+    #         resume_patch=args.resume_patch,
+    #         resume_agents=args.resume_agents,
+    #         norm_reward=not args.no_norm_reward,
+    #         wandb_project=args.wandb_project,
+    #     )
+    # elif args.mode == "agent":
+    #     train_agent_policy(
+    #         total_timesteps=args.timesteps,
+    #         save_path=args.save_path if args.save_path != "patch_policy_models" else "agent_policy_models",
+    #         checkpoint_freq=args.checkpoint_freq,
+    #         NUM_ENVS=args.num_envs,
+    #         resume_from=args.resume,
+    #         patch_checkpoint_path=args.patch_checkpoint,
+    #         patch_vecnorm_path=args.patch_vecnorm,
+    #         norm_reward=not args.no_norm_reward,
+    #         wandb_project=args.wandb_project,
+    #         wandb_entity=args.wandb_entity,
+    #         wandb_run_name=args.wandb_run_name,
+    #     )
+    elif args.mode in ("joint", "agent"):
+        raise SystemExit(
+            f"--mode {args.mode} is disabled. "
+            "Use --mode patch to train the patch, then --mode joint_sb3 --agent-only "
+            "with --pretrained-patch-path to train agents against a frozen patch."
         )
     else:
         train_patch_policy(

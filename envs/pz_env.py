@@ -94,8 +94,8 @@ class AgentEnv(ParallelEnv):
             low=-np.inf, high=np.inf, shape=(JointEnv.AGENT_OBS_DIM,), dtype=np.float32
         )
         act_space = spaces.Box(
-            low=np.array([-0.4189, 0.5], dtype=np.float32),
-            high=np.array([0.4189, 12.0], dtype=np.float32),
+            low=np.array([-0.4189, 1.5], dtype=np.float32),
+            high=np.array([0.4189, 10.0], dtype=np.float32),
         )
         self._obs_space = obs_space
         self._act_space = act_space
@@ -151,7 +151,7 @@ class AgentEnv(ParallelEnv):
 
         # Signal that real agent actions are being passed (not Phase 1 dummy zeros)
         self.joint_env._real_agents_active = True
-        self.joint_env._execute_joint_step(
+        self.joint_env._step_with_frozen_policy(
             np.asarray(patch_action,          dtype=np.float32),
             np.asarray(actions["agent_0"],    dtype=np.float32),
         )
