@@ -127,7 +127,7 @@ def evaluate_patch_policy(
             num_agents=2,
             render_mode="human" if render else None,
             domain_randomize=False,
-            random_spawn=True,
+            random_spawn=False,
             split_mode=True,
         )
     )

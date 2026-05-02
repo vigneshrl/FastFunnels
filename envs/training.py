@@ -34,6 +34,7 @@ try:
     SB3_AVAILABLE = True
 except ImportError:
     SB3_AVAILABLE = False
+    BaseCallback = object
 
 try:
     import supersuit as ss
@@ -380,9 +381,9 @@ def train_patch_policy(
 
     callback = TrainingCallback(run_dir, checkpoint_freq, "PATCH")
 
-    rollout_steps = 2048
-    # total_rollout = rollout_steps * max(1, NUM_ENVS)
-    batch_size = NUM_ENVS *  rollout_steps //4 #max(64, total_rollout // 4)
+    _TARGET_ROLLOUT = 65536
+    rollout_steps = max(512, _TARGET_ROLLOUT // max(1, NUM_ENVS))  # keeps total GPU work fixed
+    batch_size = max(256, _TARGET_ROLLOUT // 8)                    # constant regardless of num_envs
     # if total_rollout % batch_size != 0:
     #     # Keep PPO minibatches exact to avoid partial batches.
     #     batch_size = 256 if total_rollout % 256 == 0 else 128

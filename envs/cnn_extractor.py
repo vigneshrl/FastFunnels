@@ -1,15 +1,15 @@
 """
-HybridCNNExtractor: SB3 feature extractor for PatchEnv's 263D observation.
-  obs[:7]   -> scalar MLP  -> 64D
-  obs[7:]   -> tiny CNN    -> 64D    (16x16 local occupancy grid)
-  concat    -> Linear(128, 256)      -> 256D output to pi/vf heads
+HybridCNNExtractor: SB3 feature extractor for PatchEnv's 273D observation.
+  obs[:17]  -> scalar MLP  -> 64D   (7 state scalars + 10 curvature lookahead values)
+  obs[17:]  -> tiny CNN    -> 64D   (16x16 local occupancy grid)
+  concat    -> Linear(128, 256)     -> 256D output to pi/vf heads
 """
 import torch
 import torch.nn as nn
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 
-N_SCALARS = 7
+N_SCALARS = 17   # 7 state + 10 curvature lookahead (s+2m … s+20m)
 GRID_SIZE = 16
 
 
@@ -18,12 +18,20 @@ class HybridCNNExtractor(BaseFeaturesExtractor):
     Split-input feature extractor for hybrid scalar + spatial observation.
 
     Inputs:
-      - Scalar features (7D): s_norm, ey, speed, psi_error, a, b, curvature
-      - Local occupancy grid (256D = 16x16): rotated to patch heading
+      - Scalar features (17D):
+          [0]  s_norm         — normalised arc-length (position on track)
+          [1]  ey_signed      — cross-track error (m)
+          [2]  speed          — patch longitudinal speed (m/s)
+          [3]  psi_error      — heading error vs track tangent (rad)
+          [4]  a              — patch major axis (m)
+          [5]  b              — patch minor axis (m)
+          [6]  curvature      — track curvature at current position (1/m)
+          [7-16] curvature at s+2m, s+4m, …, s+20m  (10 lookahead values)
+      - Local occupancy grid (256D = 16x16): map-frame, no rotation
 
     Processing:
-      - Scalar branch: simple MLP (7 -> 64)
-      - Grid branch: tiny CNN (1x16x16 -> 64)
+      - Scalar branch: MLP (17 -> 64)  — learns speed-from-curvature policy
+      - Grid branch: tiny CNN (1x16x16 -> 64)  — immediate obstacle avoidance
       - Fusion: concatenate + project to 256D
 
     Output: 256D features fed to PPO's pi/vf heads
@@ -33,7 +41,6 @@ class HybridCNNExtractor(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
 
         # --- Scalar branch ---
-        # Simple MLP for Frenet/shape features
         self.scalar_net = nn.Sequential(
             nn.Linear(N_SCALARS, 64),
             nn.ReLU(),
@@ -67,19 +74,15 @@ class HybridCNNExtractor(BaseFeaturesExtractor):
 
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         """
-        Forward pass.
-
         Args:
-            obs: (batch, 263) float tensor from VecNormalize
-                 First 7 values: scalars (s_norm, ey, speed, psi_error, a, b, curvature)
-                 Last 256 values: flattened 16x16 grid
-
+            obs: (batch, 273) float tensor from VecNormalize
+                 First 17 values: scalars (state + curvature lookahead)
+                 Last 256 values: flattened 16x16 occupancy grid
         Returns:
             features: (batch, features_dim) tensor fed to actor/critic heads
         """
-        # Split observation back into components
-        scalars = obs[:, :N_SCALARS]  # (batch, 7)
-        grid_flat = obs[:, N_SCALARS:]  # (batch, 256)
+        scalars = obs[:, :N_SCALARS]   # (batch, 17)
+        grid_flat = obs[:, N_SCALARS:] # (batch, 256)
 
         # Reshape flat grid to image format expected by Conv2d: (batch, channels, height, width)
         grid_img = grid_flat.view(-1, 1, GRID_SIZE, GRID_SIZE)  # (batch, 1, 16, 16)

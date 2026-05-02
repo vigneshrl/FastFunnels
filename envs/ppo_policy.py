@@ -173,7 +173,7 @@ class JointEnvConfig:
     """
     control_dt: float = 0.01
     render_mode: Optional[str] = None
-    random_spawn: bool = True
+    random_spawn: bool = False
     max_steps: int = 3000 #100000
     patch_a: float = 2.0  # Match PatchEnvConfig for Phase 0 → Phase A consistency
     patch_b: float = 1.5  # Match PatchEnvConfig for Phase 0 → Phase A consistency
@@ -1025,7 +1025,7 @@ class JointEnv:
     PATCH_CAR_F110_IDX = 1
     AGENT_F110_IDX = (0,)
 
-    PATCH_OBS_DIM = 263  # 7 scalars + 256 occupancy grid (16x16) — after efficiency optimization (removed lookaheads)
+    PATCH_OBS_DIM = 273  # 17 scalars (7 state + 10 curvature lookahead) + 256 occupancy grid (16x16)
     AGENT_OBS_DIM = 10   # ex/a, ey/b, dn, agent_speed, heading_rel, patch_v, patch_steer, dist_patch_car, a, b
 
     def __init__(self, cfg: JointEnvConfig):
@@ -2250,7 +2250,7 @@ class PatchEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(7 + 256,),  # 263
+            shape=(17 + 256,),  # 273: 7 state + 10 curvature lookahead + 256 grid
             dtype=np.float32,
         )
         # No f110 agent needed — collision detection uses occupancy map directly
@@ -2451,19 +2451,28 @@ class PatchEnv(gym.Env):
         # half_w_15m = max(self._lookup_half_w((s + self.cfg.patch_lookahead_15m) % L), 1e-3)
         # self._last_ahead_half_w = half_w_5m  # keep for split/merge compat
 
-        # Track curvature
+        # Track curvature — current position + 10 lookahead samples every 2m (covers 20m ahead).
+        # This is the car's "1D track map": sees upcoming corners and can brake proactively.
+        L = float(self.track_length) if self.track_length else 1.0
         try:
             curvature = float(self.track_spline.calc_curvature(float(s)))
+            curvature_ahead = [
+                float(self.track_spline.calc_curvature(float((s + (i + 1) * 2.0) % L)))
+                for i in range(10)  # s+2m, s+4m, ..., s+20m
+            ]
         except Exception:
             curvature = 0.0
+            curvature_ahead = [0.0] * 10
 
-        # Simplified scalars: 7D (removed lookahead half-widths)
-        scalars = np.array([s_norm, ey_signed, speed, psi_error, a, b, curvature],
-                           dtype=np.float32)  # (7,)
+        # 17D scalars: 7 state features + 10 curvature lookahead values
+        scalars = np.array(
+            [s_norm, ey_signed, speed, psi_error, a, b, curvature] + curvature_ahead,
+            dtype=np.float32,
+        )  # (17,)
 
         grid_flat = self._get_local_grid(patch)  # (256,)
 
-        return np.concatenate([scalars, grid_flat])  # (263,)
+        return np.concatenate([scalars, grid_flat])  # (273,)
 
     # Freenet helper functions 
     def _wrap_ds(self, ds: float) -> float:
