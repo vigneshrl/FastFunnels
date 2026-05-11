@@ -44,7 +44,7 @@ except ImportError:
 def _default_patch_policy(patch_obs: np.ndarray) -> np.ndarray:
     """Simple heuristic patch action: straight at moderate speed, mid-size."""
     # action = [steer, speed, a_cmd, b_cmd]
-    return np.array([0.0, 3.0, 3.0, 2.5], dtype=np.float32)
+    return np.array([0.0, 3.0, 2.0, 1.5], dtype=np.float32)
 
 
 # ---------------------------------------------------------------------------

@@ -117,6 +117,8 @@ class TrainingCallback(BaseCallback):
         self.recent_mean_speed_cmd = []
         self.recent_mean_abs_steer_cmd = []
         self.recent_control_order = []
+        self.recent_lap_progress = []
+        self.recent_terminal_frenet_s = []
         self.log_file = os.path.join(save_dir, "training_log.csv")
         with open(self.log_file, "w", encoding="utf-8") as f:
             # old csv header kept for reference:
@@ -158,6 +160,8 @@ class TrainingCallback(BaseCallback):
             self.recent_mean_speed_cmd.append(float(info.get("mean_speed_cmd", np.nan)))
             self.recent_mean_abs_steer_cmd.append(float(info.get("mean_abs_steer_cmd", np.nan)))
             self.recent_control_order.append(str(info.get("control_input_order", "unknown")))
+            self.recent_lap_progress.append(float(info.get("lap_progress", np.nan)))
+            self.recent_terminal_frenet_s.append(float(info.get("frenet_s", np.nan)))
 
             if len(self.recent_reasons) > self._LOG_WINDOW * 2:
                 w = self._LOG_WINDOW
@@ -173,6 +177,8 @@ class TrainingCallback(BaseCallback):
                 self.recent_mean_speed_cmd = self.recent_mean_speed_cmd[-w:]
                 self.recent_mean_abs_steer_cmd = self.recent_mean_abs_steer_cmd[-w:]
                 self.recent_control_order = self.recent_control_order[-w:]
+                self.recent_lap_progress = self.recent_lap_progress[-w:]
+                self.recent_terminal_frenet_s = self.recent_terminal_frenet_s[-w:]
 
             if self.episode_count % 50 == 0 and self.episode_rewards:
                 now = time.time()
@@ -195,6 +201,8 @@ class TrainingCallback(BaseCallback):
                 avg_agent_move_ratio = float(np.nanmean(self.recent_agent_move_ratio[-50:])) if self.recent_agent_move_ratio else float("nan")
                 avg_cmd_speed = float(np.nanmean(self.recent_mean_speed_cmd[-50:])) if self.recent_mean_speed_cmd else float("nan")
                 avg_cmd_abs_steer = float(np.nanmean(self.recent_mean_abs_steer_cmd[-50:])) if self.recent_mean_abs_steer_cmd else float("nan")
+                avg_lap_progress = float(np.nanmean(self.recent_lap_progress[-50:])) if self.recent_lap_progress else float("nan")
+                avg_terminal_s = float(np.nanmean(self.recent_terminal_frenet_s[-50:])) if self.recent_terminal_frenet_s else float("nan")
                 control_order_sample = self.recent_control_order[-1] if self.recent_control_order else "unknown"
                 print(f"\n[{self.policy_name}] Episode {self.episode_count} | Timesteps: {self.num_timesteps}")
                 print(
@@ -255,6 +263,10 @@ class TrainingCallback(BaseCallback):
                             if not np.isnan(avg_cmd_speed):
                                 log[f"{self.policy_name}/cmd_speed"] = avg_cmd_speed
                                 log[f"{self.policy_name}/cmd_abs_steer"] = avg_cmd_abs_steer
+                            if not np.isnan(avg_lap_progress):
+                                log[f"{self.policy_name}/lap_progress"] = avg_lap_progress
+                            if not np.isnan(avg_terminal_s):
+                                log[f"{self.policy_name}/terminal_frenet_s"] = avg_terminal_s
                             _wandb.log(log, step=self.num_timesteps)
                     except Exception:
                         pass
@@ -280,6 +292,13 @@ class TrainingCallback(BaseCallback):
                 )
             print(f"Checkpoint saved: {path}")
         return True
+
+
+def _linear_lr_schedule(initial_lr: float, final_lr: float):
+    """Linear decay from initial_lr (step 0) to final_lr (step total_timesteps)."""
+    def schedule(progress_remaining: float) -> float:
+        return final_lr + (initial_lr - final_lr) * progress_remaining
+    return schedule
 
 
 def train_patch_policy(
@@ -311,14 +330,19 @@ def train_patch_policy(
     wandb_run = None
     if WANDB_AVAILABLE:
         _cfg_dict = dataclasses.asdict(PatchEnvConfig())
+        _tr = 65536  # TARGET_ROLLOUT — must match the value set below at line ~390
         wandb_run = wandb.init(
             project=wandb_project,
             config={
                 "mode": "patch_solo",
+                "num_envs": NUM_ENVS,
+                "rollout_steps": max(512, _tr // max(1, NUM_ENVS)),
+                "batch_size": max(256, _tr // 8),
                 "reward_steer_bias_weight": _cfg_dict["reward_steer_bias_weight"],
                 "reward_spin_weight": _cfg_dict["reward_spin_weight"],
                 "spin_yawrate_threshold": _cfg_dict["spin_yawrate_threshold"],
-                "reward_speed_weight": _cfg_dict["reward_speed_weight"],
+                # "reward_speed_weight": _cfg_dict["reward_speed_weight"],
+                "reward_size_weight": _cfg_dict["reward_size_weight"],
                 "collision_penalty": _cfg_dict["collision_penalty"],
                 "stuck_no_progress_steps": _cfg_dict["stuck_no_progress_steps"],
                 "stuck_penalty": _cfg_dict["stuck_penalty"],
@@ -326,6 +350,10 @@ def train_patch_policy(
                 "reward_crosstrack_weight": _cfg_dict["reward_crosstrack_weight"],
                 "time_penalty_per_sec": _cfg_dict["time_penalty_per_sec"],
                 "max_steps": _cfg_dict["max_steps"],
+                "obs_dim": 86,
+                "lr_initial": 3e-4,
+                "lr_final": 1e-5,
+                "lr_schedule": "linear",
                 "patch_env_full": _cfg_dict,
             },
             sync_tensorboard=True,
@@ -407,11 +435,14 @@ def train_patch_policy(
         else:
             print(f"[resume] WARNING: VecNormalize not found at {_vn_path} — obs stats reset")
     else:
+        _lr_initial = 3e-4
+        _lr_final   = 1e-5
         model = PPO(
             "MlpPolicy",
             env,
             tensorboard_log=tb_log_dir,
-            learning_rate=3e-4,
+            learning_rate=_linear_lr_schedule(_lr_initial, _lr_final),
+            # learning_rate = 3e-4,
             seed = 42,
             n_steps=rollout_steps,
             batch_size=batch_size,
@@ -419,7 +450,8 @@ def train_patch_policy(
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.001,  # 0.01 caused entropy explosion (std→32); spinning fixed by reward penalties now
+            ent_coef=0.005,  # 0.01 caused entropy explosion (std→32); spinning fixed by reward penalties now
+            # ent_coef=lambda progress: 0.008 * progress + 0.001,  # decays 0.009→0.001 over training
             vf_coef=0.5,
             max_grad_norm=0.5,
             verbose=1,
@@ -428,7 +460,8 @@ def train_patch_policy(
             policy_kwargs=dict(
                 features_extractor_class=HybridCNNExtractor,
                 features_extractor_kwargs=dict(features_dim=256),
-                net_arch=dict(pi=[128, 128], vf=[128, 128]),
+                # net_arch=dict(pi=[128, 128], vf=[128, 128]),
+                net_arch=dict(pi=[64, 64], vf=[64, 64]),
             )
         )
 
@@ -880,8 +913,11 @@ def train_joint_sb3(
           f"phase_steps={phase_steps} | device={_device}")
 
     if agent_only:
-        agent_n_steps = max(64, phase_steps)
-        agent_batch = max(64, agent_n_steps * num_envs // 8)
+        # phase_steps is for alternating joint training; agent_only needs a compact rollout.
+        # With phase_steps=131072 and num_envs=16 the first PPO update requires 2M steps —
+        # the policy never updates within a typical 20M-step budget. Use 4096 instead.
+        agent_n_steps = 4096
+        agent_batch   = max(256, agent_n_steps * num_envs // 8)  # → 8192
         print(f"[joint_sb3 agent_only] agent n_steps={agent_n_steps} batch={agent_batch}")
 
     patch_dir = os.path.join(run_dir, "patch")
@@ -1061,8 +1097,11 @@ def train_joint_sb3(
     agent_raw = ConcatVecEnv([_make_markov_vec for _ in range(num_envs)])
     agent_raw = SB3VecEnvWrapper(agent_raw)
     agent_vec = VecMonitor(agent_raw)
-    if norm_reward:
-        agent_vec = VecNormalize(agent_vec, norm_obs=True, norm_reward=True, clip_obs=10.0, clip_reward=10.0)
+    # Always apply obs normalisation (zero-mean, unit-var → helps policy gradient).
+    # NEVER normalise rewards: clip_reward=10 would compress +0.1 inside_reward to ≈ 0
+    # and make repulsion (-100) and collision (-3000) indistinguishable at the clip wall.
+    # The reward structure is intentional — PPO + max_grad_norm=0.5 handles raw magnitudes.
+    agent_vec = VecNormalize(agent_vec, norm_obs=True, norm_reward=False, clip_obs=10.0)
 
     agent_cb = TrainingCallback(
         save_dir=agent_dir,
@@ -1082,7 +1121,8 @@ def train_joint_sb3(
             tensorboard_log=_agent_tb_log,
             n_steps=agent_n_steps, batch_size=agent_batch, n_epochs=10,
             gamma=0.99, gae_lambda=0.95, clip_range=0.2,
-            ent_coef=0.02, vf_coef=0.5, max_grad_norm=0.5,
+            ent_coef=0.005, vf_coef=0.5, max_grad_norm=0.5,
+            policy_kwargs=dict(net_arch=[dict(pi=[256, 256], vf=[256, 256])]),
             device=_device, verbose=1,
         )
 

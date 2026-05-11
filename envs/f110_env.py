@@ -19,8 +19,8 @@ import numpy as np
 class F110Config:
     """Configuration for creating an F1TENTH base environment."""
 
-    # map_name: str = "custom_map2"
-    map_name: str = "plain_map"
+    map_name: str = "custom_map0"
+    # map_name: str = "plain_map"
     num_agents: int = 2
     timestep: float = 0.01
     integrator: str = "rk4"

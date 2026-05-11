@@ -27,7 +27,8 @@ class PatchDynamicsConfig:
     b_max = 1.5
     # accel_max: float = 4.0
     steering_max: float = 0.5
-    size_change_rate: float = 1.0
+    size_change_rate: float = 8.0
+    # size_change_rate: float = 1.0
 
 
 class DynamicPatch:
@@ -177,7 +178,7 @@ class DynamicPatch:
         )
 
     def randomize_dynamics(self, np_random: np.random.RandomState) -> None:
-        self.config.size_change_rate = float(np_random.uniform(0.5, 2.0))
+        self.config.size_change_rate = float(np_random.uniform(6.0, 10.0))
         self.config.v_max = float(np_random.uniform(4.0, 5.5))
         self.config.wheelbase = float(np_random.uniform(0.4, 0.7))
 
