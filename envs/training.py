@@ -316,7 +316,10 @@ def train_patch_policy(
     debug_print_episode_end: bool = True,
     wandb_project: str = "patch_sempc_training",
     wandb_entity: Optional[str] = None,
-    wandb_run_name: Optional[str] = None, ):
+    wandb_run_name: Optional[str] = None,
+    obs_mode: str = "grid", #grid
+    num_lidar_beams: int = 108,
+    ):
     if not SB3_AVAILABLE:
         raise RuntimeError("stable-baselines3 is required for training.")
 
@@ -370,15 +373,13 @@ def train_patch_policy(
                     i,
                     seed=42,
                     domain_randomize=domain_randomize,
-                    # navigation_mode="centerline",
-                    # debug_print_every_n_steps=debug_print_every_n_steps,
-                    # debug_print_episode_end=debug_print_episode_end,
                     base_reset_type=base_reset_type,
-                    # use_base_done_termination=use_base_done_termination,
-                    # patch_only_mode=patch_only_mode,
+                    obs_mode=obs_mode,
+                    num_lidar_beams=num_lidar_beams,
                 ))
                 for i in range(NUM_ENVS)
-            ]
+            ],
+            start_method="fork",  # avoids PyCapsule datetime error from spawn/forkserver on Linux
         )
     else:
         env = DummyVecEnv(
@@ -387,12 +388,9 @@ def train_patch_policy(
                     0,
                     seed=42,
                     domain_randomize=domain_randomize,
-                    # navigation_mode="centerline",
-                    # debug_print_every_n_steps=debug_print_every_n_steps,
-                    # debug_print_episode_end=debug_print_episode_end,
                     base_reset_type=base_reset_type,
-                    # use_base_done_termination=use_base_done_termination,
-                    # patch_only_mode=patch_only_mode,
+                    obs_mode=obs_mode,
+                    num_lidar_beams=num_lidar_beams,
                 ))
             ]
         )
@@ -450,7 +448,7 @@ def train_patch_policy(
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.005,  # 0.01 caused entropy explosion (std→32); spinning fixed by reward penalties now
+            ent_coef=0.001,  # 0.01 caused entropy explosion (std→32); spinning fixed by reward penalties now
             # ent_coef=lambda progress: 0.008 * progress + 0.001,  # decays 0.009→0.001 over training
             vf_coef=0.5,
             max_grad_norm=0.5,
@@ -458,10 +456,13 @@ def train_patch_policy(
             use_sde=False,
             device=_device,
             policy_kwargs=dict(
-                features_extractor_class=HybridCNNExtractor,
-                features_extractor_kwargs=dict(features_dim=256),
-                # net_arch=dict(pi=[128, 128], vf=[128, 128]),
-                net_arch=dict(pi=[64, 64], vf=[64, 64]),
+                **(
+                    dict(
+                        features_extractor_class=HybridCNNExtractor,
+                        features_extractor_kwargs=dict(features_dim=256),
+                    ) if obs_mode == "grid" else {}
+                ),
+                net_arch=dict(pi=[64, 64], vf=[64, 64]) if obs_mode == "grid" else dict(pi=[256, 256], vf=[256, 256]),
             )
         )
 

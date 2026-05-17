@@ -17,7 +17,7 @@ import numpy as np
 @dataclass
 class PatchDynamicsConfig:
     wheelbase: float = 0.5
-    v_min: float = 0.5
+    v_min: float = 2.0
     v_max: float = 10.0
 
     a_min = 1.5

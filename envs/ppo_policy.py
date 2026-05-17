@@ -82,21 +82,21 @@ class PatchEnvConfig:
     
     # Frenet reward (same as single-agent)
     reward_progress_scale: float = 40.0 #previously was 4.0
-    reward_crosstrack_weight: float = 2.0
-    reward_steer_bias_weight: float = 0.0 #0.5   # penalise |steer|, breaks max-steer local optimum
+    reward_crosstrack_weight: float = 0.3 # previously was 2.0
+    reward_steer_bias_weight: float = 0.5 #0.5   # penalise |steer|, breaks max-steer local optimum
     reward_steer_rate_weight: float = 0.0   # discourages jerky steering
-    spin_yawrate_threshold: float = 0.0  #3.0   # only penalize ω > 3 rad/s (spinning, not cornering)
-    reward_spin_weight: float = 0.0         # penalty for spinning (yaw_rate > threshold)
-    # reward_speed_weight: float = 2.0        # disabled — speed reward caused fast-crash local optimum
-    reward_size_weight: float = 0.05        # reward for keeping patch large (a*b normalised to 1.0 at spawn)
-    collision_penalty: float =  1500 #1000.0
+    spin_yawrate_threshold: float = 1.0  #3.0   # only penalize ω > 3 rad/s (spinning, not cornering)
+    reward_spin_weight: float = 0.5         # penalty for spinning (yaw_rate > threshold)
+    reward_speed_weight: float = 1.0         # +speed_now² per step — encourages high-speed agile navigation
+    reward_size_weight: float = 3.0        # reward for patch fill ratio: b/half_w (0=min, 1=full track)
+    collision_penalty: float =  1000 #1000.0
     collision_min_dist: float = 0.25
-    stuck_no_progress_steps: int = 200
+    stuck_no_progress_steps: int = 100
     stuck_progress_eps: float = 1e-3 #5e-4
     stuck_penalty: float = 10.0
     lap_finish_bonus: float = 2000.0
     lap_bonus_tau: float = 200.0
-    time_penalty_per_sec: float = 0.0  # set >0 to prefer faster laps (subtracted per step as rate*dt)
+    time_penalty_per_sec: float = 15.0  # set >0 to prefer faster laps (subtracted per step as rate*dt)
     
     # Lidar config (match single-agent)
     # num_beams: int = 108  # Same as single-agent ENV_CONFIG
@@ -109,20 +109,33 @@ class PatchEnvConfig:
     
     # Patch size at spawn
     patch_a: float = 2.0  # semi-major axis (length)
-    patch_b: float = 1.25  # semi-minor axis (width)
+    patch_b: float = 1.5  # semi-minor axis (width)
 
     # b_cmd / a_cmd action bounds
     # b_cmd_min = 1.0 because 2 agents need at least b=1.0 to fit side-by-side in the patch
     b_cmd_min: float = 1.0 # was 1.5
-    b_cmd_max: float = 1.5 # was 2.0
+    b_cmd_max: float = 3.0 # was 2.0
     a_cmd_min: float = 1.5
-    a_cmd_max: float = 2.5
+    a_cmd_max: float = 3.0 #was 2.5
+    # patch_a = 1.0        # spawn length semi-axis
+    # patch_b = 0.65       # spawn lateral semi-axis
+    # a_cmd_min = 0.40
+    # a_cmd_max = 1.50
+    # b_cmd_min = 0.20
+    # b_cmd_max = 0.80
 
     shape_area_penalty_weight: float = 0.0
-    random_spawn: bool = True
+    random_spawn: bool = False
+    open_track: bool = True  # set True for A→B segments; fixes phantom closing-segment spawn and track_length
+
+    # Observation mode
+    # "grid" : 22 scalars (7 state + 10 curvature lookahead + 5 width lookahead) + 64 (8x8 occupancy CNN)
+    # "lidar": 7 scalars  (s_norm, ey, speed, psi_error, a, b, curvature) + num_lidar_beams
+    obs_mode: str = "grid"
+    num_lidar_beams: int = 108   # uniform subsample from the gym's 1080-beam scan
 
     # Patch boundary collision detection
-    patch_boundary_violation_threshold: float = 0.10 #0.05
+    patch_boundary_violation_threshold: float = 0.05
 
     # Lookahead distances for observation
     # patch_lookahead_5m:  float = 5.0    # existing single lookahead made explicit
@@ -1479,15 +1492,25 @@ class JointEnv:
             raise ValueError("Track centerline/spline missing.")
         self.track = track
         self.track_spline = track.centerline.spline
-        self.track_length = float(self.track_spline.s[-1])
+        if self.cfg.open_track:
+            # spline.s[-2] is the arc-length to the last real CSV waypoint.
+            # spline.s[-1] includes the phantom closing segment the gym appends for open paths.
+            self.track_length = float(self.track_spline.s[-2])
+        else:
+            self.track_length = float(self.track_spline.s[-1])
 
         if self._tw_s_vals is None:
             self._precompute_track_widths(n_samples=200)
 
         xs = np.asarray(track.centerline.xs, dtype=np.float32)
         ys = np.asarray(track.centerline.ys, dtype=np.float32)
-        spawn_idx = int(np.random.randint(0, xs.shape[0])) if self.cfg.random_spawn else 0
-        spawn_idx = max(0, min(spawn_idx, xs.shape[0] - 1))
+        if self.cfg.open_track:
+            actual_frac = self.track_length / float(self.track_spline.s[-1])
+            max_spawn_idx = max(1, int(xs.shape[0] * actual_frac) - 2)
+        else:
+            max_spawn_idx = xs.shape[0]
+        spawn_idx = int(np.random.randint(0, max_spawn_idx)) if self.cfg.random_spawn else 0
+        spawn_idx = max(0, min(spawn_idx, max_spawn_idx - 1))
         patch_x = float(xs[spawn_idx])
         patch_y = float(ys[spawn_idx])
         next_idx = (spawn_idx + 1) % xs.shape[0]
@@ -1609,7 +1632,7 @@ class JointEnv:
         #         action0 = self._agent_action_fn(obs0)
 
         s0 = float(np.clip(np.nan_to_num(action0[0]), -0.4189, 0.4189))
-        v0 = float(np.clip(np.nan_to_num(action0[1]), 1.5, 10.0))
+        v0 = float(np.clip(np.nan_to_num(action0[1]), 0.5, 10.0))
         self._last_agent_steers = [s0]
 
         # if not has_learned_agents:
@@ -2225,7 +2248,7 @@ class PatchEnv(gym.Env):
         # Action space: [steering, speed, a_cmd, b_cmd]
         #   b_cmd_min < patch_b so the policy CAN shrink the patch (required for split to trigger)
         self.action_space = spaces.Box(
-            low=np.array([-0.4189, 0.5,
+            low=np.array([-0.4189, 2.0,
                           self.cfg.a_cmd_min, self.cfg.b_cmd_min], dtype=np.float32),
             high=np.array([0.4189, 10.0,
                            self.cfg.a_cmd_max, self.cfg.b_cmd_max], dtype=np.float32),
@@ -2236,14 +2259,17 @@ class PatchEnv(gym.Env):
         # Holds the most recent f110 obs dict so _get_scan() can pull scan[0]
         self._current_base_obs = None
 
-        # Observation space: 22 scalars + 8x8 local occupancy grid (flattened) = 86D
-        # Scalars: [s_norm, ey_signed, speed, psi_error, a, b, curvature,
-        #           curvature_2m..curvature_20m (10), half_w_2m..half_w_20m (5)]
-        # Grid:    8*8 = 64 values, 1m/pixel, occupancy 0.0=wall 1.0=free (map frame)
+        # Observation space — shape depends on obs_mode:
+        #   "grid" : 22 scalars + 64 (8x8 occupancy CNN) = 86D
+        #   "lidar": 7 scalars  + num_lidar_beams        = e.g. 115D
+        if self.cfg.obs_mode == "lidar":
+            _obs_dim = 7 + self.cfg.num_lidar_beams
+        else:
+            _obs_dim = 22 + 64
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(22 + 64,),  # 86: 22 scalars + 64 grid (8x8)
+            shape=(_obs_dim,),
             dtype=np.float32,
         )
         # No f110 agent needed — collision detection uses occupancy map directly
@@ -2400,12 +2426,21 @@ class PatchEnv(gym.Env):
 
         return np.clip(grid, 0.0, 1.0).astype(np.float32).flatten()  # (64,)
 
+    def _get_current_scan(self) -> np.ndarray:
+        """Return a downsampled lidar scan for the patch car. Overridden by PatchCarEnv."""
+        n = self.cfg.num_lidar_beams
+        if self.current_base_obs is None or "scans" not in self.current_base_obs:
+            return np.zeros(n, dtype=np.float32)
+        raw = np.asarray(self.current_base_obs["scans"][self.PATCH_CAR_F110_IDX], dtype=np.float32)
+        raw = np.clip(raw, 0.0, 30.0)
+        step = max(1, len(raw) // n)
+        return raw[::step][:n]
+
     def _build_obs_for(self, patch: "DynamicPatch", lane_id: int) -> np.ndarray:
         """
-        Build observation for patch car traversal.
-        22 scalars + 64 grid values (8x8 local occupancy, 1m/pixel, map frame) = 86D.
-        Scalars: [s_norm, ey_signed, speed, psi_error, a, b, curvature,
-                  curvature_2m..curvature_20m (10), half_w_2m..half_w_20m (5)]
+        Build observation for the patch car.
+        "grid" mode : 22 scalars + 64 (8x8 occupancy grid) = 86D
+        "lidar" mode:  7 scalars + num_lidar_beams          = e.g. 115D
         """
         if self.track_spline is None or self.track is None:
             raise RuntimeError("track_spline or track not initialized!")
@@ -2450,16 +2485,23 @@ class PatchEnv(gym.Env):
             for d in [2.0, 5.0, 10.0, 15.0, 20.0]
         ]
 
-        # 22D scalars: 7 state + 10 curvature lookahead + 5 width lookahead
-        scalars = np.array(
-            [s_norm, ey_signed, speed, psi_error, a, b, curvature]
-            + curvature_ahead + width_ahead,
-            dtype=np.float32,
-        )  # (22,)
+        if self.cfg.obs_mode == "lidar":
+            # 7 core scalars — curvature/width lookahead replaced by lidar scan
+            scalars = np.array(
+                [s_norm, ey_signed, speed, psi_error, a, b, curvature],
+                dtype=np.float32,
+            )  # (7,)
+            sensor_flat = self._get_current_scan()  # (num_lidar_beams,)
+        else:
+            # 22D scalars: 7 state + 10 curvature lookahead + 5 width lookahead
+            scalars = np.array(
+                [s_norm, ey_signed, speed, psi_error, a, b, curvature]
+                + curvature_ahead + width_ahead,
+                dtype=np.float32,
+            )  # (22,)
+            sensor_flat = self._get_local_grid(patch)  # (64,)
 
-        grid_flat = self._get_local_grid(patch)  # (64,)
-
-        return np.concatenate([scalars, grid_flat])  # (86,)
+        return np.concatenate([scalars, sensor_flat])
 
     # Freenet helper functions 
     def _wrap_ds(self, ds: float) -> float:
@@ -2782,19 +2824,22 @@ class PatchEnv(gym.Env):
         area_excess  = max(0.0, area_ratio - 1.0)
 
         speed_now = float(getattr(patch, "v", 0.0))
-        size_norm = (a_now * b_now) / max(float(self.cfg.patch_a * self.cfg.patch_b), 1e-3)
+        # Relative fill: how much of the available track width the patch occupies.
+        # 0.0 = collapsed to a point, 1.0 = touching both walls.
+        # Policy learns to fill as large as the track allows rather than collapsing to min size.
+        fill_ratio = float(np.clip(b_now / half_w, 0.0, 1.0))
         reward_raw = (
             self.cfg.reward_progress_scale * ds
             - self.cfg.reward_crosstrack_weight * abs(ey)
             - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
             - self.cfg.reward_steer_rate_weight * steer_rate
             - self.cfg.reward_spin_weight * spin_excess
-            - (self.cfg.collision_penalty * (1.0 - self.lap_progress) if collision else 0.0)
+            - (self.cfg.collision_penalty if collision else 0.0)
             - self.cfg.shape_area_penalty_weight * area_excess
             - self.cfg.time_penalty_per_sec * float(dt)
             + float(lap_bonus)
-            # + self.cfg.reward_speed_weight * (speed_now - 1.5) * max(ds , 0.0)
-            + self.cfg.reward_size_weight * size_norm  # incentivise staying large (1.0 = full spawn size)
+            + self.cfg.reward_size_weight * fill_ratio   # b/half_w: fills track width proportionally
+            + self.cfg.reward_speed_weight * speed_now ** 2   # per-step speed bonus for agile navigation
         )
         if no_progress >= self.cfg.stuck_no_progress_steps:
             reward_raw -= self.cfg.stuck_penalty
@@ -2815,12 +2860,15 @@ class PatchEnv(gym.Env):
         self,
         no_progress: int,
         patch_occ_collision: bool,
+        arrived: bool = False,
     ) -> tuple:
         """Check termination for a single patch. Returns (terminated, reason).
 
         PatchCarEnv uses only occupancy patch-boundary checks (not F110 mesh collisions):
         the ellipse is the safety envelope, so termination matches that criterion alone.
         """
+        if arrived:
+            return True, "arrived"
         if patch_occ_collision:
             return True, "collision_patch_boundary"
         if no_progress >= self.cfg.stuck_no_progress_steps:
@@ -2931,7 +2979,12 @@ class PatchEnv(gym.Env):
 
         self.track = track
         self.track_spline  = track.centerline.spline
-        self.track_length  = float(self.track_spline.s[-1])
+        if self.cfg.open_track:
+            # spline.s[-2] is the arc-length to the last real CSV waypoint.
+            # spline.s[-1] includes the phantom closing segment the gym appends for open paths.
+            self.track_length = float(self.track_spline.s[-2])
+        else:
+            self.track_length = float(self.track_spline.s[-1])
 
         # Cache for the whole episode — reused by _collision_for and _lookup_half_w
         self._occ_map    = occ_map / 255.0 if occ_map is not None else None  # Normalize to [0, 1]
@@ -2946,11 +2999,16 @@ class PatchEnv(gym.Env):
         # Spawn patch at centerline waypoint
         xs = np.asarray(track.centerline.xs, dtype=np.float32)
         ys = np.asarray(track.centerline.ys, dtype=np.float32)
+        if self.cfg.open_track:
+            actual_frac = self.track_length / float(self.track_spline.s[-1])
+            max_spawn_idx = max(1, int(xs.shape[0] * actual_frac) - 2)
+        else:
+            max_spawn_idx = xs.shape[0]
         if self.cfg.random_spawn:
-            spawn_idx = int(np.random.randint(0, xs.shape[0]))
+            spawn_idx = int(np.random.randint(0, max_spawn_idx))
         else:
             spawn_idx = 0
-        spawn_idx = max(0, min(spawn_idx, xs.shape[0] - 1))
+        spawn_idx = max(0, min(spawn_idx, max_spawn_idx - 1))
         patch_x, patch_y = float(xs[spawn_idx]), float(ys[spawn_idx])
         next_idx = (spawn_idx + 1) % xs.shape[0]
         dx = float(xs[next_idx] - xs[spawn_idx])
@@ -3018,14 +3076,15 @@ class PatchEnv(gym.Env):
         dt  = self.cfg.control_dt
         lap_bonus = 0.0
         lap_time  = None
+        arrived   = False  # True when open-track car reaches point B
 
         # --- Decode action (applied to primary patch) ---
         steering_cmd = float(np.clip(
             np.nan_to_num(action[0], nan=0.0, posinf=0.4189, neginf=-0.4189),
             -0.4189, 0.4189))
         speed_cmd = float(np.clip(
-            np.nan_to_num(action[1], nan=0.5, posinf=10.0, neginf=0.5),
-            0.5, 10.0))
+            np.nan_to_num(action[1], nan=2.0, posinf=10.0, neginf=2.0),
+            2.0, 10.0))
         a_cmd = float(np.clip(
             np.nan_to_num(action[2], nan=self.cfg.a_cmd_min,
                           posinf=self.cfg.a_cmd_max, neginf=self.cfg.a_cmd_min),
@@ -3041,9 +3100,10 @@ class PatchEnv(gym.Env):
             patch = self.active_patches[0]
             patch.steering = steering_cmd
             patch.step(speed_cmd, steering_cmd, dt)
-            s_i, _ = self._patch_to_frenet(patch)
+            s_i, ey_i = self._patch_to_frenet(patch)
             hw_i = self._lookup_half_w(s_i)
-            max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
+            near_wall_dist = max(hw_i - abs(float(ey_i)), 0.05)
+            max_b_i = min(self.cfg.b_cmd_max, near_wall_dist * 0.85)
             patch.update_shape(a_cmd, b_cmd, dt,
                                max_a=self.cfg.a_cmd_max, max_b=max_b_i)
         else:
@@ -3061,23 +3121,30 @@ class PatchEnv(gym.Env):
             # )
             pass
 
-        # --- Lap detection (use primary patch) ---
+        # --- Lap / arrival detection (use primary patch) ---
         primary = self.active_patches[0]
         s_now, ey_now = self._patch_to_frenet(primary)
         if self.track_spline is not None and self.track_length is not None and self.track_length > 0.0:
             self.lap_progress = float(np.clip(s_now / self.track_length, 0.0, 1.0))
             prev_s_primary = self.prev_s_list[0]
             if prev_s_primary is not None:
-                raw_ds = float(s_now - prev_s_primary)
-                wrapped_ds = float(self._wrap_ds(raw_ds))
-                if raw_ds < -0.5 * float(self.track_length) and wrapped_ds > 0.0:
-                    self.lap_count += 1
-                    lap_time = (self.step_count - self.lap_start_step) * dt
-                    lap_time = max(float(lap_time), 1e-3)
-                    lap_bonus = self.cfg.lap_finish_bonus * float(
-                        np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
-                    )
-                    self.lap_start_step = self.step_count
+                if self.cfg.open_track:
+                    # Open track: episode ends when car reaches point B (s >= track_length)
+                    if s_now >= self.track_length:
+                        arrived = True
+                        lap_bonus = self.cfg.lap_finish_bonus
+                        self.lap_count += 1
+                else:
+                    raw_ds = float(s_now - prev_s_primary)
+                    wrapped_ds = float(self._wrap_ds(raw_ds))
+                    if raw_ds < -0.5 * float(self.track_length) and wrapped_ds > 0.0:
+                        self.lap_count += 1
+                        lap_time = (self.step_count - self.lap_start_step) * dt
+                        lap_time = max(float(lap_time), 1e-3)
+                        lap_bonus = self.cfg.lap_finish_bonus * float(
+                            np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
+                        )
+                        self.lap_start_step = self.step_count
 
         # === SPLIT/MERGE DISABLED FOR DEBUGGING ===
         # if self.active_patches:
@@ -3114,7 +3181,7 @@ class PatchEnv(gym.Env):
             total_reward += r
 
             terminated_i, reason_i = self._check_termination_for(
-                new_no_progress, col_i
+                new_no_progress, col_i, arrived=arrived
             )
             if terminated_i and not any_terminated:
                 any_terminated = True
@@ -3382,6 +3449,16 @@ class PatchCarEnv(PatchEnv):
     `f110_collision` for debugging but do not end the episode or affect reward.
     """
 
+    def _get_current_scan(self) -> np.ndarray:
+        """PatchCarEnv: patch car is agent 0 in the single-agent sim."""
+        n = self.cfg.num_lidar_beams
+        if self._current_base_obs is None or "scans" not in self._current_base_obs:
+            return np.zeros(n, dtype=np.float32)
+        raw = np.asarray(self._current_base_obs["scans"][0], dtype=np.float32)
+        raw = np.clip(raw, 0.0, 30.0)
+        step = max(1, len(raw) // n)
+        return raw[::step][:n]
+
     # def _compute_max_steering_angle(self, b_cmd: float, ey: float, v: float, half_w: float) -> float:
     #     """
     #     Constrain steering angle based on patch boundary hitting track walls.
@@ -3443,13 +3520,14 @@ class PatchCarEnv(PatchEnv):
         dt = self.cfg.control_dt
         lap_bonus = 0.0
         lap_time = None
+        arrived   = False  # True when open-track car reaches point B
 
         steering_cmd = float(np.clip(
             np.nan_to_num(action[0], nan=0.0, posinf=0.4189, neginf=-0.4189),
             -0.4189, 0.4189))
         speed_cmd = float(np.clip(
-            np.nan_to_num(action[1], nan=0.5, posinf=10.0, neginf=0.5),
-            0.5, 10.0))
+            np.nan_to_num(action[1], nan=2.0, posinf=10.0, neginf=2.0),
+            2.0, 10.0))
         self._ep_speed_sum += speed_cmd
         self._ep_steer_sum += abs(steering_cmd)
         a_cmd = float(np.clip(
@@ -3488,9 +3566,10 @@ class PatchCarEnv(PatchEnv):
                 longitudinal_speed,
                 steering_cmd,
             )
-            s_i, _ = self._patch_to_frenet(p0)
+            s_i, ey_i = self._patch_to_frenet(p0)
             hw_i = self._lookup_half_w(s_i)
-            max_b_i = min(self.cfg.b_cmd_max, hw_i * 0.90)
+            near_wall_dist = max(hw_i - abs(float(ey_i)), 0.05)
+            max_b_i = min(self.cfg.b_cmd_max, near_wall_dist * 0.85)
             p0.update_shape(a_cmd, b_cmd, dt,
                             max_a=self.cfg.a_cmd_max, max_b=max_b_i)
         else:
@@ -3526,16 +3605,23 @@ class PatchCarEnv(PatchEnv):
             self.lap_progress = float(np.clip(s_now / self.track_length, 0.0, 1.0))
             prev_s_primary = self.prev_s_list[0]
             if prev_s_primary is not None:
-                raw_ds = float(s_now - prev_s_primary)
-                wrapped_ds = float(self._wrap_ds(raw_ds))
-                if raw_ds < -0.5 * float(self.track_length) and wrapped_ds > 0.0:
-                    self.lap_count += 1
-                    lap_time = (self.step_count - self.lap_start_step) * dt
-                    lap_time = max(float(lap_time), 1e-3)
-                    lap_bonus = self.cfg.lap_finish_bonus * float(
-                        np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
-                    )
-                    self.lap_start_step = self.step_count
+                if self.cfg.open_track:
+                    # Open track: episode ends when car reaches point B (s >= track_length)
+                    if s_now >= self.track_length:
+                        arrived = True
+                        lap_bonus = self.cfg.lap_finish_bonus
+                        self.lap_count += 1
+                else:
+                    raw_ds = float(s_now - prev_s_primary)
+                    wrapped_ds = float(self._wrap_ds(raw_ds))
+                    if raw_ds < -0.5 * float(self.track_length) and wrapped_ds > 0.0:
+                        self.lap_count += 1
+                        lap_time = (self.step_count - self.lap_start_step) * dt
+                        lap_time = max(float(lap_time), 1e-3)
+                        lap_bonus = self.cfg.lap_finish_bonus * float(
+                            np.exp(-lap_time / max(self.cfg.lap_bonus_tau, 1e-6))
+                        )
+                        self.lap_start_step = self.step_count
 
         # === SPLIT/MERGE DISABLED FOR DEBUGGING ===
         # if self.active_patches:
@@ -3571,7 +3657,7 @@ class PatchCarEnv(PatchEnv):
             total_reward += r
 
             terminated_i, reason_i = self._check_termination_for(
-                new_no_progress, patch_hit
+                new_no_progress, patch_hit, arrived=arrived
             )
             if terminated_i and not any_terminated:
                 any_terminated = True
@@ -3678,12 +3764,9 @@ def make_patch_env(
     rank: int,
     seed: int = 0,
     domain_randomize: bool = False,
-    # navigation_mode: str = "landmark",
-    # debug_print_every_n_steps: int = 0,
-    # debug_print_episode_end: bool = True,
     base_reset_type: str = "rl_random_static",
-    # use_base_done_termination: bool = False,
-    # patch_only_mode: bool = False, 
+    obs_mode: str = "grid", #grid
+    num_lidar_beams: int = 108,
     ):
     """
     Factory function to create patch environments for parallel training.
@@ -3706,14 +3789,10 @@ def make_patch_env(
             domain_randomize=domain_randomize,
             num_agents=2,
             render_mode=None,
-            random_spawn=True,  # full-track coverage for patch policy
-            # split_mode=False,    # === SPLIT/MERGE DISABLED FOR DEBUGGING ===
-            # navigation_mode=navigation_mode,
-            # debug_print_every_n_steps=debug_print_every_n_steps,
-            # debug_print_episode_end=debug_print_episode_end,
+            random_spawn=False,
             base_reset_type=base_reset_type,
-            # use_base_done_termination=use_base_done_termination,
-            # patch_only_mode=patch_only_mode,
+            obs_mode=obs_mode,
+            num_lidar_beams=num_lidar_beams,
         )
         env = PatchCarEnv(cfg)
         env.reset(seed=seed + rank)

@@ -94,7 +94,7 @@ class AgentEnv(ParallelEnv):
             low=-np.inf, high=np.inf, shape=(JointEnv.AGENT_OBS_DIM,), dtype=np.float32
         )
         act_space = spaces.Box(
-            low=np.array([-0.4189, 1.5], dtype=np.float32),
+            low=np.array([-0.4189, 0.5], dtype=np.float32),
             high=np.array([0.4189, 10.0], dtype=np.float32),
         )
         self._obs_space = obs_space
