@@ -20,7 +20,8 @@ class F110Config:
     """Configuration for creating an F1TENTH base environment."""
 
     # map_name: str = "custom_map0"
-    map_name: str = "open_narrow_obs"
+    map_name: str = "open_narrow"
+    # map_name: str = "open_center"
     num_agents: int = 2
     timestep: float = 0.01
     integrator: str = "rk4"
