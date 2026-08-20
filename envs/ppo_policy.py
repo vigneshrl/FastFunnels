@@ -61,7 +61,9 @@ except ImportError:
 try:
     import wandb
 
-    WANDB_AVAILABLE = True
+    # See envs/training.py: the repo's `wandb/` run-logs directory shadows the
+    # real library as an empty namespace package when it is not installed.
+    WANDB_AVAILABLE = hasattr(wandb, "init") and hasattr(wandb, "finish")
 except ImportError:
     WANDB_AVAILABLE = False
 
@@ -74,7 +76,20 @@ class PatchEnvConfig:
     # Environment basics
     num_agents: int = 0  # Patch-only, no agents
     control_dt: float = 0.01
-    
+    # Track to load. Default matches F110Config.map_name so existing training
+    # runs are unaffected; eval scripts override it to sweep map variants.
+    map_name: str = "open_narrow"
+    # Domain randomisation over tracks: when non-empty, reset() samples a map
+    # from this pool each episode instead of always using `map_name`.
+    #
+    # Evaluation showed the patch policy memorises whatever single layout it
+    # trains on -- 1/252 success once the same-sized obstacles are moved
+    # elsewhere, with 89% of episodes ending in patch_wall. Training across a
+    # pool of generated layouts is the fix. Names are resolved by
+    # f1tenth_gym's find_track_dir, so `map_pool_dir` must be installed via
+    # mass_eval.install_variant_map_finder() in each worker.
+    map_pool: tuple = ()
+
     base_reset_type: str = "rl_random_static"
     render_mode: Optional[str] = None
     max_steps: int = 100_000 #was 10000
@@ -89,7 +104,13 @@ class PatchEnvConfig:
     reward_spin_weight: float = 0.15         # penalty for spinning (yaw_rate > threshold)
     reward_speed_weight: float = 2.0         # +speed_now² per step — encourages high-speed agile navigation
     reward_size_weight: float = 2.0        # reward for patch fill ratio: b/half_w (0=min, 1=full track)
-    collision_penalty: float =  1000 #1000.0
+    # Cruise speed (m/s) at which the fill-ratio bonus is paid in full. Below
+    # it the bonus is scaled down linearly by progress, so a stationary fat
+    # patch earns nothing — see _compute_reward_for.
+    reward_size_speed_ref: float = 6.0
+    # Raised from 1000: a 730-step crash banks ~5200 in per-step reward, so at
+    # 1000 the crash was profitable even BEFORE discounting.
+    collision_penalty: float = 3000.0
     collision_min_dist: float = 0.25
     reward_speed_steer_weight: float = 0.3
     stuck_no_progress_steps: int = 100
@@ -137,6 +158,24 @@ class PatchEnvConfig:
 
     # Patch boundary collision detection
     patch_boundary_violation_threshold: float = 0.05
+
+    # --- CBF-style wall safety filter -----------------------------------
+    # Caps the commanded patch shape so the ellipse boundary cannot leave free
+    # space. `patch_wall` (ellipse boundary intersecting an obstacle) is 89% of
+    # observed failures, and the shape channel is directly commandable
+    # (size_change_rate = 8 m/s vs 0.1 m of travel per step at top speed), so
+    # the barrier h = clearance - ellipse_radius has relative degree 1 and can
+    # be enforced in closed form instead of via a QP.
+    #
+    # Guarantees the ellipse stays inside free space up to grid resolution AND
+    # b_cmd_min: if a corridor requires b < b_cmd_min the filter cannot comply,
+    # which is reported via info["wall_filter_infeasible"].
+    # Bound the patch half-width by min(left, right) instead of their mean.
+    # Off by default so previously reported numbers are reproducible.
+    half_width_min_side: bool = False
+    wall_filter_enabled: bool = False
+    wall_filter_margin: float = 0.08      # metres of clearance to keep
+    wall_filter_lookahead_s: float = 0.4  # predict ahead at current speed
 
     # Lookahead distances for observation
     # patch_lookahead_5m:  float = 5.0    # existing single lookahead made explicit
@@ -196,6 +235,13 @@ class JointEnvConfig:
     num_agents: int = 1       # 1, 2, 3, or 4 — learning agents (patch car is additional)
     open_track: bool = True   # True for A→B segments; False for closed loops
     control_dt: float = 0.01
+    # Track to load. Default matches F110Config.map_name so existing training
+    # runs are unaffected; eval scripts override it to sweep maps/variants.
+    map_name: str = "open_narrow"
+    # Domain randomisation over tracks, same contract as PatchEnvConfig.map_pool:
+    # sample a layout per episode so the FOLLOWER also sees varied obstacles
+    # rather than memorising one map (the patch already does this).
+    map_pool: tuple = ()
     # Patch obs config — MUST MATCH the obs mode the frozen patch policy was trained with.
     # "lidar": 7 scalars + num_lidar_beams (default 108) = 115D
     # "grid" : 22 scalars + 64 (8x8 occupancy grid) = 86D
@@ -212,7 +258,12 @@ class JointEnvConfig:
     agent_lidar_max_range: float = 30.0      # metres
     render_mode: Optional[str] = None
     random_spawn: bool = False
-    agents_random_spawn = False
+    # NOTE: this needs the annotation to be a real dataclass field. Without it
+    # it was only a class attribute, so `JointEnvConfig(agents_random_spawn=True)`
+    # raised TypeError and the randomised-spawn branch in reset() was
+    # unreachable (hasattr() still returned True, so pz_env's config filter
+    # forwarded the key and the constructor then rejected it).
+    agents_random_spawn: bool = False
     max_steps: int = 100000 #100000
     patch_a: float = 2.0  # Match PatchEnvConfig for Phase 0 → Phase A consistency
     patch_b: float = 1.5  # Match PatchEnvConfig for Phase 0 → Phase A consistency
@@ -240,7 +291,17 @@ class JointEnvConfig:
     # dominant term. NOT a penalty on |steer| alone (the agent needs to steer).
     # NOTE: this proxy taxes legitimate turning. The slip-angle term below is
     # the cleaner anti-drift signal.
-    agent_speed_steer_weight: float = 0.5 #was 0.2
+    # Disabled (was 0.5). This term is `weight * speed * |steer|`, so it scales
+    # LINEARLY WITH SPEED and taxes exactly the throttle a follower needs to
+    # hold station behind a ~9.7 m/s patch: at 12 m/s with steer 0.35 the
+    # per-step reward went NEGATIVE (-0.35) while the agent sat safely inside
+    # the funnel, so the policy correctly learned to slow down -- and fell out.
+    # ep_len stayed pinned near 90 across four runs because of this.
+    # The codebase already documents it as the inferior proxy ("taxes
+    # legitimate turning; the slip-angle term is the cleaner anti-drift
+    # signal"), and agent_slip_weight penalises real drift without taxing
+    # speed. Raise above 0 only if slip alone proves insufficient.
+    agent_speed_steer_weight: float = 0.0
     # Slip-angle penalty: |heading − velocity_direction| (radians). The TRUE
     # drift measure — clean cornering has slip≈0, sliding/drifting has slip
     # large. Penalising slip targets *actual* sliding without taxing legit
@@ -250,6 +311,14 @@ class JointEnvConfig:
     # so the slip penalty is gated off.
     agent_slip_min_speed: float = 2.0
     patch_car_collision_dist: float = 0.50 #was 0.58   # metres — actual f110 physical contact (~0.22m body + small margin)
+    # Follower speed envelope. MUST straddle the patch's own range or station
+    # keeping is impossible: the patch cruises at ~9.7 m/s and both used to be
+    # capped at 10, leaving ~0.2 m/s of authority to close a gap and a 2.0 m/s
+    # floor that prevented slowing when the patch slowed. Episodes then ended in
+    # out_of_patch (cannot catch up) or inter_collision (cannot back off),
+    # independent of training. Headroom at BOTH ends restores controllability.
+    agent_speed_min: float = 0.5
+    agent_speed_max: float = 12.0
     # patch_boundary_violation_threshold: float = 0.02  # 1/64 points → immediate detection
     # === PATCH TRAINING REWARD CONFIG — disabled, patch driven by frozen policy ===
     # reward_progress_scale: float = 40.0
@@ -273,6 +342,12 @@ class JointEnvConfig:
     # steering_max: float = 0.4189
     # ============================================================================
     patch_boundary_violation_threshold: float = 0.05
+    # Bound the patch half-width by min(left, right) instead of their mean.
+    # Off by default so previously reported numbers are reproducible. Matters
+    # most in wide corridors with off-centre obstacles, where the mean lets the
+    # funnel inflate into an obstacle on the narrower side -- and where the
+    # follower then cannot hold station inside it.
+    half_width_min_side: bool = False
     # Patch action clipping bounds (still needed to clip frozen-policy outputs)
     patch_a_cmd_min: float = 1.5
     patch_a_cmd_max: float = 3.0
@@ -1066,6 +1141,73 @@ class JointEnvConfig:
 
 
 # ===========================================================================
+def safe_shape_scale(
+    px: float, py: float, ptheta: float, a: float, b: float,
+    edt_m: np.ndarray, resolution: float, origin,
+    margin: float = 0.08,
+    n_points: int = 32,
+    lookahead: float = 0.0,
+    min_scale: float = 0.05,
+    iters: int = 7,
+) -> float:
+    """Largest scale s in (0, 1] keeping the ellipse boundary in free space.
+
+    CBF-style safety filter for the patch shape. The barrier is
+
+        h(s) = min_i clearance(boundary_point_i(s)) - margin
+
+    which is monotone decreasing in s, so the largest feasible s is found by
+    bisection instead of by solving a QP. Because the shape channel is directly
+    commandable (size_change_rate = 8 m/s versus 0.1 m of travel per step at top
+    speed), capping the commanded (a, b) at s renders {h >= 0} forward-invariant:
+    the ellipse cannot grow into an obstacle.
+
+    `edt_m` is a Euclidean distance transform of free space in METRES, built
+    from the same binarised grid the simulator raycasts against, so the filter
+    and the patch_wall termination check agree by construction.
+
+    `lookahead` shifts the evaluation point forward along the heading so the
+    patch begins shrinking before a constriction rather than once inside it.
+    """
+    H, W = edt_m.shape
+    ox, oy = float(origin[0]), float(origin[1])
+
+    # Evaluate over the SWEPT path, not just the look-ahead point. Checking the
+    # future pose alone leaves the current pose unconstrained, so the filter
+    # would happily authorise a shape that is already intersecting a wall.
+    n_look = 1 if lookahead <= 1e-6 else 4
+    ts = np.linspace(0.0, float(lookahead), n_look)
+    cxs = px + ts * np.cos(ptheta)
+    cys = py + ts * np.sin(ptheta)
+
+    ang = np.linspace(0.0, 2.0 * np.pi, n_points, endpoint=False)
+    ca, sa = np.cos(ang), np.sin(ang)
+    ct, st = np.cos(ptheta), np.sin(ptheta)
+
+    def worst_clearance(s: float) -> float:
+        xl = s * a * ca
+        yl = s * b * sa
+        # (n_look, n_points) grid of boundary samples along the swept path
+        xw = cxs[:, None] + (xl * ct - yl * st)[None, :]
+        yw = cys[:, None] + (xl * st + yl * ct)[None, :]
+        col = np.clip(((xw - ox) / resolution).astype(np.int32), 0, W - 1)
+        row = np.clip(((yw - oy) / resolution).astype(np.int32), 0, H - 1)
+        return float(edt_m[row, col].min())
+
+    if worst_clearance(1.0) >= margin:
+        return 1.0
+    lo, hi = min_scale, 1.0
+    if worst_clearance(lo) < margin:
+        return lo          # even the smallest ellipse is already in contact
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        if worst_clearance(mid) >= margin:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
 # Joint Training: patch + agents trained simultaneously
 # ===========================================================================
 
@@ -1123,6 +1265,7 @@ class JointEnv:
         self.f110 = F110EnvAdapter(
             F110Config(
                 num_agents=n + 1,                  # N agents + 1 patch car
+                map_name=cfg.map_name,
                 control_input=("speed", "steering_angle"),
                 timestep=cfg.control_dt,
             ),
@@ -1194,10 +1337,19 @@ class JointEnv:
             try:
                 x, y = self.track_spline.calc_position(float(s))
                 yaw  = self.track_spline.calc_yaw(float(s))
-                w = float(self.map_reset.estimate_track_width(
-                    self._occ_map, self._resolution, self._origin,
-                    float(x), float(y), float(yaw),
-                ))
+                if getattr(self.cfg, "half_width_min_side", False):
+                    # Symmetric bound: the patch is centred on the path, so the
+                    # room it has is the SMALLER side, not the mean of the two.
+                    lft, rgt = self.map_reset.estimate_side_clearances(
+                        self._occ_map, self._resolution, self._origin,
+                        float(x), float(y), float(yaw),
+                    )
+                    w = 2.0 * min(lft, rgt)
+                else:
+                    w = float(self.map_reset.estimate_track_width(
+                        self._occ_map, self._resolution, self._origin,
+                        float(x), float(y), float(yaw),
+                    ))
                 if np.isfinite(w) and w > 0.0:
                     half_w[i] = w / 2.0
             except Exception:
@@ -1518,10 +1670,25 @@ class JointEnv:
         if self.cfg.agent_use_lidar:
             obs.extend(self._get_agent_lidar_scan(base_obs, ego).tolist())
 
-        # --- other-agent blocks (fixed order, ego slot skipped) ---
-        for other in range(self.num_agents):
-            if other == ego:
-                continue
+        # --- other-agent blocks (nearest first, ego slot skipped) ---
+        #
+        # Slots are ordered by distance to ego, NOT by agent index. With fixed
+        # index order the meaning of "slot 1" depended on which agent was ego,
+        # so two physically symmetric situations produced different inputs and
+        # the shared policy had to learn permutation invariance for free.
+        # Sorting by distance makes slot 1 = nearest, slot 2 = second nearest,
+        # consistently for every ego.
+        #
+        # For N<=2 there is at most one other agent, so ordering is a no-op and
+        # observations stay bit-identical to pre-sort checkpoints.
+        ego_x = float(base_obs["poses_x"][fe])
+        ego_y = float(base_obs["poses_y"][fe])
+        others = [o for o in range(self.num_agents) if o != ego]
+        others.sort(key=lambda o: float(np.hypot(
+            float(base_obs["poses_x"][self.AGENT_F110_IDX[o]]) - ego_x,
+            float(base_obs["poses_y"][self.AGENT_F110_IDX[o]]) - ego_y,
+        )))
+        for other in others:
             fo = self.AGENT_F110_IDX[other]
             ox_w = float(base_obs["poses_x"][fo])
             oy_w = float(base_obs["poses_y"][fo])
@@ -1748,6 +1915,25 @@ class JointEnv:
         # self.patch_no_progress = 0
         # =====================================================================
 
+        # Domain randomisation over tracks (mirrors PatchEnv.reset): rebuild the
+        # simulator only when the drawn map differs from the loaded one.
+        if self.cfg.map_pool:
+            pick = str(np.random.choice(list(self.cfg.map_pool)))
+            if pick != getattr(self, "_active_map", self.cfg.map_name):
+                self.f110.close()
+                self.f110 = F110EnvAdapter(
+                    F110Config(
+                        num_agents=self.num_agents + 1,
+                        map_name=pick,
+                        control_input=("speed", "steering_angle"),
+                        timestep=self.cfg.control_dt,
+                    ),
+                    render_mode=self.cfg.render_mode,
+                )
+                self._active_map = pick
+                self._tw_s_vals = None      # track-width lookup is map-specific
+                self._tw_half_w = None
+
         self.f110.ensure_initialized()
         track, occ_map, self._resolution, self._origin = self.f110.get_track_data()
         self._occ_map = occ_map / 255.0 if occ_map is not None else None  # Normalize to [0, 1]
@@ -1819,18 +2005,53 @@ class JointEnv:
                 wy = patch_y + ex * fwd_dy + ey * perp_dy
                 poses_list.append([wx, wy, patch_theta])
         else:
-            # Fixed spawn: agents spread laterally, 0.4 m behind patch center.
-            # N=1: [0 lat], N=2: [±0.41 lat], N=3: [−0.83, 0, +0.83 lat], etc.
+            # Fixed spawn: agents spread laterally, at least BACK behind the
+            # patch centre.
+            #
+            # Each agent is additionally pushed back far enough to start
+            # OUTSIDE the patch car's repulsion zone. Previously every agent
+            # used BACK=0.4 unconditionally, so for N>=3 the centre agent
+            # (lat=0) spawned 0.40 m from the patch car — inside the 0.80 m
+            # repulsion_zone — and was penalised from step 1 before taking a
+            # single action.
+            #
+            # For a lateral offset `lo`, staying `min_dist` from the patch car
+            # requires back >= sqrt(min_dist^2 - lo^2); agents far enough out
+            # laterally are already clear and keep the original BACK. This
+            # leaves N=1 and N=2 spawns bit-identical to before (their lateral
+            # offsets alone exceed min_dist), so existing checkpoints for those
+            # agent counts remain valid.
             BACK = 0.4
-            lat_offsets = np.linspace(-0.55 * b, 0.55 * b, self.num_agents)
-            poses_list = [
-                [
-                    patch_x - BACK * fwd_dx + lo * perp_dx,
-                    patch_y - BACK * fwd_dy + lo * perp_dy,
+            min_dist = self.cfg.repulsion_zone + 0.05
+            # Lateral spread.
+            #
+            # Two fixes over `np.linspace(-0.55*b, 0.55*b, N)`:
+            #
+            # 1. num=1 returns [start], so a SINGLE agent spawned at the far
+            #    edge (-0.825 m) instead of on the centreline -- contradicting
+            #    the documented intent ("N=1: [0 lat]"). Latent while the patch
+            #    stayed wide, but once the patch contracts to b_cmd_min the
+            #    agent starts at dn~0.86 against a 1.0 boundary and episodes
+            #    died in ~110 steps regardless of training.
+            # 2. The spread was scaled by the SPAWN b (1.5), yet the funnel
+            #    operates at b_cmd_min (1.0) through tight sections, so agents
+            #    ended up outside the contracted funnel through no fault of the
+            #    policy. Scale by the operating width instead.
+            b_ref = min(float(b), float(self.cfg.patch_b_cmd_min))
+            if self.num_agents == 1:
+                lat_offsets = np.array([0.0])
+            else:
+                lat_offsets = np.linspace(-0.55 * b_ref, 0.55 * b_ref,
+                                          self.num_agents)
+            poses_list = []
+            for lo in lat_offsets:
+                need = float(np.sqrt(max(min_dist ** 2 - float(lo) ** 2, 0.0)))
+                back = max(BACK, need)
+                poses_list.append([
+                    patch_x - back * fwd_dx + lo * perp_dx,
+                    patch_y - back * fwd_dy + lo * perp_dy,
                     patch_theta,
-                ]
-                for lo in lat_offsets
-            ]
+                ])
         poses_list.append([patch_x, patch_y, patch_theta])   # patch car last
         poses = np.array(poses_list, dtype=np.float32)
 
@@ -1912,14 +2133,25 @@ class JointEnv:
         dt = self.cfg.control_dt
         pidx = self.PATCH_CAR_F110_IDX
 
+        # Patch action decoding MUST mirror PatchCarEnv.step(): the patch policy
+        # is trained there and merely executed here, so any divergence silently
+        # mis-scales its commands. Both now use the centred [-1, 1] convention
+        # (a fresh policy emitting ~0 -> mid speed, mid size).
+        def _mid_span(lo, hi):
+            return 0.5 * (lo + hi), 0.5 * (hi - lo)
+
         steer_p = float(np.clip(np.nan_to_num(patch_action[0]), -0.4189, 0.4189))
-        speed_p = float(np.clip(np.nan_to_num(patch_action[1]), 2.0, 10.0))
+        _v_mid, _v_span = _mid_span(2.0, 10.0)
+        speed_p = float(np.clip(
+            _v_mid + _v_span * np.nan_to_num(patch_action[1]), 2.0, 10.0))
+        _a_mid, _a_span = _mid_span(self.cfg.patch_a_cmd_min, self.cfg.patch_a_cmd_max)
         a_p = float(np.clip(
-            np.nan_to_num(patch_action[2]),
+            _a_mid + _a_span * np.nan_to_num(patch_action[2]),
             self.cfg.patch_a_cmd_min, self.cfg.patch_a_cmd_max,
         ))
+        _b_mid, _b_span = _mid_span(self.cfg.patch_b_cmd_min, self.cfg.patch_b_cmd_max)
         b_p = float(np.clip(
-            np.nan_to_num(patch_action[3]),
+            _b_mid + _b_span * np.nan_to_num(patch_action[3]),
             self.cfg.patch_b_cmd_min, self.cfg.patch_b_cmd_max,
         ))
 
@@ -1945,8 +2177,11 @@ class JointEnv:
             float(np.clip(np.nan_to_num(agent_actions[i, 0]), -0.4189, 0.4189))
             for i in range(self.num_agents)
         ]
+        _v_lo, _v_hi = self.cfg.agent_speed_min, self.cfg.agent_speed_max
+        _v_mid, _v_span = 0.5 * (_v_lo + _v_hi), 0.5 * (_v_hi - _v_lo)
         clipped_speeds = [
-            float(np.clip(6.0 + 4.0 * np.nan_to_num(agent_actions[i, 1]), 2.0, 10.0))
+            float(np.clip(_v_mid + _v_span * np.nan_to_num(agent_actions[i, 1]),
+                          _v_lo, _v_hi))
             for i in range(self.num_agents)
         ]
         self._last_agent_steers = clipped_steers
@@ -2675,11 +2910,24 @@ class PatchEnv(gym.Env):
         
         # Action space: [steering, speed, a_cmd, b_cmd]
         #   b_cmd_min < patch_b so the policy CAN shrink the patch (required for split to trigger)
+        # Action = [steer, speed, a_cmd, b_cmd], every dim CENTRED on 0.
+        #
+        # The raw ranges ([2,10] speed, [1.5,3] a, [1,3] b) were a real bug: a
+        # freshly initialised Gaussian policy emits ~0 on every dim, which clips
+        # to the LOW bound of each — minimum throttle and minimum patch size.
+        # Reaching 6 m/s then requires the network to output ~6, about six std
+        # devs from init, while almost every sample clips to the floor and
+        # carries no gradient. Observed directly: mean_cmd_speed stuck at 2.01
+        # for an entire 1.7M-step run.
+        #
+        # This is the same defect that was already fixed on the agent side (see
+        # envs/pz_env.py) and never applied here. Decoding happens in step().
+        #
+        # NOTE: this changes the action space, so patch checkpoints trained
+        # before this commit are NOT loadable against this env.
         self.action_space = spaces.Box(
-            low=np.array([-0.4189, 2.0,
-                          self.cfg.a_cmd_min, self.cfg.b_cmd_min], dtype=np.float32),
-            high=np.array([0.4189, 10.0,
-                           self.cfg.a_cmd_max, self.cfg.b_cmd_max], dtype=np.float32),
+            low=np.array([-0.4189, -1.0, -1.0, -1.0], dtype=np.float32),
+            high=np.array([0.4189, 1.0, 1.0, 1.0], dtype=np.float32),
             dtype=np.float32,
         )
         # Lidar beams — same count as ppo_experiment.py ENV_CONFIG["num_beams"]
@@ -2707,6 +2955,7 @@ class PatchEnv(gym.Env):
         self.f110 = F110EnvAdapter(
             F110Config(
                 num_agents=1,
+                map_name=self.cfg.map_name,
                 reset_type=self.cfg.base_reset_type,
                 control_input=("speed", "steering_angle"),
                 timestep=self.cfg.control_dt,
@@ -2767,10 +3016,19 @@ class PatchEnv(gym.Env):
             try:
                 x, y = self.track_spline.calc_position(float(s))
                 yaw  = self.track_spline.calc_yaw(float(s))
-                w = float(self.map_reset.estimate_track_width(
-                    self._occ_map, self._resolution, self._origin,
-                    float(x), float(y), float(yaw),
-                ))
+                if getattr(self.cfg, "half_width_min_side", False):
+                    # Symmetric bound: the patch is centred on the path, so the
+                    # room it has is the SMALLER side, not the mean of the two.
+                    lft, rgt = self.map_reset.estimate_side_clearances(
+                        self._occ_map, self._resolution, self._origin,
+                        float(x), float(y), float(yaw),
+                    )
+                    w = 2.0 * min(lft, rgt)
+                else:
+                    w = float(self.map_reset.estimate_track_width(
+                        self._occ_map, self._resolution, self._origin,
+                        float(x), float(y), float(yaw),
+                    ))
                 if np.isfinite(w) and w > 0.0:
                     half_w[i] = w / 2.0
             except Exception:
@@ -3256,6 +3514,22 @@ class PatchEnv(gym.Env):
         # 0.0 = collapsed to a point, 1.0 = touching both walls.
         # Policy learns to fill as large as the track allows rather than collapsing to min size.
         fill_ratio = float(np.clip(b_now / half_w, 0.0, 1.0))
+        # Gate the size bonus on actual forward progress.
+        #
+        # Unconditionally paying `reward_size_weight * fill_ratio` every step is
+        # speed-independent, so the reward-maximising policy is "stay fat, crawl
+        # at the minimum speed, survive as long as possible". A domain-randomised
+        # run reproduced exactly that: avg_cmd_speed pinned at 2.01 m/s (the
+        # floor) with steering near max, episode length and return climbing, and
+        # zero arrivals in 750 episodes.
+        #
+        # Scaling by progress relative to a nominal cruise speed keeps "fill the
+        # corridor" meaningful while making it worth ~nothing at a standstill.
+        # Raising time_penalty_per_sec instead would be worse: once per-step
+        # reward goes net negative the optimal policy is to end the episode
+        # immediately, trading crawling for deliberate crashing.
+        ds_nominal = max(self.cfg.reward_size_speed_ref * float(dt), 1e-9)
+        size_gain = float(np.clip(max(ds, 0.0) / ds_nominal, 0.0, 1.0))
         reward_raw = (
             self.cfg.reward_progress_scale * ds
             - self.cfg.reward_crosstrack_weight * abs(ey)
@@ -3266,8 +3540,11 @@ class PatchEnv(gym.Env):
             - self.cfg.shape_area_penalty_weight * area_excess
             - self.cfg.time_penalty_per_sec * float(dt)
             - self.cfg.reward_speed_steer_weight * speed_now * abs(steer_cmd)
-            # + float(lap_bonus)
-            + self.cfg.reward_size_weight * fill_ratio   # b/half_w: fills track width proportionally
+            # Reaching point B was being computed (`arrived` -> lap_finish_bonus)
+            # and then discarded, so the policy had no terminal incentive to
+            # finish the track at all. Re-enabled.
+            + float(lap_bonus)
+            + self.cfg.reward_size_weight * fill_ratio * size_gain
             + self.cfg.reward_speed_weight * speed_now * max(ds, 0.0)   # reward speed only when making forward progress
         )
         if no_progress >= self.cfg.stuck_no_progress_steps:
@@ -3400,6 +3677,30 @@ class PatchEnv(gym.Env):
         self._ep_speed_sum = 0.0
         self._ep_steer_sum = 0.0
 
+        # --- domain randomisation over tracks -----------------------------
+        # Rebuild the simulator only when the sampled map differs from the one
+        # currently loaded: env construction costs ~1-2 s against a ~30 s
+        # episode, and re-sampling the same map would pay that for nothing.
+        if self.cfg.map_pool:
+            pick = str(self._np_random.choice(list(self.cfg.map_pool)))
+            if pick != getattr(self, "_active_map", self.cfg.map_name):
+                self.f110.close()
+                self.f110 = F110EnvAdapter(
+                    F110Config(
+                        num_agents=1,
+                        map_name=pick,
+                        reset_type=self.cfg.base_reset_type,
+                        control_input=("speed", "steering_angle"),
+                        timestep=self.cfg.control_dt,
+                    ),
+                    render_mode=self.cfg.render_mode,
+                )
+                self.base_env = self.f110
+                self._active_map = pick
+                # track-width lookup is map-specific; force a recompute
+                self._tw_s_vals = None
+                self._tw_half_w = None
+
         # Initialize Frenet spline — one get_track_data() call, cache everything
         self.f110.ensure_initialized()
         track, occ_map, resolution, origin = self.f110.get_track_data()
@@ -3420,6 +3721,16 @@ class PatchEnv(gym.Env):
         self._resolution = resolution
         self._origin     = origin
         self._last_ahead_half_w = 99.0
+
+        # Distance-to-obstacle field (metres) for the CBF wall filter. Built
+        # once per reset from the same binarised grid used for termination, so
+        # the filter and the patch_wall check cannot disagree.
+        self._edt_m = None
+        if self.cfg.wall_filter_enabled and self._occ_map is not None:
+            self._edt_m = ndimage.distance_transform_edt(
+                self._occ_map > 0.5) * float(resolution)
+        self._wall_filter_active_steps = 0
+        self._wall_filter_infeasible_steps = 0
 
         # Precompute half-widths along the centerline (200 ray casts at reset only)
         # All per-step width lookups become O(1) array index — zero ray casting in rollout
@@ -3951,22 +4262,51 @@ class PatchCarEnv(PatchEnv):
         lap_time = None
         arrived   = False  # True when open-track car reaches point B
 
+        # Decode the centred action space (see PatchEnv.__init__): dims 1..3
+        # arrive in [-1, 1] and are mapped onto their physical ranges, so a
+        # fresh policy outputting ~0 starts at MID speed and MID size instead of
+        # being clipped to the minimum of both.
+        def _mid_span(lo, hi):
+            return 0.5 * (lo + hi), 0.5 * (hi - lo)
+
         steering_cmd = float(np.clip(
             np.nan_to_num(action[0], nan=0.0, posinf=0.4189, neginf=-0.4189),
             -0.4189, 0.4189))
+        _v_mid, _v_span = _mid_span(2.0, 10.0)            # -> 6 +/- 4 m/s
         speed_cmd = float(np.clip(
-            np.nan_to_num(action[1], nan=2.0, posinf=10.0, neginf=2.0),
+            _v_mid + _v_span * np.nan_to_num(action[1], nan=0.0),
             2.0, 10.0))
         self._ep_speed_sum += speed_cmd
         self._ep_steer_sum += abs(steering_cmd)
+        _a_mid, _a_span = _mid_span(self.cfg.a_cmd_min, self.cfg.a_cmd_max)
         a_cmd = float(np.clip(
-            np.nan_to_num(action[2], nan=self.cfg.a_cmd_min,
-                          posinf=self.cfg.a_cmd_max, neginf=self.cfg.a_cmd_min),
+            _a_mid + _a_span * np.nan_to_num(action[2], nan=0.0),
             self.cfg.a_cmd_min, self.cfg.a_cmd_max))
+        _b_mid, _b_span = _mid_span(self.cfg.b_cmd_min, self.cfg.b_cmd_max)
         b_cmd = float(np.clip(
-            np.nan_to_num(action[3], nan=self.cfg.b_cmd_min,
-                          posinf=self.cfg.b_cmd_max, neginf=self.cfg.b_cmd_min),
+            _b_mid + _b_span * np.nan_to_num(action[3], nan=0.0),
             self.cfg.b_cmd_min, self.cfg.b_cmd_max))
+
+        # --- CBF wall safety filter -----------------------------------
+        # Cap the commanded shape at the largest ellipse that still fits in free
+        # space. Only ever SHRINKS the command, so it cannot make the policy
+        # more aggressive; when the cap binds below b_cmd_min the constraint is
+        # infeasible and that is counted rather than silently ignored.
+        if self.cfg.wall_filter_enabled and getattr(self, "_edt_m", None) is not None:
+            p0 = self.active_patches[0]
+            look = self.cfg.wall_filter_lookahead_s * float(getattr(p0, "v", 0.0))
+            s_safe = safe_shape_scale(
+                float(p0.x), float(p0.y), float(p0.theta),
+                a_cmd, b_cmd, self._edt_m, float(self._resolution), self._origin,
+                margin=self.cfg.wall_filter_margin, lookahead=look,
+            )
+            if s_safe < 1.0:
+                self._wall_filter_active_steps += 1
+                a_req, b_req = a_cmd * s_safe, b_cmd * s_safe
+                if b_req < self.cfg.b_cmd_min:
+                    self._wall_filter_infeasible_steps += 1
+                a_cmd = float(np.clip(a_req, self.cfg.a_cmd_min, self.cfg.a_cmd_max))
+                b_cmd = float(np.clip(b_req, self.cfg.b_cmd_min, self.cfg.b_cmd_max))
 
         base_obs, _, _, _, _ = self.f110.step(
             np.array([[steering_cmd, speed_cmd]], dtype=np.float32)
@@ -4124,6 +4464,10 @@ class PatchCarEnv(PatchEnv):
             "f110_collision":     bool(f110_collision),
             "mean_speed_cmd":     self._ep_speed_sum / max(self.step_count, 1),
             "mean_abs_steer_cmd": self._ep_steer_sum / max(self.step_count, 1),
+            "wall_filter_active_frac": (
+                self._wall_filter_active_steps / max(self.step_count, 1)),
+            "wall_filter_infeasible_frac": (
+                self._wall_filter_infeasible_steps / max(self.step_count, 1)),
         }
         info.update(all_terms)
 
@@ -4196,24 +4540,36 @@ def make_patch_env(
     base_reset_type: str = "rl_random_static",
     obs_mode: str = "lidar", #grid
     num_lidar_beams: int = 108,
+    map_pool: tuple = (),
+    map_pool_dir: str = "",
     ):
     """
     Factory function to create patch environments for parallel training.
-    
+
     Args:
         rank: Environment rank for seeding
         seed: Base seed
         domain_randomize: Whether to use domain randomization
-        navigation_mode: "landmark" or "centerline" - determines navigation strategy
-    
-    Example:
-        # Use landmark-based navigation (default)
-        env = make_patch_env(0, seed=42, navigation_mode="landmark")
-        
-        # Use centerline-based navigation
-        env = make_patch_env(0, seed=42, navigation_mode="centerline")
+        map_pool: track names to sample from each episode (domain
+            randomisation over obstacle layouts). Empty = always
+            PatchEnvConfig.map_name, i.e. the previous behaviour.
+        map_pool_dir: directory holding generated map variants. Registered
+            inside the worker so f1tenth_gym's find_track_dir can resolve the
+            pool names without polluting the shared maps install.
     """
     def _init():
+        if map_pool_dir:
+            # must run inside the worker: SubprocVecEnv forks after this thunk
+            # is pickled, so a patch applied in the parent would not survive.
+            try:
+                from mass_eval import install_variant_map_finder
+            except ImportError:
+                import sys as _s
+                _s.path.insert(0, os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__))))
+                from mass_eval import install_variant_map_finder
+            install_variant_map_finder(map_pool_dir)
+
         cfg = PatchEnvConfig(
             domain_randomize=domain_randomize,
             num_agents=2,
@@ -4222,6 +4578,8 @@ def make_patch_env(
             base_reset_type=base_reset_type,
             obs_mode=obs_mode,
             num_lidar_beams=num_lidar_beams,
+            map_pool=tuple(map_pool),
+            map_name=(map_pool[0] if map_pool else PatchEnvConfig.map_name),
         )
         env = PatchCarEnv(cfg)
         env.reset(seed=seed + rank)

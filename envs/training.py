@@ -42,10 +42,29 @@ try:
 except ImportError:
     SUPERSUIT_AVAILABLE = False
 
+# SB3 raises at learn() time if tensorboard_log is set but tensorboard is not
+# installed, which kills a run only after all the envs have been constructed.
+# Probe once up front and fall back to CSV logging (TrainingCallback) instead.
+try:
+    import tensorboard  # noqa: F401
+    TENSORBOARD_AVAILABLE = True
+except ImportError:
+    TENSORBOARD_AVAILABLE = False
+
 try:
     import wandb
 
-    WANDB_AVAILABLE = True
+    # `import wandb` succeeding is not enough: the repo root contains a
+    # `wandb/` run-logs directory, and when the repo root is on sys.path (as it
+    # is for `python -m envs.training`) that directory is importable as an empty
+    # NAMESPACE package whenever the real library is not installed. The result
+    # is WANDB_AVAILABLE=True followed by `module 'wandb' has no attribute
+    # 'init'`. Probe for the API instead of the name.
+    WANDB_AVAILABLE = hasattr(wandb, "init") and hasattr(wandb, "finish")
+    if not WANDB_AVAILABLE:
+        print("[training] 'wandb' resolved to a namespace package "
+              f"(__file__={getattr(wandb, '__file__', None)}) — real wandb is "
+              "not installed. Continuing without logging.")
 except ImportError:
     WANDB_AVAILABLE = False
 
@@ -319,16 +338,42 @@ def train_patch_policy(
     wandb_run_name: Optional[str] = None,
     obs_mode: str = "lidar", #grid
     num_lidar_beams: int = 108,
+    map_pool_dir: str = "",
+    map_pool_limit: int = 0,
     ):
     if not SB3_AVAILABLE:
         raise RuntimeError("stable-baselines3 is required for training.")
+
+    # --- domain randomisation over obstacle layouts ----------------------
+    # Held-out evaluation showed a patch trained on a single map memorises it:
+    # 1/252 success once the same-sized obstacles are moved (89% patch_wall).
+    # Sampling a fresh layout each episode is the fix.
+    map_pool: tuple = ()
+    if map_pool_dir:
+        _idx = os.path.join(map_pool_dir, "variants_index.json")
+        if not os.path.exists(_idx):
+            raise FileNotFoundError(
+                f"map pool index not found: {_idx} "
+                f"(generate one with make_obstacle_variants.py)")
+        with open(_idx) as _f:
+            _names = [v["name"] for v in json.load(_f)["variants"]]
+        if map_pool_limit:
+            _names = _names[:map_pool_limit]
+        map_pool = tuple(_names)
+        print(f"[train_patch_policy] domain randomisation over {len(map_pool)} "
+              f"maps from {map_pool_dir}")
 
     os.makedirs(save_path, exist_ok=True)
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = os.path.join(save_path, f"run_{run_id}")
     os.makedirs(run_dir, exist_ok=True)
-    tb_log_dir = os.path.join(run_dir, "tb")
-    os.makedirs(tb_log_dir, exist_ok=True)
+    if TENSORBOARD_AVAILABLE:
+        tb_log_dir = os.path.join(run_dir, "tb")
+        os.makedirs(tb_log_dir, exist_ok=True)
+    else:
+        tb_log_dir = None
+        print("[train_patch_policy] tensorboard not installed — skipping TB "
+              "logging (training_log.csv still written by TrainingCallback)")
 
     wandb_run = None
     if WANDB_AVAILABLE:
@@ -376,6 +421,8 @@ def train_patch_policy(
                     base_reset_type=base_reset_type,
                     obs_mode=obs_mode,
                     num_lidar_beams=num_lidar_beams,
+                    map_pool=map_pool,
+                    map_pool_dir=os.path.abspath(map_pool_dir) if map_pool_dir else "",
                 ))
                 for i in range(NUM_ENVS)
             ],
@@ -391,6 +438,8 @@ def train_patch_policy(
                     base_reset_type=base_reset_type,
                     obs_mode=obs_mode,
                     num_lidar_beams=num_lidar_beams,
+                    map_pool=map_pool,
+                    map_pool_dir=os.path.abspath(map_pool_dir) if map_pool_dir else "",
                 ))
             ]
         )
@@ -445,7 +494,15 @@ def train_patch_policy(
             n_steps=rollout_steps,
             batch_size=batch_size,
             n_epochs=10,
-            gamma=0.99,
+            # gamma=0.99 gives an effective horizon of 1/(1-g)=100 steps, and at
+            # control_dt=0.01 that is ONE SECOND of sim time. A traversal takes
+            # ~20 s, so a crash 7 s ahead was discounted by 0.99^730 ~ 6e-4 --
+            # the collision penalty was invisible at the moment the policy chose
+            # to accelerate, and the arrival bonus was worth nothing from the
+            # start line. Two runs duly converged to whatever paid per step
+            # (crawl at 2 m/s, then sprint at 10 m/s), both with ~0 arrivals.
+            # 0.999 -> 1000 steps = 10 s, enough to see the crash coming.
+            gamma=0.999,
             gae_lambda=0.95,
             clip_range=0.2,
             ent_coef=0.001,  # 0.01 caused entropy explosion (std→32); spinning fixed by reward penalties now
@@ -825,7 +882,9 @@ def train_joint_sb3(
     wandb_project: str = "joint_sb3_training",
     wandb_entity: Optional[str] = None,
     wandb_run_name: Optional[str] = None,
-    dummy_vec: bool = False,):
+    dummy_vec: bool = False,
+    agent_map_pool: tuple = (),
+    map_pool_dir: str = "",):
     """Alternating co-evolution using PettingZoo + SuperSuit for agent parallelization.
 
     Phase 0 (optional): Patch-car solo on f110 (PatchCarEnv, same 11D obs as PatchEnv) for
@@ -1144,8 +1203,23 @@ def train_joint_sb3(
     from supersuit.vector.sb3_vector_wrapper import SB3VecEnvWrapper
 
     _agent_env_config = {"num_agents": num_agents}
+    if agent_map_pool:
+        _agent_env_config["map_pool"] = tuple(agent_map_pool)
+        _agent_env_config["map_name"] = agent_map_pool[0]
+        print(f"[joint_sb3] follower domain randomisation over "
+              f"{len(agent_map_pool)} maps")
 
     def _make_agent_pz_env():
+        if map_pool_dir:
+            # inside the worker: SuperSuit forks after this thunk is pickled
+            try:
+                from mass_eval import install_variant_map_finder
+            except ImportError:
+                import sys as _s
+                _s.path.insert(0, os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__))))
+                from mass_eval import install_variant_map_finder
+            install_variant_map_finder(map_pool_dir)
         try:
             from .pz_env import AgentEnv
         except ImportError:
@@ -1343,6 +1417,14 @@ if __name__ == "__main__":
     parser.add_argument("--wandb-project", type=str, default="patch_sempc_training")
     parser.add_argument("--wandb-entity", type=str, default=None)
     parser.add_argument("--wandb-run-name", type=str, default=None)
+    # patch-mode domain randomisation over obstacle layouts
+    parser.add_argument("--map-pool-dir", type=str, default="",
+                        help="directory of generated map variants (with "
+                             "variants_index.json); samples a new layout each "
+                             "episode instead of always using one map")
+    parser.add_argument("--map-pool-limit", type=int, default=0,
+                        help="use only the first N maps of the pool (0 = all); "
+                             "hold the rest out for evaluation")
     # joint_sb3-specific
     parser.add_argument("--num-cpus", type=int, default=4,
                         help="CPU workers for SuperSuit concat_vec_envs_v1 (joint_sb3 mode)")
@@ -1357,6 +1439,16 @@ if __name__ == "__main__":
     parser.add_argument("--dummy-vec", action="store_true",
                         help="Run agent envs serially in-process (num_cpus=0) — surfaces full tracebacks for debugging")
     args = parser.parse_args()
+
+    # Follower domain randomisation reuses the patch's map pool flags, so the
+    # follower trains against the same layout distribution as its leader.
+    _agent_pool: tuple = ()
+    if args.map_pool_dir:
+        with open(os.path.join(args.map_pool_dir, "variants_index.json")) as _f:
+            _nm = [v["name"] for v in json.load(_f)["variants"]]
+        if args.map_pool_limit:
+            _nm = _nm[:args.map_pool_limit]
+        _agent_pool = tuple(_nm)
 
     if args.mode == "joint_sb3":
         train_joint_sb3(
@@ -1378,6 +1470,8 @@ if __name__ == "__main__":
             wandb_entity=args.wandb_entity,
             wandb_run_name=args.wandb_run_name,
             dummy_vec=args.dummy_vec,
+            agent_map_pool=_agent_pool,
+            map_pool_dir=os.path.abspath(args.map_pool_dir) if args.map_pool_dir else "",
         )
     # === JOINT TRAINING DISABLED — joint and agent modes routed through commented-out functions ===
     # elif args.mode == "joint":
@@ -1425,6 +1519,8 @@ if __name__ == "__main__":
             wandb_project=args.wandb_project,
             wandb_entity=args.wandb_entity,
             wandb_run_name=args.wandb_run_name,
+            map_pool_dir=args.map_pool_dir,
+            map_pool_limit=args.map_pool_limit,
         )
 
 

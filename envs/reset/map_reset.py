@@ -52,6 +52,44 @@ class MapResetHelper:
 
         return cast_vec(theta + np.pi / 2.0) + cast_vec(theta - np.pi / 2.0)
 
+    def estimate_side_clearances(
+        self,
+        occupancy_map: np.ndarray,
+        resolution: float,
+        origin: Tuple[float, float],
+        x: float,
+        y: float,
+        theta: float,
+    ) -> Tuple[float, float]:
+        """Free distance to the left and to the right, kept separate.
+
+        `estimate_track_width` returns their SUM, and callers then halve it --
+        i.e. the mean of the two sides. That is only a valid bound on a patch
+        centred on the path when the corridor is symmetric about it. With an
+        obstacle 1.65 m to one side and a wall 3.8 m to the other, the mean is
+        2.72 m and the patch is allowed a 2.31 m half-width, which puts its
+        flank 0.66 m inside the obstacle. The symmetric bound is min(left,
+        right), which is what this exposes.
+        """
+        distances = np.arange(0.0, self.config.max_scan_dist, self.config.scan_step)
+        h, w = occupancy_map.shape
+        max_d = float(self.config.max_scan_dist)
+
+        def cast_vec(angle: float) -> float:
+            cos_a, sin_a = np.cos(angle), np.sin(angle)
+            px = x + distances * cos_a
+            py = y + distances * sin_a
+            ix = ((px - origin[0]) / resolution).astype(np.intp)
+            iy = ((py - origin[1]) / resolution).astype(np.intp)
+            oob = (ix < 0) | (iy < 0) | (iy >= h) | (ix >= w)
+            safe_ix = np.clip(ix, 0, w - 1)
+            safe_iy = np.clip(iy, 0, h - 1)
+            hit = oob | (occupancy_map[safe_iy, safe_ix] < 0.5)
+            idx = np.argmax(hit)
+            return float(distances[idx]) if hit[idx] else max_d
+
+        return cast_vec(theta + np.pi / 2.0), cast_vec(theta - np.pi / 2.0)
+
     def compute_safe_patch_size(self, track_width: float) -> Tuple[float, float]:
         max_patch_width = track_width - (2.0 * self.config.safety_margin)
         max_b = np.clip(max_patch_width / 2.0, 0.5, 1.5)
