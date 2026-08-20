@@ -1,0 +1,21 @@
+num_agents: 1
+map_name: open_narrow_obs
+gym_root: /opt/f1tenth_gym
+rate_hz: 50
+cmd_timeout: 0.5
+render: true
+
+# Spawn at narrow-zone entry (centerline wp 51, ±8 wp before narrow centre wp 59)
+initial_poses:
+  - [41.315226, -31.271555, -1.6123]
+
+# DEFORM goal: just past narrow-zone exit (centerline wp 67)
+goal_x: 41.305291
+goal_y: -51.92901
+goal_yaw: -1.2721
+goal_delay_s: 5.0
+auto_publish_goal: true
+tb_num: 1
+
+episode_end_mode: narrow_clear
+episode_timeout_s: 90

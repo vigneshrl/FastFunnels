@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+  <!-- Sweep-control args (used by deform_run_condition.sh).  Defaults keep
+       the legacy interactive workflow: one episode, then wait. -->
+  <arg name="target_episodes"  default="1"/>
+  <arg name="episode_timeout_s" default="180.0"/>
+
+  <node name="f1tenth_bridge" pkg="f1tenth_deform_bridge"
+        type="f1tenth_bridge_node.py" output="screen" required="true">
+    <!-- Load base params from mounted yaml -->
+    <rosparam file="/root/DEFORM/src/utility/f1tenth_deform_bridge/config/bridge_params.yaml"
+              command="load" ns="~"/>
+    <!-- Override critical per-condition params — takes precedence over yaml -->
+    <param name="num_agents"   value="1"/>
+    <param name="map_name"     value="open_narrow_obs"/>
+    <param name="tb_num"       value="1"/>
+    <!-- Goal at end of open_narrow_obs centerline (~60.3, -83.7) -->
+    <param name="goal_x"             value="60.33585784078515"/>
+    <param name="goal_y"             value="-83.65054988811353"/>
+    <param name="goal_yaw"           value="-1.0"/>
+    <param name="goal_delay_s"       value="5.0"/>
+    <param name="auto_publish_goal"  value="false"/>
+    <param name="target_episodes"   value="$(arg target_episodes)"/>
+    <param name="episode_timeout_s" value="$(arg episode_timeout_s)"/>
+    <rosparam ns="~">
+initial_poses:
+  - [1.2571033773926588, 0.0, 0.0]
+    </rosparam>
+  </node>
+
+  <include file="$(find plan_manager)/launch/one_run.xml">
+    <arg name="tb_id"             value="0"/>
+    <arg name="tb_num"            value="1"/>
+    <arg name="frm_type"          value="1"/>
+    <arg name="other_num_in_opti" value="0"/>
+  </include>
+
+  <node name="rviz" pkg="rviz" type="rviz" output="screen"
+        args="-d /root/DEFORM/src/utility/f1tenth_deform_bridge/config/deform_rviz.rviz"/>
+
+</launch>

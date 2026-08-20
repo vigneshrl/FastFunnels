@@ -1,0 +1,11 @@
+task_type: 1
+vehicle_number: 2
+
+# Line formation, 0.6 m spacing
+initial_shape_positions:
+  vehicle_pos_1: {x:  0.0, y:  0.3}
+  vehicle_pos_2: {x:  0.0, y: -0.3}
+
+desired_shape_positions:
+  vehicle_pos_1: {x:  0.0, y:  0.3}
+  vehicle_pos_2: {x:  0.0, y: -0.3}

@@ -1,0 +1,2 @@
+n_agents,map_name,avg_speed_mps,success,time_to_goal_s,flow_rate,deformability,n_completed,collision,collision_full_run,spread_at_entry_m,spread_at_narrow_m,narrow_wp_idx,zone_entry_wp,zone_exit_wp
+4,open_narrow_obs,0.09,0.0,inf,0.0,1.008,0,False,False,0.6,0.595,59,51,67

@@ -1,0 +1,37 @@
+{
+  "config": {
+    "model": "gcbfplus/pretrained/DubinsCar/gcbf+",
+    "model_step": null,
+    "policy": "gcbf",
+    "out": "gcbf_baseline/results/frontier_lk6.jsonl",
+    "n_agents": 4,
+    "robot_radius": 0.29,
+    "spacing": 1.2,
+    "goal_mode": "carrot",
+    "lookahead_wp": 6,
+    "on_collision": "stop",
+    "max_steps": 1500,
+    "exit_grace": 200,
+    "collision_thresh": 0.5,
+    "dt": 0.03,
+    "pre_wp": 10,
+    "exit_offset": 8,
+    "post_wp": 12,
+    "wall_thickness": 0.6,
+    "wall_reach": 12.0,
+    "simplify": 0.1,
+    "n_rect": 44,
+    "trace_dir": null
+  },
+  "splits": {
+    "train": {
+      "k": 0,
+      "n": 12,
+      "rate": 0.0,
+      "ci95": [
+        0.0,
+        24.25007574992425
+      ]
+    }
+  }
+}

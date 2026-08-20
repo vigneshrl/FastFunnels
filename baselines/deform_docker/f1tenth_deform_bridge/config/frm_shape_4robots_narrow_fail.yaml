@@ -1,0 +1,17 @@
+task_type: 1
+vehicle_number: 4
+
+# Keep initial formation compact so the group can approach the gap.
+initial_shape_positions:
+  vehicle_pos_1: {x:  0.0, y:  0.0}
+  vehicle_pos_2: {x:  0.0, y: -1.0}
+  vehicle_pos_3: {x: -1.0, y:  0.0}
+  vehicle_pos_4: {x: -1.0, y: -1.0}
+
+# Force a wide line-abreast target shape (3.6 m span) near a 3.3 m bottleneck.
+# This encourages visible formation stress/failure after entering narrow region.
+desired_shape_positions:
+  vehicle_pos_1: {x:  0.0, y:  1.8}
+  vehicle_pos_2: {x:  0.0, y:  0.6}
+  vehicle_pos_3: {x:  0.0, y: -0.6}
+  vehicle_pos_4: {x:  0.0, y: -1.8}

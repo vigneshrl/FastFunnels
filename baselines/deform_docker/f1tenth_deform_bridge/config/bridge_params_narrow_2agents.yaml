@@ -1,0 +1,22 @@
+num_agents: 2
+map_name: open_narrow_obs
+gym_root: /opt/f1tenth_gym
+rate_hz: 50
+cmd_timeout: 2.0
+render: false
+
+# Staggered abreast in wide curve (same region as 4-agent clear spawn).
+initial_poses:
+  - [40.800000, -16.500000, -1.5708]
+  - [41.300000, -16.820000, -1.5708]
+
+goal_x: 41.550000
+goal_y: -50.000000
+goal_yaw: -1.5708
+goal_delay_s: 15.0
+goal_republish_period_s: 2.0
+auto_publish_goal: true
+tb_num: 2
+
+episode_end_mode: narrow_clear
+episode_timeout_s: 300

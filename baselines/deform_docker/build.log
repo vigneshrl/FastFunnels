@@ -1,0 +1,930 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 4.79kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/osrf/ros:noetic-desktop-full
+#2 DONE 0.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [ 1/10] FROM docker.io/osrf/ros:noetic-desktop-full@sha256:7dbfb9576d8e6d226c31e06129a82aaab8702695f38eca2116918cb9b9308797
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 105.58kB 0.0s done
+#5 DONE 0.0s
+
+#6 [ 5/10] COPY f1tenth_gym /opt/f1tenth_gym
+#6 CACHED
+
+#7 [ 6/10] RUN pip3 install --upgrade pip     && pip3 install --no-cache-dir         "numpy>=1.18,<2.0"         "gymnasium>=0.29.1,<1.0"         "pygame>=2.5.2"         "numba>=0.55.2"         "shapely>=2.0.2"         "Pillow>=9.0.1"         "opencv-python-headless>=4.9.0"         "PyYAML>=5.3.1"         "scipy>=1.7.3"         "requests>=2.31.0"
+#7 CACHED
+
+#8 [ 4/10] RUN pip3 install --no-cache-dir "pot==0.9.3"
+#8 CACHED
+
+#9 [ 2/10] RUN apt-get update && apt-get install -y --no-install-recommends     build-essential     cmake     coinor-libipopt-dev     gfortran     liblapack-dev     libatlas-base-dev     pkg-config     swig     python3-pip     python3-scipy     python3-tk     python3-catkin-tools     git     vim     wget     curl     ros-noetic-turtlebot3-msgs     ros-noetic-gazebo-ros-pkgs     ros-noetic-gazebo-ros-control     x11-apps     x11-utils     libgl1-mesa-glx     libgl1-mesa-dri     libxrender1     libxext6     libxau6     mesa-utils     && rm -rf /var/lib/apt/lists/*
+#9 CACHED
+
+#10 [ 3/10] RUN git clone --depth 1 --branch 3.7.0 https://github.com/casadi/casadi.git /tmp/casadi     && cd /tmp/casadi     && mkdir build && cd build     && cmake         -DWITH_PYTHON=ON         -DWITH_PYTHON3=ON         -DWITH_IPOPT=ON         -DWITH_OPENMP=ON         -DWITH_THREAD=ON         -DCMAKE_BUILD_TYPE=Release         -DPYTHON_EXECUTABLE=/usr/bin/python3         ..     && make -j$(nproc)     && make install     && ldconfig     && rm -rf /tmp/casadi
+#10 CACHED
+
+#11 [ 7/10] RUN git clone https://github.com/NeSC-IV/DEFORM.git /root/DEFORM
+#11 CACHED
+
+#12 [ 8/10] COPY deform_docker/f1tenth_deform_bridge /root/DEFORM/src/utility/f1tenth_deform_bridge
+#12 DONE 0.0s
+
+#13 [ 9/10] RUN /bin/bash -c "    source /opt/ros/noetic/setup.bash &&     cd /root/DEFORM &&     catkin_make         -DPYTHON_EXECUTABLE=/usr/bin/python3         -DCMAKE_BUILD_TYPE=Release     "
+#13 0.344 -- The C compiler identification is GNU 9.4.0
+#13 0.400 -- The CXX compiler identification is GNU 9.4.0
+#13 0.406 -- Check for working C compiler: /usr/bin/cc
+#13 0.478 -- Check for working C compiler: /usr/bin/cc -- works
+#13 0.479 -- Detecting C compiler ABI info
+#13 0.552 -- Detecting C compiler ABI info - done
+#13 0.561 -- Detecting C compile features
+#13 0.561 -- Detecting C compile features - done
+#13 0.564 -- Check for working CXX compiler: /usr/bin/c++
+#13 0.646 -- Check for working CXX compiler: /usr/bin/c++ -- works
+#13 0.647 -- Detecting CXX compiler ABI info
+#13 0.729 -- Detecting CXX compiler ABI info - done
+#13 0.740 -- Detecting CXX compile features
+#13 0.740 -- Detecting CXX compile features - done
+#13 0.805 -- Using CATKIN_DEVEL_PREFIX: /root/DEFORM/devel
+#13 0.805 -- Using CMAKE_PREFIX_PATH: /opt/ros/noetic
+#13 0.805 -- This workspace overlays: /opt/ros/noetic
+#13 0.826 -- Found PythonInterp: /usr/bin/python3 (found suitable version "3.8.10", minimum required is "3") 
+#13 0.826 -- Using PYTHON_EXECUTABLE: /usr/bin/python3
+#13 0.826 -- Using Debian Python package layout
+#13 0.853 -- Found PY_em: /usr/lib/python3/dist-packages/em.py  
+#13 0.854 -- Using empy: /usr/lib/python3/dist-packages/em.py
+#13 0.949 -- Using CATKIN_ENABLE_TESTING: ON
+#13 0.949 -- Call enable_testing()
+#13 0.952 -- Using CATKIN_TEST_RESULTS_DIR: /root/DEFORM/build/test_results
+#13 1.288 -- Forcing gtest/gmock from source, though one was otherwise available.
+#13 1.288 -- Found gtest sources under '/usr/src/googletest': gtests will be built
+#13 1.288 -- Found gmock sources under '/usr/src/googletest': gmock will be built
+#13 1.311 -- Found PythonInterp: /usr/bin/python3 (found version "3.8.10") 
+#13 1.313 -- Found Threads: TRUE  
+#13 1.316 -- Using Python nosetests: /usr/bin/nosetests3
+#13 1.359 -- catkin 0.8.12
+#13 1.359 -- BUILD_SHARED_LIBS is on
+#13 1.488 -- BUILD_SHARED_LIBS is on
+#13 1.821 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#13 1.821 -- ~~  traversing 17 packages in topological order:
+#13 1.821 -- ~~  - multi_turtlebot3_simulation
+#13 1.821 -- ~~  - realsense2_description
+#13 1.821 -- ~~  - teleop_twist_keyboard
+#13 1.821 -- ~~  - ot_process
+#13 1.821 -- ~~  - plan_env2d
+#13 1.821 -- ~~  - path_searching2d
+#13 1.821 -- ~~  - path_opti
+#13 1.821 -- ~~  - plan_rrt
+#13 1.821 -- ~~  - to_visualize
+#13 1.822 -- ~~  - drone_detect
+#13 1.822 -- ~~  - f1tenth_deform_bridge
+#13 1.822 -- ~~  - realsense_gazebo_plugin
+#13 1.822 -- ~~  - traj_opti
+#13 1.822 -- ~~  - turtlebot3_teleop
+#13 1.822 -- ~~  - width_check
+#13 1.822 -- ~~  - plan_manager
+#13 1.822 -- ~~  - turtlebot3_description
+#13 1.822 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#13 1.822 -- +++ processing catkin package: 'multi_turtlebot3_simulation'
+#13 1.822 -- ==> add_subdirectory(utility/tb_simulation/multi_turtlebot3_simulation)
+#13 1.947 -- +++ processing catkin package: 'realsense2_description'
+#13 1.947 -- ==> add_subdirectory(utility/tb_simulation/realsense2_description)
+#13 2.076 -- +++ processing catkin package: 'teleop_twist_keyboard'
+#13 2.076 -- ==> add_subdirectory(utility/tb_simulation/teleop_twist_keyboard)
+#13 2.204 -- Installing devel-space wrapper /root/DEFORM/src/utility/tb_simulation/teleop_twist_keyboard/teleop_twist_keyboard.py to /root/DEFORM/devel/lib/teleop_twist_keyboard
+#13 2.205 -- +++ processing catkin package: 'ot_process'
+#13 2.205 -- ==> add_subdirectory(planning/ot_process)
+#13 2.259 -- Using these message generators: gencpp;geneus;genlisp;gennodejs;genpy
+#13 2.409 -- ot_process: 0 messages, 1 services
+#13 2.540 -- Installing devel-space wrapper /root/DEFORM/src/planning/ot_process/scripts/ot_srv.py to /root/DEFORM/devel/lib/ot_process
+#13 2.541 -- +++ processing catkin package: 'plan_env2d'
+#13 2.541 -- ==> add_subdirectory(perception/plan_env2d)
+#13 2.669 -- Found OpenCV: /usr (found version "4.2.0") 
+#13 2.683 -- Checking for module 'eigen3'
+#13 2.711 --   Found eigen3, version 3.3.7
+#13 2.787 -- Found Eigen: /usr/include/eigen3 (Required is at least version "3.1") 
+#13 2.787 -- Eigen found (include: /usr/include/eigen3, version: 3.3.7)
+#13 2.817 -- Found Boost: /usr/include (found suitable version "1.71.0", minimum required is "1.55.0") found components: system filesystem date_time iostreams regex 
+#13 2.838 -- Checking for module 'flann'
+#13 2.867 --   Found flann, version 1.9.1
+#13 2.945 -- Found FLANN: /usr/lib/x86_64-linux-gnu/libflann_cpp.so  
+#13 2.989 -- The imported target "vtkParseOGLExt" references the file
+#13 2.989    "/usr/bin/vtkParseOGLExt-7.1"
+#13 2.989 but this file does not exist.  Possible reasons include:
+#13 2.989 * The file was deleted, renamed, or moved to another location.
+#13 2.989 * An install or uninstall procedure did not complete successfully.
+#13 2.989 * The installation package was faulty and contained
+#13 2.989    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 2.989 but not all the files it references.
+#13 2.989 
+#13 2.990 -- The imported target "vtkRenderingPythonTkWidgets" references the file
+#13 2.990    "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"
+#13 2.990 but this file does not exist.  Possible reasons include:
+#13 2.990 * The file was deleted, renamed, or moved to another location.
+#13 2.990 * An install or uninstall procedure did not complete successfully.
+#13 2.990 * The installation package was faulty and contained
+#13 2.990    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 2.990 but not all the files it references.
+#13 2.990 
+#13 2.990 -- The imported target "vtk" references the file
+#13 2.990    "/usr/bin/vtk"
+#13 2.990 but this file does not exist.  Possible reasons include:
+#13 2.990 * The file was deleted, renamed, or moved to another location.
+#13 2.990 * An install or uninstall procedure did not complete successfully.
+#13 2.990 * The installation package was faulty and contained
+#13 2.990    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 2.990 but not all the files it references.
+#13 2.990 
+#13 2.991 -- The imported target "pvtk" references the file
+#13 2.991    "/usr/bin/pvtk"
+#13 2.991 but this file does not exist.  Possible reasons include:
+#13 2.991 * The file was deleted, renamed, or moved to another location.
+#13 2.991 * An install or uninstall procedure did not complete successfully.
+#13 2.991 * The installation package was faulty and contained
+#13 2.991    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 2.991 but not all the files it references.
+#13 2.991 
+#13 3.008 -- Checking for module 'libusb-1.0'
+#13 3.036 --   Found libusb-1.0, version 1.0.23
+#13 3.111 -- Found USB_10: /usr/lib/x86_64-linux-gnu/libusb-1.0.so  
+#13 3.218 -- Found OpenNI: /usr/lib/libOpenNI.so  
+#13 3.218 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 3.333 -- Found OpenNI2: /usr/lib/libOpenNI2.so  
+#13 3.333 -- OpenNI2 found (include: /usr/include/openni2, lib: /usr/lib/libOpenNI2.so)
+#13 3.333 ** WARNING ** io features related to pcap will be disabled
+#13 3.333 ** WARNING ** io features related to png will be disabled
+#13 3.343 -- Found libusb-1.0: /usr/include  
+#13 3.343 ** WARNING ** io features related to libusb-1.0 will be disabled
+#13 3.349 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 3.355 -- OpenNI2 found (include: /usr/include/openni2, lib: /usr/lib/libOpenNI2.so)
+#13 3.374 -- Found Qhull: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so  
+#13 3.374 -- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)
+#13 3.380 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 3.389 -- looking for PCL_COMMON
+#13 3.390 -- Found PCL_COMMON: /usr/lib/x86_64-linux-gnu/libpcl_common.so  
+#13 3.390 -- looking for PCL_KDTREE
+#13 3.391 -- Found PCL_KDTREE: /usr/lib/x86_64-linux-gnu/libpcl_kdtree.so  
+#13 3.391 -- looking for PCL_OCTREE
+#13 3.392 -- Found PCL_OCTREE: /usr/lib/x86_64-linux-gnu/libpcl_octree.so  
+#13 3.392 -- looking for PCL_SEARCH
+#13 3.392 -- Found PCL_SEARCH: /usr/lib/x86_64-linux-gnu/libpcl_search.so  
+#13 3.393 -- looking for PCL_SAMPLE_CONSENSUS
+#13 3.393 -- Found PCL_SAMPLE_CONSENSUS: /usr/lib/x86_64-linux-gnu/libpcl_sample_consensus.so  
+#13 3.394 -- looking for PCL_FILTERS
+#13 3.394 -- Found PCL_FILTERS: /usr/lib/x86_64-linux-gnu/libpcl_filters.so  
+#13 3.395 -- looking for PCL_2D
+#13 3.395 -- Found PCL_2D: /usr/include/pcl-1.10  
+#13 3.395 -- looking for PCL_GEOMETRY
+#13 3.395 -- Found PCL_GEOMETRY: /usr/include/pcl-1.10  
+#13 3.395 -- looking for PCL_IO
+#13 3.396 -- Found PCL_IO: /usr/lib/x86_64-linux-gnu/libpcl_io.so  
+#13 3.396 -- looking for PCL_FEATURES
+#13 3.397 -- Found PCL_FEATURES: /usr/lib/x86_64-linux-gnu/libpcl_features.so  
+#13 3.397 -- looking for PCL_ML
+#13 3.398 -- Found PCL_ML: /usr/lib/x86_64-linux-gnu/libpcl_ml.so  
+#13 3.398 -- looking for PCL_SEGMENTATION
+#13 3.399 -- Found PCL_SEGMENTATION: /usr/lib/x86_64-linux-gnu/libpcl_segmentation.so  
+#13 3.399 -- looking for PCL_VISUALIZATION
+#13 3.399 -- Found PCL_VISUALIZATION: /usr/lib/x86_64-linux-gnu/libpcl_visualization.so  
+#13 3.400 -- looking for PCL_SURFACE
+#13 3.400 -- Found PCL_SURFACE: /usr/lib/x86_64-linux-gnu/libpcl_surface.so  
+#13 3.401 -- looking for PCL_REGISTRATION
+#13 3.401 -- Found PCL_REGISTRATION: /usr/lib/x86_64-linux-gnu/libpcl_registration.so  
+#13 3.401 -- looking for PCL_KEYPOINTS
+#13 3.402 -- Found PCL_KEYPOINTS: /usr/lib/x86_64-linux-gnu/libpcl_keypoints.so  
+#13 3.402 -- looking for PCL_TRACKING
+#13 3.403 -- Found PCL_TRACKING: /usr/lib/x86_64-linux-gnu/libpcl_tracking.so  
+#13 3.403 -- looking for PCL_RECOGNITION
+#13 3.404 -- Found PCL_RECOGNITION: /usr/lib/x86_64-linux-gnu/libpcl_recognition.so  
+#13 3.404 -- looking for PCL_STEREO
+#13 3.405 -- Found PCL_STEREO: /usr/lib/x86_64-linux-gnu/libpcl_stereo.so  
+#13 3.405 -- looking for PCL_APPS
+#13 3.406 -- Found PCL_APPS: /usr/lib/x86_64-linux-gnu/libpcl_apps.so  
+#13 3.406 -- looking for PCL_IN_HAND_SCANNER
+#13 3.406 -- Found PCL_IN_HAND_SCANNER: /usr/include/pcl-1.10  
+#13 3.407 -- looking for PCL_POINT_CLOUD_EDITOR
+#13 3.407 -- Found PCL_POINT_CLOUD_EDITOR: /usr/include/pcl-1.10  
+#13 3.407 -- looking for PCL_OUTOFCORE
+#13 3.408 -- Found PCL_OUTOFCORE: /usr/lib/x86_64-linux-gnu/libpcl_outofcore.so  
+#13 3.408 -- looking for PCL_PEOPLE
+#13 3.409 -- Found PCL_PEOPLE: /usr/lib/x86_64-linux-gnu/libpcl_people.so  
+#13 3.409 -- Found PCL: pcl_common;pcl_kdtree;pcl_octree;pcl_search;pcl_sample_consensus;pcl_filters;pcl_io;pcl_features;pcl_ml;pcl_segmentation;pcl_visualization;pcl_surface;pcl_registration;pcl_keypoints;pcl_tracking;pcl_recognition;pcl_stereo;pcl_apps;pcl_outofcore;pcl_people;/usr/lib/x86_64-linux-gnu/libboost_system.so;/usr/lib/x86_64-linux-gnu/libboost_filesystem.so;/usr/lib/x86_64-linux-gnu/libboost_date_time.so;/usr/lib/x86_64-linux-gnu/libboost_iostreams.so;/usr/lib/x86_64-linux-gnu/libboost_regex.so;optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so;/usr/lib/libOpenNI.so;/usr/lib/libOpenNI2.so;vtkChartsCore;vtkCommonColor;vtkCommonCore;vtksys;vtkCommonDataModel;vtkCommonMath;vtkCommonMisc;vtkCommonSystem;vtkCommonTransforms;vtkCommonExecutionModel;vtkFiltersGeneral;vtkCommonComputationalGeometry;vtkFiltersCore;vtkInfovisCore;vtkFiltersExtraction;vtkFiltersStatistics;vtkImagingFourier;vtkImagingCore;vtkalglib;vtkRenderingContext2D;vtkRenderingCore;vtkFiltersGeometry;vtkFiltersSources;vtkRenderingFreeType;/usr/lib/x86_64-linux-gnu/libfreetype.so;/usr/lib/x86_64-linux-gnu/libz.so;vtkFiltersModeling;vtkImagingSources;vtkInteractionStyle;vtkInteractionWidgets;vtkFiltersHybrid;vtkImagingColor;vtkImagingGeneral;vtkImagingHybrid;vtkIOImage;vtkDICOMParser;vtkmetaio;/usr/lib/x86_64-linux-gnu/libjpeg.so;/usr/lib/x86_64-linux-gnu/libpng.so;/usr/lib/x86_64-linux-gnu/libtiff.so;vtkRenderingAnnotation;vtkRenderingVolume;vtkIOXML;vtkIOCore;vtkIOXMLParser;/usr/lib/x86_64-linux-gnu/libexpat.so;vtkIOGeometry;vtkIOLegacy;vtkIOPLY;vtkRenderingLOD;vtkViewsContext2D;vtkViewsCore;vtkRenderingContextOpenGL2;vtkRenderingOpenGL2;FLANN::FLANN (Required is at least version "1.7") 
+#13 3.537 -- +++ processing catkin package: 'path_searching2d'
+#13 3.537 -- ==> add_subdirectory(planning/path_searching2d)
+#13 3.550 -- Eigen found (include: /usr/include/eigen3, version: 3.3.7)
+#13 3.627 -- The imported target "vtkParseOGLExt" references the file
+#13 3.627    "/usr/bin/vtkParseOGLExt-7.1"
+#13 3.627 but this file does not exist.  Possible reasons include:
+#13 3.627 * The file was deleted, renamed, or moved to another location.
+#13 3.627 * An install or uninstall procedure did not complete successfully.
+#13 3.627 * The installation package was faulty and contained
+#13 3.627    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 3.627 but not all the files it references.
+#13 3.627 
+#13 3.628 -- The imported target "vtkRenderingPythonTkWidgets" references the file
+#13 3.628    "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"
+#13 3.628 but this file does not exist.  Possible reasons include:
+#13 3.628 * The file was deleted, renamed, or moved to another location.
+#13 3.628 * An install or uninstall procedure did not complete successfully.
+#13 3.628 * The installation package was faulty and contained
+#13 3.628    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 3.628 but not all the files it references.
+#13 3.628 
+#13 3.629 -- The imported target "vtk" references the file
+#13 3.629    "/usr/bin/vtk"
+#13 3.629 but this file does not exist.  Possible reasons include:
+#13 3.629 * The file was deleted, renamed, or moved to another location.
+#13 3.629 * An install or uninstall procedure did not complete successfully.
+#13 3.629 * The installation package was faulty and contained
+#13 3.629    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 3.629 but not all the files it references.
+#13 3.629 
+#13 3.629 -- The imported target "pvtk" references the file
+#13 3.629    "/usr/bin/pvtk"
+#13 3.629 but this file does not exist.  Possible reasons include:
+#13 3.629 * The file was deleted, renamed, or moved to another location.
+#13 3.629 * An install or uninstall procedure did not complete successfully.
+#13 3.629 * The installation package was faulty and contained
+#13 3.629    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 3.629 but not all the files it references.
+#13 3.629 
+#13 3.647 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 3.652 -- OpenNI2 found (include: /usr/include/openni2, lib: /usr/lib/libOpenNI2.so)
+#13 3.653 ** WARNING ** io features related to pcap will be disabled
+#13 3.653 ** WARNING ** io features related to png will be disabled
+#13 3.662 ** WARNING ** io features related to libusb-1.0 will be disabled
+#13 3.669 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 3.675 -- OpenNI2 found (include: /usr/include/openni2, lib: /usr/lib/libOpenNI2.so)
+#13 3.685 -- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)
+#13 3.692 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 3.702 -- looking for PCL_COMMON
+#13 3.703 -- looking for PCL_KDTREE
+#13 3.703 -- looking for PCL_OCTREE
+#13 3.704 -- looking for PCL_SEARCH
+#13 3.704 -- looking for PCL_SAMPLE_CONSENSUS
+#13 3.704 -- looking for PCL_FILTERS
+#13 3.705 -- looking for PCL_2D
+#13 3.705 -- looking for PCL_GEOMETRY
+#13 3.705 -- looking for PCL_IO
+#13 3.706 -- looking for PCL_FEATURES
+#13 3.706 -- looking for PCL_ML
+#13 3.707 -- looking for PCL_SEGMENTATION
+#13 3.707 -- looking for PCL_VISUALIZATION
+#13 3.708 -- looking for PCL_SURFACE
+#13 3.708 -- looking for PCL_REGISTRATION
+#13 3.709 -- looking for PCL_KEYPOINTS
+#13 3.709 -- looking for PCL_TRACKING
+#13 3.710 -- looking for PCL_RECOGNITION
+#13 3.710 -- looking for PCL_STEREO
+#13 3.711 -- looking for PCL_APPS
+#13 3.711 -- looking for PCL_IN_HAND_SCANNER
+#13 3.712 -- looking for PCL_POINT_CLOUD_EDITOR
+#13 3.712 -- looking for PCL_OUTOFCORE
+#13 3.712 -- looking for PCL_PEOPLE
+#13 3.939 -- +++ processing catkin package: 'path_opti'
+#13 3.939 -- ==> add_subdirectory(planning/path_opti)
+#13 4.175 -- +++ processing catkin package: 'plan_rrt'
+#13 4.175 -- ==> add_subdirectory(planning/plan_rrt)
+#13 4.398 -- +++ processing catkin package: 'to_visualize'
+#13 4.398 -- ==> add_subdirectory(utility/to_visualize)
+#13 4.501 -- Eigen found (include: /usr/include/eigen3, version: 3.3.7)
+#13 4.573 -- The imported target "vtkParseOGLExt" references the file
+#13 4.573    "/usr/bin/vtkParseOGLExt-7.1"
+#13 4.573 but this file does not exist.  Possible reasons include:
+#13 4.573 * The file was deleted, renamed, or moved to another location.
+#13 4.573 * An install or uninstall procedure did not complete successfully.
+#13 4.573 * The installation package was faulty and contained
+#13 4.573    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 4.573 but not all the files it references.
+#13 4.573 
+#13 4.574 -- The imported target "vtkRenderingPythonTkWidgets" references the file
+#13 4.574    "/usr/lib/x86_64-linux-gnu/libvtkRenderingPythonTkWidgets.so"
+#13 4.574 but this file does not exist.  Possible reasons include:
+#13 4.574 * The file was deleted, renamed, or moved to another location.
+#13 4.574 * An install or uninstall procedure did not complete successfully.
+#13 4.574 * The installation package was faulty and contained
+#13 4.574    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 4.574 but not all the files it references.
+#13 4.574 
+#13 4.575 -- The imported target "vtk" references the file
+#13 4.575    "/usr/bin/vtk"
+#13 4.575 but this file does not exist.  Possible reasons include:
+#13 4.575 * The file was deleted, renamed, or moved to another location.
+#13 4.575 * An install or uninstall procedure did not complete successfully.
+#13 4.575 * The installation package was faulty and contained
+#13 4.575    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 4.575 but not all the files it references.
+#13 4.575 
+#13 4.575 -- The imported target "pvtk" references the file
+#13 4.575    "/usr/bin/pvtk"
+#13 4.575 but this file does not exist.  Possible reasons include:
+#13 4.575 * The file was deleted, renamed, or moved to another location.
+#13 4.575 * An install or uninstall procedure did not complete successfully.
+#13 4.575 * The installation package was faulty and contained
+#13 4.575    "/usr/lib/cmake/vtk-7.1/VTKTargets.cmake"
+#13 4.575 but not all the files it references.
+#13 4.575 
+#13 4.592 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 4.599 -- OpenNI2 found (include: /usr/include/openni2, lib: /usr/lib/libOpenNI2.so)
+#13 4.599 ** WARNING ** io features related to pcap will be disabled
+#13 4.599 ** WARNING ** io features related to png will be disabled
+#13 4.608 ** WARNING ** io features related to libusb-1.0 will be disabled
+#13 4.614 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 4.620 -- OpenNI2 found (include: /usr/include/openni2, lib: /usr/lib/libOpenNI2.so)
+#13 4.630 -- QHULL found (include: /usr/include, lib: optimized;/usr/lib/x86_64-linux-gnu/libqhull.so;debug;/usr/lib/x86_64-linux-gnu/libqhull.so)
+#13 4.638 -- OpenNI found (include: /usr/include/ni, lib: /usr/lib/libOpenNI.so)
+#13 4.647 -- looking for PCL_COMMON
+#13 4.647 -- looking for PCL_KDTREE
+#13 4.648 -- looking for PCL_OCTREE
+#13 4.648 -- looking for PCL_SEARCH
+#13 4.648 -- looking for PCL_SAMPLE_CONSENSUS
+#13 4.649 -- looking for PCL_FILTERS
+#13 4.649 -- looking for PCL_2D
+#13 4.650 -- looking for PCL_GEOMETRY
+#13 4.650 -- looking for PCL_IO
+#13 4.650 -- looking for PCL_FEATURES
+#13 4.651 -- looking for PCL_ML
+#13 4.651 -- looking for PCL_SEGMENTATION
+#13 4.652 -- looking for PCL_VISUALIZATION
+#13 4.652 -- looking for PCL_SURFACE
+#13 4.653 -- looking for PCL_REGISTRATION
+#13 4.653 -- looking for PCL_KEYPOINTS
+#13 4.654 -- looking for PCL_TRACKING
+#13 4.654 -- looking for PCL_RECOGNITION
+#13 4.655 -- looking for PCL_STEREO
+#13 4.655 -- looking for PCL_APPS
+#13 4.656 -- looking for PCL_IN_HAND_SCANNER
+#13 4.656 -- looking for PCL_POINT_CLOUD_EDITOR
+#13 4.656 -- looking for PCL_OUTOFCORE
+#13 4.657 -- looking for PCL_PEOPLE
+#13 4.787 -- +++ processing catkin package: 'drone_detect'
+#13 4.787 -- ==> add_subdirectory(perception/drone_detect)
+#13 4.914 -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.71.0/BoostConfig.cmake (found version "1.71.0")  
+#13 4.957 CMake Warning at /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:166 (message):
+#13 4.957   catkin_package() DEPENDS on 'Eigen' but neither 'Eigen_INCLUDE_DIRS' nor
+#13 4.957   'Eigen_LIBRARIES' is defined.
+#13 4.957 Call Stack (most recent call first):
+#13 4.957   /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:102 (_catkin_package)
+#13 4.957   perception/drone_detect/CMakeLists.txt:32 (catkin_package)
+#13 4.957 
+#13 4.957 
+#13 5.056 -- +++ processing catkin package: 'f1tenth_deform_bridge'
+#13 5.056 -- ==> add_subdirectory(utility/f1tenth_deform_bridge)
+#13 5.078 -- Using these message generators: gencpp;geneus;genlisp;gennodejs;genpy
+#13 5.331 -- Installing devel-space wrapper /root/DEFORM/src/utility/f1tenth_deform_bridge/scripts/f1tenth_bridge_node.py to /root/DEFORM/devel/lib/f1tenth_deform_bridge
+#13 5.332 -- +++ processing catkin package: 'realsense_gazebo_plugin'
+#13 5.332 -- ==> add_subdirectory(utility/tb_simulation/realsense_gazebo_plugin)
+#13 5.360 WARNING: package 'gazebo_ros' is deprecated (This package has been deprecated as of January 2025 with Gazebo classic 11 reaching
+#13 5.360       end-of-life. Users are highly encouraged to migrate to the new Gazebo
+#13 5.360       using our migration guides (https://gazebosim.org/docs/latest/gazebo_classic_migration))
+#13 5.394 -- Using these message generators: gencpp;geneus;genlisp;gennodejs;genpy
+#13 5.432 WARNING: package 'gazebo_msgs' is deprecated (This package has been deprecated as of January 2025 with Gazebo classic 11 reaching
+#13 5.432       end-of-life. Users are highly encouraged to migrate to the new Gazebo
+#13 5.432       using our migration guides (https://gazebosim.org/docs/latest/gazebo_classic_migration))
+#13 5.540 -- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.1") 
+#13 5.542 -- Checking for module 'bullet>=2.82'
+#13 5.573 --   Found bullet, version 2.88
+#13 5.792 -- Found ccd: /usr/include (found suitable version "2.0", minimum required is "2.0") 
+#13 5.910 -- Found fcl: /usr/include (found suitable version "0.5.0", minimum required is "0.3.2") 
+#13 6.023 -- Found assimp: /usr/include (found version "5.0.0") 
+#13 6.041 -- Found DART: /usr/include (Required is at least version "6.6") found components: dart 
+#13 6.068 -- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.71.0/BoostConfig.cmake (found suitable version "1.71.0", minimum required is "1.40.0") found components: thread system filesystem program_options regex iostreams date_time 
+#13 6.084 -- Found Protobuf: /usr/lib/x86_64-linux-gnu/libprotobuf.so;-lpthread (found version "3.6.1") 
+#13 6.089 -- Looking for ignition-math6 -- found version 6.15.1
+#13 6.094 -- Searching for dependencies of ignition-math6
+#13 6.095 -- Looking for OGRE...
+#13 6.096 -- OGRE_PREFIX_WATCH changed.
+#13 6.102 -- Checking for module 'OGRE'
+#13 6.135 --   Found OGRE, version 1.9.0
+#13 6.220 -- Found Ogre Ghadamon (1.9.0)
+#13 6.226 -- Found OGRE: optimized;/usr/lib/x86_64-linux-gnu/libOgreMain.so;debug;/usr/lib/x86_64-linux-gnu/libOgreMain.so
+#13 6.235 -- Looking for OGRE_Paging...
+#13 6.238 -- Found OGRE_Paging: optimized;/usr/lib/x86_64-linux-gnu/libOgrePaging.so;debug;/usr/lib/x86_64-linux-gnu/libOgrePaging.so
+#13 6.238 -- Looking for OGRE_Terrain...
+#13 6.242 -- Found OGRE_Terrain: optimized;/usr/lib/x86_64-linux-gnu/libOgreTerrain.so;debug;/usr/lib/x86_64-linux-gnu/libOgreTerrain.so
+#13 6.242 -- Looking for OGRE_Property...
+#13 6.245 -- Found OGRE_Property: optimized;/usr/lib/x86_64-linux-gnu/libOgreProperty.so;debug;/usr/lib/x86_64-linux-gnu/libOgreProperty.so
+#13 6.246 -- Looking for OGRE_RTShaderSystem...
+#13 6.249 -- Found OGRE_RTShaderSystem: optimized;/usr/lib/x86_64-linux-gnu/libOgreRTShaderSystem.so;debug;/usr/lib/x86_64-linux-gnu/libOgreRTShaderSystem.so
+#13 6.249 -- Looking for OGRE_Volume...
+#13 6.253 -- Found OGRE_Volume: optimized;/usr/lib/x86_64-linux-gnu/libOgreVolume.so;debug;/usr/lib/x86_64-linux-gnu/libOgreVolume.so
+#13 6.253 -- Looking for OGRE_Overlay...
+#13 6.256 -- Found OGRE_Overlay: optimized;/usr/lib/x86_64-linux-gnu/libOgreOverlay.so;debug;/usr/lib/x86_64-linux-gnu/libOgreOverlay.so
+#13 6.333 -- Looking for ignition-math6 -- found version 6.15.1
+#13 6.335 -- Looking for ignition-transport8 -- found version 8.5.0
+#13 6.336 -- Searching for dependencies of ignition-transport8
+#13 6.373 -- Config-file not installed for ZeroMQ -- checking for pkg-config
+#13 6.378 -- Checking for module 'libzmq >= 4'
+#13 6.408 --   Found libzmq , version 4.3.2
+#13 6.487 -- Found ZeroMQ: TRUE (Required is at least version "4") 
+#13 6.494 -- Checking for module 'uuid'
+#13 6.523 --   Found uuid, version 2.34.0
+#13 6.602 -- Found UUID: TRUE  
+#13 6.604 -- Looking for ignition-msgs5 -- found version 5.11.0
+#13 6.605 -- Searching for dependencies of ignition-msgs5
+#13 6.628 -- Found Protobuf: /usr/lib/x86_64-linux-gnu/libprotobuf.so;-lpthread (found suitable version "3.6.1", minimum required is "3") 
+#13 6.628 -- Looking for ignition-math6 -- found version 6.15.1
+#13 6.634 -- Checking for module 'tinyxml2'
+#13 6.669 --   Found tinyxml2, version 6.2.0
+#13 6.758 -- Looking for ignition-msgs5 -- found version 5.11.0
+#13 6.760 -- Looking for ignition-common3 -- found version 3.17.0
+#13 6.760 -- Searching for dependencies of ignition-common3
+#13 6.761 -- Looking for dlfcn.h - found
+#13 6.761 -- Looking for libdl - found
+#13 6.762 -- Found DL: TRUE  
+#13 6.770 -- Searching for <ignition-common3> component [graphics]
+#13 6.772 -- Looking for ignition-common3-graphics -- found version 3.17.0
+#13 6.773 -- Searching for dependencies of ignition-common3-graphics
+#13 6.773 -- Looking for ignition-math6 -- found version 6.15.1
+#13 6.776 -- Looking for ignition-fuel_tools4 -- found version 4.9.1
+#13 6.776 -- Searching for dependencies of ignition-fuel_tools4
+#13 6.912 -- Found CURL: /usr/lib/x86_64-linux-gnu/libcurl.so (found version "7.68.0")  
+#13 6.921 -- Checking for module 'jsoncpp'
+#13 6.956 --   Found jsoncpp, version 1.7.4
+#13 7.038 -- Found JSONCPP: TRUE  
+#13 7.058 -- Checking for module 'yaml-0.1'
+#13 7.087 --   Found yaml-0.1, version 0.2.2
+#13 7.170 -- Found YAML: TRUE  
+#13 7.176 -- Checking for module 'libzip'
+#13 7.209 --   Found libzip, version 1.5.1
+#13 7.293 -- Found ZIP: TRUE  
+#13 7.294 -- Looking for ignition-common3 -- found version 3.17.0
+#13 7.294 -- Looking for ignition-math6 -- found version 6.15.1
+#13 7.294 -- Looking for ignition-msgs5 -- found version 5.11.0
+#13 7.424 -- +++ processing catkin package: 'traj_opti'
+#13 7.424 -- ==> add_subdirectory(control/traj_opti)
+#13 7.557 CMake Warning at /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:166 (message):
+#13 7.557   catkin_package() DEPENDS on 'casadi' but neither 'casadi_INCLUDE_DIRS' nor
+#13 7.557   'casadi_LIBRARIES' is defined.
+#13 7.557 Call Stack (most recent call first):
+#13 7.557   /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:102 (_catkin_package)
+#13 7.557   control/traj_opti/CMakeLists.txt:12 (catkin_package)
+#13 7.557 
+#13 7.557 
+#13 7.645 -- +++ processing catkin package: 'turtlebot3_teleop'
+#13 7.645 -- ==> add_subdirectory(utility/tb_simulation/turtlebot3/turtlebot3_teleop)
+#13 8.088 -- Installing devel-space wrapper /root/DEFORM/src/utility/tb_simulation/turtlebot3/turtlebot3_teleop/nodes/turtlebot3_teleop_key to /root/DEFORM/devel/lib/turtlebot3_teleop
+#13 8.089 -- +++ processing catkin package: 'width_check'
+#13 8.089 -- ==> add_subdirectory(planning/width_check)
+#13 8.256 CMake Warning at /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:166 (message):
+#13 8.256   catkin_package() DEPENDS on 'casadi' but neither 'casadi_INCLUDE_DIRS' nor
+#13 8.256   'casadi_LIBRARIES' is defined.
+#13 8.256 Call Stack (most recent call first):
+#13 8.256   /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:102 (_catkin_package)
+#13 8.256   planning/width_check/CMakeLists.txt:113 (catkin_package)
+#13 8.256 
+#13 8.256 
+#13 8.350 -- +++ processing catkin package: 'plan_manager'
+#13 8.350 -- ==> add_subdirectory(plan_manager)
+#13 8.443 -- Using these message generators: gencpp;geneus;genlisp;gennodejs;genpy
+#13 8.610 -- plan_manager: 2 messages, 0 services
+#13 8.745 -- +++ processing catkin package: 'turtlebot3_description'
+#13 8.745 -- ==> add_subdirectory(utility/tb_simulation/turtlebot3/turtlebot3_description)
+#13 8.989 -- Configuring done
+#13 9.313 -- Generating done
+#13 9.329 -- Build files have been written to: /root/DEFORM/build
+#13 9.405 Scanning dependencies of target sensor_msgs_generate_messages_py
+#13 9.405 Scanning dependencies of target geometry_msgs_generate_messages_eus
+#13 9.405 Scanning dependencies of target geometry_msgs_generate_messages_py
+#13 9.405 Scanning dependencies of target std_msgs_generate_messages_lisp
+#13 9.405 Scanning dependencies of target std_msgs_generate_messages_eus
+#13 9.405 Scanning dependencies of target _ot_process_generate_messages_check_deps_OtTransmit
+#13 9.405 Scanning dependencies of target std_msgs_generate_messages_py
+#13 9.405 Scanning dependencies of target geometry_msgs_generate_messages_cpp
+#13 9.405 Scanning dependencies of target geometry_msgs_generate_messages_nodejs
+#13 9.405 Scanning dependencies of target std_msgs_generate_messages_cpp
+#13 9.405 Scanning dependencies of target std_msgs_generate_messages_nodejs
+#13 9.405 Scanning dependencies of target geometry_msgs_generate_messages_lisp
+#13 9.405 Scanning dependencies of target rosgraph_msgs_generate_messages_py
+#13 9.413 Scanning dependencies of target ot_process
+#13 9.419 [  0%] Built target geometry_msgs_generate_messages_nodejs
+#13 9.419 [  0%] Built target geometry_msgs_generate_messages_lisp
+#13 9.419 [  0%] Built target std_msgs_generate_messages_py
+#13 9.419 [  0%] Built target geometry_msgs_generate_messages_cpp
+#13 9.419 [  0%] Built target std_msgs_generate_messages_cpp
+#13 9.419 [  0%] Built target std_msgs_generate_messages_lisp
+#13 9.419 [  0%] Built target geometry_msgs_generate_messages_eus
+#13 9.420 [  0%] Built target geometry_msgs_generate_messages_py
+#13 9.420 [  0%] Built target std_msgs_generate_messages_nodejs
+#13 9.420 [  0%] Built target std_msgs_generate_messages_eus
+#13 9.420 [  0%] Built target rosgraph_msgs_generate_messages_py
+#13 9.420 [  0%] Built target sensor_msgs_generate_messages_py
+#13 9.432 [  2%] Building CXX object planning/ot_process/CMakeFiles/ot_process.dir/src/ot_client.cpp.o
+#13 9.435 Scanning dependencies of target rosgraph_msgs_generate_messages_eus
+#13 9.435 Scanning dependencies of target rosgraph_msgs_generate_messages_cpp
+#13 9.435 Scanning dependencies of target rosgraph_msgs_generate_messages_lisp
+#13 9.435 Scanning dependencies of target roscpp_generate_messages_lisp
+#13 9.435 Scanning dependencies of target roscpp_generate_messages_nodejs
+#13 9.435 Scanning dependencies of target roscpp_generate_messages_eus
+#13 9.435 Scanning dependencies of target roscpp_generate_messages_cpp
+#13 9.435 Scanning dependencies of target rosgraph_msgs_generate_messages_nodejs
+#13 9.435 Scanning dependencies of target roscpp_generate_messages_py
+#13 9.440 Scanning dependencies of target sensor_msgs_generate_messages_lisp
+#13 9.440 Scanning dependencies of target sensor_msgs_generate_messages_cpp
+#13 9.440 Scanning dependencies of target sensor_msgs_generate_messages_eus
+#13 9.449 [  2%] Built target roscpp_generate_messages_lisp
+#13 9.449 [  2%] Built target roscpp_generate_messages_nodejs
+#13 9.449 [  2%] Built target rosgraph_msgs_generate_messages_lisp
+#13 9.449 [  2%] Built target rosgraph_msgs_generate_messages_cpp
+#13 9.450 [  2%] Built target rosgraph_msgs_generate_messages_eus
+#13 9.450 [  2%] Built target roscpp_generate_messages_cpp
+#13 9.450 [  2%] Built target roscpp_generate_messages_eus
+#13 9.450 [  2%] Built target rosgraph_msgs_generate_messages_nodejs
+#13 9.454 [  2%] Built target sensor_msgs_generate_messages_lisp
+#13 9.454 [  2%] Built target sensor_msgs_generate_messages_cpp
+#13 9.455 [  2%] Built target sensor_msgs_generate_messages_eus
+#13 9.457 [  2%] Built target roscpp_generate_messages_py
+#13 9.461 Scanning dependencies of target to_visualize
+#13 9.463 [  2%] Built target _ot_process_generate_messages_check_deps_OtTransmit
+#13 9.464 Scanning dependencies of target actionlib_generate_messages_lisp
+#13 9.464 Scanning dependencies of target sensor_msgs_generate_messages_nodejs
+#13 9.464 Scanning dependencies of target actionlib_generate_messages_cpp
+#13 9.464 Scanning dependencies of target tf_generate_messages_cpp
+#13 9.464 Scanning dependencies of target tf2_msgs_generate_messages_lisp
+#13 9.464 Scanning dependencies of target actionlib_msgs_generate_messages_py
+#13 9.464 Scanning dependencies of target gazebo_msgs_generate_messages_lisp
+#13 9.466 Scanning dependencies of target actionlib_generate_messages_eus
+#13 9.471 Scanning dependencies of target actionlib_msgs_generate_messages_eus
+#13 9.471 Scanning dependencies of target actionlib_msgs_generate_messages_cpp
+#13 9.472 Scanning dependencies of target actionlib_generate_messages_nodejs
+#13 9.476 Scanning dependencies of target actionlib_msgs_generate_messages_lisp
+#13 9.479 [  2%] Built target actionlib_generate_messages_lisp
+#13 9.479 [  2%] Built target sensor_msgs_generate_messages_nodejs
+#13 9.479 [  2%] Built target actionlib_generate_messages_cpp
+#13 9.479 [  2%] Built target gazebo_msgs_generate_messages_lisp
+#13 9.479 [  2%] Built target tf_generate_messages_cpp
+#13 9.479 [  2%] Built target actionlib_msgs_generate_messages_py
+#13 9.479 [  2%] Built target tf2_msgs_generate_messages_lisp
+#13 9.480 Scanning dependencies of target actionlib_msgs_generate_messages_nodejs
+#13 9.482 [  2%] Built target actionlib_generate_messages_eus
+#13 9.486 [  4%] Built target actionlib_msgs_generate_messages_cpp
+#13 9.486 [  4%] Building CXX object utility/to_visualize/CMakeFiles/to_visualize.dir/src/toVisualize.cpp.o
+#13 9.488 [  4%] Built target actionlib_msgs_generate_messages_eus
+#13 9.492 [  4%] Built target actionlib_generate_messages_nodejs
+#13 9.492 [  4%] Built target actionlib_msgs_generate_messages_lisp
+#13 9.493 Scanning dependencies of target tf_generate_messages_py
+#13 9.493 Scanning dependencies of target actionlib_generate_messages_py
+#13 9.493 Scanning dependencies of target tf2_msgs_generate_messages_cpp
+#13 9.494 Scanning dependencies of target tf_generate_messages_eus
+#13 9.494 Scanning dependencies of target tf2_msgs_generate_messages_py
+#13 9.495 Scanning dependencies of target plan_env2d
+#13 9.495 [  4%] Built target actionlib_msgs_generate_messages_nodejs
+#13 9.495 Scanning dependencies of target tf2_msgs_generate_messages_nodejs
+#13 9.499 Scanning dependencies of target tf_generate_messages_lisp
+#13 9.499 Scanning dependencies of target tf_generate_messages_nodejs
+#13 9.504 Scanning dependencies of target tf2_msgs_generate_messages_eus
+#13 9.506 Scanning dependencies of target gazebo_msgs_generate_messages_cpp
+#13 9.507 Scanning dependencies of target dynamic_reconfigure_generate_messages_nodejs
+#13 9.508 [  4%] Built target tf2_msgs_generate_messages_cpp
+#13 9.509 [  4%] Built target tf_generate_messages_py
+#13 9.509 [  4%] Built target actionlib_generate_messages_py
+#13 9.509 [  4%] Built target tf_generate_messages_eus
+#13 9.509 [  4%] Built target tf2_msgs_generate_messages_py
+#13 9.512 [  4%] Built target tf2_msgs_generate_messages_nodejs
+#13 9.513 Scanning dependencies of target std_srvs_generate_messages_lisp
+#13 9.513 Scanning dependencies of target dynamic_reconfigure_generate_messages_lisp
+#13 9.517 [  4%] Built target tf_generate_messages_lisp
+#13 9.518 [  4%] Built target tf_generate_messages_nodejs
+#13 9.518 [  4%] Built target tf2_msgs_generate_messages_eus
+#13 9.521 [  4%] Built target gazebo_msgs_generate_messages_cpp
+#13 9.523 Scanning dependencies of target std_srvs_generate_messages_py
+#13 9.523 Scanning dependencies of target dynamic_reconfigure_generate_messages_py
+#13 9.523 Scanning dependencies of target dynamic_reconfigure_gencfg
+#13 9.523 Scanning dependencies of target dynamic_reconfigure_generate_messages_eus
+#13 9.525 [  4%] Built target dynamic_reconfigure_generate_messages_nodejs
+#13 9.526 [  6%] Building CXX object perception/plan_env2d/CMakeFiles/plan_env2d.dir/src/grid_map.cpp.o
+#13 9.526 [  6%] Built target std_srvs_generate_messages_lisp
+#13 9.527 Scanning dependencies of target gazebo_ros_gencfg
+#13 9.527 [  6%] Built target dynamic_reconfigure_generate_messages_lisp
+#13 9.531 [  8%] Building CXX object perception/plan_env2d/CMakeFiles/plan_env2d.dir/src/raycast.cpp.o
+#13 9.532 Scanning dependencies of target std_srvs_generate_messages_nodejs
+#13 9.537 [  8%] Built target std_srvs_generate_messages_py
+#13 9.538 [  8%] Built target dynamic_reconfigure_generate_messages_py
+#13 9.539 Scanning dependencies of target gazebo_msgs_generate_messages_eus
+#13 9.539 Scanning dependencies of target std_srvs_generate_messages_eus
+#13 9.539 [  8%] Built target dynamic_reconfigure_gencfg
+#13 9.539 [  8%] Built target dynamic_reconfigure_generate_messages_eus
+#13 9.541 Scanning dependencies of target trajectory_msgs_generate_messages_eus
+#13 9.541 Scanning dependencies of target trajectory_msgs_generate_messages_cpp
+#13 9.541 [  8%] Built target gazebo_ros_gencfg
+#13 9.542 Scanning dependencies of target gazebo_msgs_generate_messages_nodejs
+#13 9.548 Scanning dependencies of target trajectory_msgs_generate_messages_nodejs
+#13 9.550 [  8%] Built target std_srvs_generate_messages_nodejs
+#13 9.553 Scanning dependencies of target std_srvs_generate_messages_cpp
+#13 9.555 [  8%] Built target gazebo_msgs_generate_messages_eus
+#13 9.555 [  8%] Built target std_srvs_generate_messages_eus
+#13 9.555 [  8%] Built target trajectory_msgs_generate_messages_cpp
+#13 9.556 Scanning dependencies of target dynamic_reconfigure_generate_messages_cpp
+#13 9.556 Scanning dependencies of target trajectory_msgs_generate_messages_lisp
+#13 9.556 Scanning dependencies of target trajectory_msgs_generate_messages_py
+#13 9.556 Scanning dependencies of target gazebo_msgs_generate_messages_py
+#13 9.561 [  8%] Built target gazebo_msgs_generate_messages_nodejs
+#13 9.561 [  8%] Built target trajectory_msgs_generate_messages_eus
+#13 9.567 [  8%] Built target trajectory_msgs_generate_messages_nodejs
+#13 9.569 [  8%] Built target std_srvs_generate_messages_cpp
+#13 9.570 Scanning dependencies of target _plan_manager_generate_messages_check_deps_widthInfo
+#13 9.570 Scanning dependencies of target turtlebot3_description_xacro_generated_to_devel_space_
+#13 9.570 [  8%] Built target dynamic_reconfigure_generate_messages_cpp
+#13 9.570 Scanning dependencies of target _plan_manager_generate_messages_check_deps_RotationVec
+#13 9.571 [  8%] Built target gazebo_msgs_generate_messages_py
+#13 9.571 [  8%] Built target trajectory_msgs_generate_messages_lisp
+#13 9.573 [  8%] Built target trajectory_msgs_generate_messages_py
+#13 9.577 Scanning dependencies of target ot_process_generate_messages_py
+#13 9.577 Scanning dependencies of target ot_process_generate_messages_nodejs
+#13 9.583 Scanning dependencies of target ot_process_generate_messages_lisp
+#13 9.585 Scanning dependencies of target ot_process_generate_messages_cpp
+#13 9.586 [  8%] Built target turtlebot3_description_xacro_generated_to_devel_space_
+#13 9.587 Scanning dependencies of target ot_process_generate_messages_eus
+#13 9.589 [ 11%] Generating Javascript code from ot_process/OtTransmit.srv
+#13 9.592 [ 13%] Generating Python code from SRV ot_process/OtTransmit
+#13 9.601 [ 15%] Generating Lisp code from ot_process/OtTransmit.srv
+#13 9.601 [ 17%] Generating EusLisp manifest code for ot_process
+#13 9.602 [ 20%] Generating C++ code from ot_process/OtTransmit.srv
+#13 9.603 [ 22%] Generating EusLisp code from ot_process/OtTransmit.srv
+#13 9.616 Scanning dependencies of target traj_opti
+#13 9.634 [ 22%] Built target _plan_manager_generate_messages_check_deps_widthInfo
+#13 9.635 [ 22%] Built target _plan_manager_generate_messages_check_deps_RotationVec
+#13 9.641 [ 24%] Building CXX object control/traj_opti/CMakeFiles/traj_opti.dir/src/traj_opti.cpp.o
+#13 9.651 [ 24%] Built target ot_process_generate_messages_nodejs
+#13 9.652 Scanning dependencies of target plan_manager_generate_messages_py
+#13 9.652 Scanning dependencies of target plan_manager_generate_messages_cpp
+#13 9.653 Scanning dependencies of target plan_manager_generate_messages_eus
+#13 9.668 [ 26%] Generating Python from MSG plan_manager/RotationVec
+#13 9.668 Scanning dependencies of target plan_manager_generate_messages_nodejs
+#13 9.668 [ 28%] Generating C++ code from plan_manager/RotationVec.msg
+#13 9.669 [ 31%] Generating EusLisp code from plan_manager/RotationVec.msg
+#13 9.675 Scanning dependencies of target drone_detect
+#13 9.678 [ 31%] Built target ot_process_generate_messages_lisp
+#13 9.705 [ 33%] Generating EusLisp code from plan_manager/widthInfo.msg
+#13 9.722 [ 35%] Generating Javascript code from plan_manager/RotationVec.msg
+#13 9.730 [ 37%] Building CXX object perception/drone_detect/CMakeFiles/drone_detect.dir/src/drone_detect_node.cpp.o
+#13 9.775 Scanning dependencies of target realsense_gazebo_plugin
+#13 9.786 Scanning dependencies of target plan_manager_generate_messages_lisp
+#13 9.831 [ 40%] Generating Lisp code from plan_manager/RotationVec.msg
+#13 9.835 [ 42%] Generating Python srv __init__.py for ot_process
+#13 9.844 [ 44%] Building CXX object utility/tb_simulation/realsense_gazebo_plugin/CMakeFiles/realsense_gazebo_plugin.dir/src/RealSensePlugin.cpp.o
+#13 9.852 [ 46%] Generating Lisp code from plan_manager/widthInfo.msg
+#13 9.854 [ 48%] Generating Javascript code from plan_manager/widthInfo.msg
+#13 9.877 [ 51%] Generating Python from MSG plan_manager/widthInfo
+#13 9.883 [ 51%] Built target ot_process_generate_messages_cpp
+#13 9.894 [ 53%] Generating EusLisp manifest code for plan_manager
+#13 9.902 [ 55%] Generating C++ code from plan_manager/widthInfo.msg
+#13 9.911 [ 57%] Building CXX object perception/drone_detect/CMakeFiles/drone_detect.dir/src/drone_detector.cpp.o
+#13 9.927 [ 57%] Built target plan_manager_generate_messages_nodejs
+#13 9.929 [ 60%] Building CXX object utility/tb_simulation/realsense_gazebo_plugin/CMakeFiles/realsense_gazebo_plugin.dir/src/gazebo_ros_realsense.cpp.o
+#13 9.942 [ 60%] Built target plan_manager_generate_messages_lisp
+#13 10.08 [ 60%] Built target ot_process_generate_messages_py
+#13 10.09 [ 60%] Built target plan_manager_generate_messages_cpp
+#13 10.13 [ 62%] Generating Python msg __init__.py for plan_manager
+#13 10.35 [ 62%] Built target plan_manager_generate_messages_py
+#13 10.39 [ 62%] Built target ot_process_generate_messages_eus
+#13 10.40 Scanning dependencies of target ot_process_generate_messages
+#13 10.42 [ 62%] Built target ot_process_generate_messages
+#13 10.57 [ 62%] Built target plan_manager_generate_messages_eus
+#13 10.58 Scanning dependencies of target plan_manager_generate_messages
+#13 10.60 [ 62%] Built target plan_manager_generate_messages
+#13 12.94 [ 64%] Linking CXX shared library /root/DEFORM/devel/lib/libot_process.so
+#13 13.07 [ 64%] Built target ot_process
+#13 14.72 [ 66%] Linking CXX shared library /root/DEFORM/devel/lib/libtraj_opti.so
+#13 14.85 [ 66%] Built target traj_opti
+#13 15.46 /root/DEFORM/src/perception/plan_env2d/src/grid_map.cpp: In member function ‘void GridMap::cloudCallback(const PointCloud2ConstPtr&)’:
+#13 15.46 /root/DEFORM/src/perception/plan_env2d/src/grid_map.cpp:772:21: warning: variable ‘devi’ set but not used [-Wunused-but-set-variable]
+#13 15.46   772 |     Eigen::Vector2d devi = p2d - camera_pos_two;
+#13 15.46       |                     ^~~~
+#13 15.46 /root/DEFORM/src/perception/plan_env2d/src/grid_map.cpp:752:7: warning: unused variable ‘inf_step’ [-Wunused-variable]
+#13 15.46   752 |   int inf_step = ceil(mp_.obstacles_inflation_ / mp_.resolution_);
+#13 15.46       |       ^~~~~~~~
+#13 15.99 [ 68%] Linking CXX shared library /root/DEFORM/devel/lib/libto_visualize.so
+#13 16.30 [ 68%] Built target to_visualize
+#13 18.46 [ 71%] Linking CXX executable /root/DEFORM/devel/lib/drone_detect/drone_detect
+#13 18.92 [ 71%] Built target drone_detect
+#13 26.97 [ 73%] Linking CXX shared library /root/DEFORM/devel/lib/librealsense_gazebo_plugin.so
+#13 27.32 [ 73%] Built target realsense_gazebo_plugin
+#13 33.86 [ 75%] Linking CXX shared library /root/DEFORM/devel/lib/libplan_env2d.so
+#13 34.28 [ 75%] Built target plan_env2d
+#13 34.34 Scanning dependencies of target path_searching2d
+#13 34.34 Scanning dependencies of target width_check
+#13 34.34 Scanning dependencies of target plan_rrt
+#13 34.36 [ 77%] Building CXX object planning/path_searching2d/CMakeFiles/path_searching2d.dir/src/dyn_a_star.cpp.o
+#13 34.36 [ 80%] Building CXX object planning/plan_rrt/CMakeFiles/plan_rrt.dir/src/plan_rrt.cpp.o
+#13 34.36 [ 82%] Building CXX object planning/width_check/CMakeFiles/width_check.dir/src/find_width.cpp.o
+#13 38.73 In file included from /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/plan_rrt.h:10,
+#13 38.73                  from /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:1:
+#13 38.73 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h: In member function ‘void ShowInfoRRT::showPath(const std::vector<Eigen::Matrix<double, 2, 1> >&)’:
+#13 38.73 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:44:24: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Eigen::Matrix<double, 2, 1> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 38.73    44 |   for(int idx = 0; idx < path.size(); idx++) {
+#13 38.73       |                    ~~~~^~~~~~~~~~~~~
+#13 38.73 In file included from /opt/ros/noetic/include/ros/ros.h:40,
+#13 38.73                  from /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/plan_rrt.h:5,
+#13 38.73                  from /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:1:
+#13 38.73 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h: In member function ‘void ShowInfoRRT::showCircle(const std::vector<Eigen::Matrix<double, 3, 1> >&)’:
+#13 38.73 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:12: warning: format ‘%d’ expects argument of type ‘int’, but argument 8 has type ‘std::vector<Eigen::Matrix<double, 3, 1> >::size_type’ {aka ‘long unsigned int’} [-Wformat=]
+#13 38.73    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 38.73       |            ^~~~~~~~~~~~~  ~~~~~~~~~~~~~~
+#13 38.73       |                                       |
+#13 38.73       |                                       std::vector<Eigen::Matrix<double, 3, 1> >::size_type {aka long unsigned int}
+#13 38.73 /opt/ros/noetic/include/ros/console.h:351:165: note: in definition of macro ‘ROSCONSOLE_PRINT_AT_LOCATION_WITH_FILTER’
+#13 38.73   351 |     ::ros::console::print(filter, __rosconsole_define_location__loc.logger_, __rosconsole_define_location__loc.level_, __FILE__, __LINE__, __ROSCONSOLE_FUNCTION__, __VA_ARGS__)
+#13 38.73       |                                                                                                                                                                     ^~~~~~~~~~~
+#13 38.73 /opt/ros/noetic/include/ros/console.h:390:7: note: in expansion of macro ‘ROSCONSOLE_PRINT_AT_LOCATION’
+#13 38.73   390 |       ROSCONSOLE_PRINT_AT_LOCATION(__VA_ARGS__); \
+#13 38.73       |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#13 38.73 /opt/ros/noetic/include/ros/console.h:575:35: note: in expansion of macro ‘ROS_LOG_COND’
+#13 38.73   575 | #define ROS_LOG(level, name, ...) ROS_LOG_COND(true, level, name, __VA_ARGS__)
+#13 38.73       |                                   ^~~~~~~~~~~~
+#13 38.73 /opt/ros/noetic/include/rosconsole/macros_generated.h:110:23: note: in expansion of macro ‘ROS_LOG’
+#13 38.73   110 | #define ROS_INFO(...) ROS_LOG(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
+#13 38.73       |                       ^~~~~~~
+#13 38.73 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:3: note: in expansion of macro ‘ROS_INFO’
+#13 38.73    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 38.73       |   ^~~~~~~~
+#13 38.73 In file included from /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/plan_rrt.h:10,
+#13 38.73                  from /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:1:
+#13 38.73 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:23: note: format string is defined here
+#13 38.73    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 38.73       |                      ~^
+#13 38.73       |                       |
+#13 38.73       |                       int
+#13 38.73       |                      %ld
+#13 38.80 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp: In member function ‘bool AStar::ConvertToIndexAndAdjustStartEndPoints(Eigen::Vector2d, Eigen::Vector2d, Eigen::Vector2i&, Eigen::Vector2i&)’:
+#13 38.80 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp:127:14: warning: variable ‘temp_end_pt’ set but not used [-Wunused-but-set-variable]
+#13 38.80   127 |     Vector2d temp_end_pt=end_pt;
+#13 38.80       |              ^~~~~~~~~~~
+#13 38.82 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp: In member function ‘bool AStar::AstarSearch(double, Eigen::Vector2d, Eigen::Vector2d, bool)’:
+#13 38.82 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp:185:27: warning: variable ‘time_2’ set but not used [-Wunused-but-set-variable]
+#13 38.82   185 |             ros::WallTime time_2 = ros::WallTime::now();
+#13 38.82       |                           ^~~~~~
+#13 38.82 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp: In member function ‘std::vector<Eigen::Matrix<double, 2, 1> > AStar::astarSearchAndGetSimplePath(double, Eigen::Vector2d, Eigen::Vector2d)’:
+#13 38.82 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp:279:19: warning: variable ‘nowTime1’ set but not used [-Wunused-but-set-variable]
+#13 38.82   279 |     ros::WallTime nowTime1 = ros::WallTime::now();
+#13 38.82       |                   ^~~~~~~~
+#13 38.85 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp: In member function ‘std::vector<Eigen::Matrix<double, 2, 1> > AStar::refinePath(std::vector<Eigen::Matrix<double, 2, 1> >)’:
+#13 38.85 /root/DEFORM/src/planning/path_searching2d/src/dyn_a_star.cpp:420:19: warning: variable ‘nowTime2’ set but not used [-Wunused-but-set-variable]
+#13 38.85   420 |     ros::WallTime nowTime2=ros::WallTime::now();
+#13 38.85       |                   ^~~~~~~~
+#13 38.92 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘void FormationRRT::SaveResource(TreePtr)’:
+#13 38.92 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:118:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Node>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 38.92   118 |     for(int i = 0; i < path.size() - 1; i++)
+#13 38.92       |                    ~~^~~~~~~~~~~~~~~~~
+#13 38.92 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:121:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<PointPair>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 38.92   121 |     for(int i = 0; i < line_pts.size() - 1; i++) {
+#13 38.92       |                    ~~^~~~~~~~~~~~~~~~~~~~~
+#13 38.92 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:142:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Node>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 38.92   142 |     for(int i = 0; i < path.size(); i++) {
+#13 38.92       |                    ~~^~~~~~~~~~~~~
+#13 38.93 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:153:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<PointPair>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 38.93   153 |     for(int i = 0; i < line_pts.size(); i++) {
+#13 38.93       |                    ~~^~~~~~~~~~~~~~~~~
+#13 38.93 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘std::vector<Eigen::Matrix<double, 3, 1> > FormationRRT::getPathResource()’:
+#13 38.93 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:164:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Node>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 38.93   164 |     for(int i = 0; i < path.size(); i++) {
+#13 38.93       |                    ~~^~~~~~~~~~~~~
+#13 39.00 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘double FormationRRT::getReferenceWidth(double)’:
+#13 39.00 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:199:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Node>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 39.00   199 |     for(int i = 0; i < path.size(); i++)
+#13 39.00       |                    ~~^~~~~~~~~~~~~
+#13 39.00 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:207:22: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Eigen::Matrix<double, 2, 1> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 39.00   207 |     for(int i = 0; i < new_path.size() - 1; i++) {
+#13 39.00       |                    ~~^~~~~~~~~~~~~~~~~~~~~
+#13 39.02 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:250:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Eigen::Matrix<double, 2, 1> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 39.02   250 |     } else if(cur_idx == (new_path.size() - 2)) {
+#13 39.02       |               ~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+#13 39.04 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘Eigen::Vector2d FormationRRT::getPathPoint(double)’:
+#13 39.04 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:272:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Node>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 39.04   272 |     for (int i = 0; i < path.size() - 1; i++) {
+#13 39.04       |                     ~~^~~~~~~~~~~~~~~~~
+#13 39.06 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘std::shared_ptr<Tree> FormationRRT::RRTSearch(Eigen::Vector2d, Eigen::Vector2d)’:
+#13 39.06 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:395:31: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<std::shared_ptr<Tree> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 39.06   395 |             for (int i = 0; i < near_trees.size(); i++) {
+#13 39.06       |                             ~~^~~~~~~~~~~~~~~~~~~
+#13 39.08 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘void FormationRRT::Rewire(TreePtr, std::vector<std::shared_ptr<Tree> >&)’:
+#13 39.08 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:504:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<std::shared_ptr<Tree> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+#13 39.08   504 |     for (int i = 0; i <near_trees.size(); i++) {
+#13 39.08       |                     ~~^~~~~~~~~~~~~~~~~~
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘std::vector<std::shared_ptr<Tree> > FormationRRT::NearConnect(std::shared_ptr<Tree>, Node)’:
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:646:21: warning: moving a local object in a return statement prevents copy elision [-Wpessimizing-move]
+#13 39.09   646 |     return std::move(res);
+#13 39.09       |            ~~~~~~~~~^~~~~
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:646:21: note: remove ‘std::move’ call
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp: In member function ‘std::priority_queue<std::shared_ptr<Tree>, std::vector<std::shared_ptr<Tree> >, std::function<bool(std::shared_ptr<Tree>, std::shared_ptr<Tree>)> > FormationRRT::sortToTree(std::shared_ptr<Tree>, Eigen::Vector2i)’:
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:675:42: warning: comparison of integer expressions of different signedness: ‘std::priority_queue<std::shared_ptr<Tree>, std::vector<std::shared_ptr<Tree> >, std::function<bool(std::shared_ptr<Tree>, std::shared_ptr<Tree>)> >::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+#13 39.09   675 |     while (!tree_stk.empty() && q.size() < iter_num / 2) { // 100 is free value
+#13 39.09       |                                 ~~~~~~~~~^~~~~~~~~~~~~~
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:687:21: warning: moving a local object in a return statement prevents copy elision [-Wpessimizing-move]
+#13 39.09   687 |     return std::move(q);
+#13 39.09       |            ~~~~~~~~~^~~
+#13 39.09 /root/DEFORM/src/planning/plan_rrt/src/plan_rrt.cpp:687:21: note: remove ‘std::move’ call
+#13 40.24 [ 84%] Linking CXX shared library /root/DEFORM/devel/lib/libwidth_check.so
+#13 40.56 [ 84%] Built target width_check
+#13 41.97 [ 86%] Linking CXX shared library /root/DEFORM/devel/lib/libpath_searching2d.so
+#13 42.27 [ 86%] Built target path_searching2d
+#13 42.33 Scanning dependencies of target path_opti
+#13 42.35 [ 88%] Building CXX object planning/path_opti/CMakeFiles/path_opti.dir/src/path_opti.cpp.o
+#13 42.86 [ 91%] Linking CXX shared library /root/DEFORM/devel/lib/libplan_rrt.so
+#13 43.34 [ 91%] Built target plan_rrt
+#13 47.66 [ 93%] Linking CXX shared library /root/DEFORM/devel/lib/libpath_opti.so
+#13 47.91 [ 93%] Built target path_opti
+#13 47.99 Scanning dependencies of target plan_manager_node
+#13 48.01 [ 97%] Building CXX object plan_manager/CMakeFiles/plan_manager_node.dir/src/formation_manager_node.cpp.o
+#13 48.01 [ 97%] Building CXX object plan_manager/CMakeFiles/plan_manager_node.dir/src/plan_manager.cpp.o
+#13 52.70 In file included from /opt/ros/noetic/include/ros/ros.h:40,
+#13 52.70                  from /root/DEFORM/src/plan_manager/src/formation_manager_node.cpp:1:
+#13 52.70 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h: In member function ‘void ShowInfoRRT::showCircle(const std::vector<Eigen::Matrix<double, 3, 1> >&)’:
+#13 52.70 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:12: warning: format ‘%d’ expects argument of type ‘int’, but argument 8 has type ‘std::vector<Eigen::Matrix<double, 3, 1> >::size_type’ {aka ‘long unsigned int’} [-Wformat=]
+#13 52.70    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 52.70       |            ^~~~~~~~~~~~~  ~~~~~~~~~~~~~~
+#13 52.70       |                                       |
+#13 52.70       |                                       std::vector<Eigen::Matrix<double, 3, 1> >::size_type {aka long unsigned int}
+#13 52.70 /opt/ros/noetic/include/ros/console.h:351:165: note: in definition of macro ‘ROSCONSOLE_PRINT_AT_LOCATION_WITH_FILTER’
+#13 52.70   351 |     ::ros::console::print(filter, __rosconsole_define_location__loc.logger_, __rosconsole_define_location__loc.level_, __FILE__, __LINE__, __ROSCONSOLE_FUNCTION__, __VA_ARGS__)
+#13 52.70       |                                                                                                                                                                     ^~~~~~~~~~~
+#13 52.70 /opt/ros/noetic/include/ros/console.h:390:7: note: in expansion of macro ‘ROSCONSOLE_PRINT_AT_LOCATION’
+#13 52.70   390 |       ROSCONSOLE_PRINT_AT_LOCATION(__VA_ARGS__); \
+#13 52.70       |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#13 52.70 /opt/ros/noetic/include/ros/console.h:575:35: note: in expansion of macro ‘ROS_LOG_COND’
+#13 52.70   575 | #define ROS_LOG(level, name, ...) ROS_LOG_COND(true, level, name, __VA_ARGS__)
+#13 52.70       |                                   ^~~~~~~~~~~~
+#13 52.70 /opt/ros/noetic/include/rosconsole/macros_generated.h:110:23: note: in expansion of macro ‘ROS_LOG’
+#13 52.70   110 | #define ROS_INFO(...) ROS_LOG(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
+#13 52.70       |                       ^~~~~~~
+#13 52.70 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:3: note: in expansion of macro ‘ROS_INFO’
+#13 52.70    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 52.70       |   ^~~~~~~~
+#13 52.70 In file included from /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/plan_rrt.h:10,
+#13 52.70                  from /root/DEFORM/src/plan_manager/include/plan_manager/plan_manager.h:24,
+#13 52.70                  from /root/DEFORM/src/plan_manager/src/formation_manager_node.cpp:2:
+#13 52.70 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:23: note: format string is defined here
+#13 52.70    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 52.70       |                      ~^
+#13 52.70       |                       |
+#13 52.70       |                       int
+#13 52.70       |                      %ld
+#13 52.75 In file included from /opt/ros/noetic/include/ros/ros.h:40,
+#13 52.75                  from /root/DEFORM/src/plan_manager/include/plan_manager/plan_manager.h:1,
+#13 52.75                  from /root/DEFORM/src/plan_manager/src/plan_manager.cpp:1:
+#13 52.75 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h: In member function ‘void ShowInfoRRT::showCircle(const std::vector<Eigen::Matrix<double, 3, 1> >&)’:
+#13 52.75 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:12: warning: format ‘%d’ expects argument of type ‘int’, but argument 8 has type ‘std::vector<Eigen::Matrix<double, 3, 1> >::size_type’ {aka ‘long unsigned int’} [-Wformat=]
+#13 52.75    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 52.75       |            ^~~~~~~~~~~~~  ~~~~~~~~~~~~~~
+#13 52.75       |                                       |
+#13 52.75       |                                       std::vector<Eigen::Matrix<double, 3, 1> >::size_type {aka long unsigned int}
+#13 52.75 /opt/ros/noetic/include/ros/console.h:351:165: note: in definition of macro ‘ROSCONSOLE_PRINT_AT_LOCATION_WITH_FILTER’
+#13 52.75   351 |     ::ros::console::print(filter, __rosconsole_define_location__loc.logger_, __rosconsole_define_location__loc.level_, __FILE__, __LINE__, __ROSCONSOLE_FUNCTION__, __VA_ARGS__)
+#13 52.75       |                                                                                                                                                                     ^~~~~~~~~~~
+#13 52.75 /opt/ros/noetic/include/ros/console.h:390:7: note: in expansion of macro ‘ROSCONSOLE_PRINT_AT_LOCATION’
+#13 52.75   390 |       ROSCONSOLE_PRINT_AT_LOCATION(__VA_ARGS__); \
+#13 52.75       |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#13 52.75 /opt/ros/noetic/include/ros/console.h:575:35: note: in expansion of macro ‘ROS_LOG_COND’
+#13 52.75   575 | #define ROS_LOG(level, name, ...) ROS_LOG_COND(true, level, name, __VA_ARGS__)
+#13 52.75       |                                   ^~~~~~~~~~~~
+#13 52.75 /opt/ros/noetic/include/rosconsole/macros_generated.h:110:23: note: in expansion of macro ‘ROS_LOG’
+#13 52.75   110 | #define ROS_INFO(...) ROS_LOG(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
+#13 52.75       |                       ^~~~~~~
+#13 52.75 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:3: note: in expansion of macro ‘ROS_INFO’
+#13 52.75    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 52.75       |   ^~~~~~~~
+#13 52.75 In file included from /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/plan_rrt.h:10,
+#13 52.75                  from /root/DEFORM/src/plan_manager/include/plan_manager/plan_manager.h:24,
+#13 52.75                  from /root/DEFORM/src/plan_manager/src/plan_manager.cpp:1:
+#13 52.75 /root/DEFORM/src/planning/plan_rrt/include/plan_rrt/show_info_rrt.h:57:23: note: format string is defined here
+#13 52.75    57 |   ROS_INFO("mks size:%d", circles.size());
+#13 52.75       |                      ~^
+#13 52.75       |                       |
+#13 52.75       |                       int
+#13 52.75       |                      %ld
+#13 59.41 [100%] Linking CXX executable /root/DEFORM/devel/lib/plan_manager/plan_manager_node
+#13 60.48 [100%] Built target plan_manager_node
+#13 60.49 Base path: /root/DEFORM
+#13 60.49 Source space: /root/DEFORM/src
+#13 60.49 Build space: /root/DEFORM/build
+#13 60.49 Devel space: /root/DEFORM/devel
+#13 60.49 Install space: /root/DEFORM/install
+#13 60.49 ####
+#13 60.49 #### Running command: "cmake /root/DEFORM/src -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release -DCATKIN_DEVEL_PREFIX=/root/DEFORM/devel -DCMAKE_INSTALL_PREFIX=/root/DEFORM/install -G Unix Makefiles" in "/root/DEFORM/build"
+#13 60.49 ####
+#13 60.49 ####
+#13 60.49 #### Running command: "make -j16 -l16" in "/root/DEFORM/build"
+#13 60.49 ####
+#13 DONE 60.6s
+
+#14 [10/10] RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc     && echo "source /root/DEFORM/devel/setup.bash" >> /root/.bashrc     && echo "export TURTLEBOT3_MODEL=burger" >> /root/.bashrc     && echo "export QT_X11_NO_MITSHM=1" >> /root/.bashrc     && echo "export LIBGL_ALWAYS_SOFTWARE=0" >> /root/.bashrc
+#14 DONE 0.2s
+
+#15 exporting to image
+#15 exporting layers
+#15 exporting layers 0.4s done
+#15 writing image sha256:4dd8fc1538f64a6801cf431f3476c7fa9b8cd9cf3137744d06adfb08ba8f92fe done
+#15 naming to docker.io/library/deform_ros:latest done
+#15 DONE 0.4s
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - UndefinedVar: Usage of undefined variable '$PYTHONPATH' (line 81)

@@ -1,0 +1,2 @@
+n_agents,map_name,avg_speed_mps,success,time_to_goal_s,flow_rate,deformability,n_completed,collision,spread_at_entry_m,spread_at_narrow_m,narrow_wp_idx
+2,open_narrow_obs,0.0,0.0,inf,0.0,nan,0,False,0.0,0.0,59

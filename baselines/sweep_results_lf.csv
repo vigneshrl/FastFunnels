@@ -1,0 +1,10 @@
+baseline,n_agents,target_speed_mps,avg_speed_mps,success,time_to_goal_s,flow_rate,deformability,n_completed,n_collided,safety_rate,collision,spread_at_entry_m,spread_at_narrow_m
+leader_follower,1,2.0,1.9579999999999997,1.0,9.960000000000003,0.0304,nan,1.0,0.0,1.0,0.0,0.0,0.0
+leader_follower,1,5.0,3.2610000000000006,1.0,5.980000000000001,0.0507,nan,1.0,0.0,1.0,0.0,0.0,0.0
+leader_follower,1,8.0,4.174999999999999,1.0,4.6800000000000015,0.0648,nan,1.0,0.0,1.0,0.0,0.0,0.0
+leader_follower,2,2.0,1.982,0.0,inf,0.0,nan,1.0,0.0,0.5,0.0,0.0,0.0
+leader_follower,2,5.0,3.315,0.0,inf,0.0,nan,1.0,0.0,0.5,0.0,0.0,0.0
+leader_follower,2,8.0,4.217,0.0,inf,0.0,nan,1.0,0.0,0.5,0.0,0.0,0.0
+leader_follower,4,2.0,2.0559999999999996,0.0,inf,0.0,nan,1.0,0.0,0.25,0.0,0.0,0.0
+leader_follower,4,5.0,2.9320000000000004,0.0,inf,0.0,nan,1.0,0.0,0.25,0.0,0.0,0.0
+leader_follower,4,8.0,3.5819999999999994,0.0,inf,0.0,nan,1.0,0.0,0.25,0.0,0.0,0.0

@@ -1,0 +1,8 @@
+task_type: 1
+vehicle_number: 1
+
+initial_shape_positions:
+  vehicle_pos_1: {x: 0.0, y: 0.0}
+
+desired_shape_positions:
+  vehicle_pos_1: {x: 0.0, y: 0.0}

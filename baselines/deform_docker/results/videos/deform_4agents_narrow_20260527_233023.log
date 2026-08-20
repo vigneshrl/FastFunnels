@@ -1,0 +1,1040 @@
+... logging to /root/.ros/log/91b90428-5a45-11f1-ad9a-38d57a3b5003/roslaunch-ROGZ-1.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/root/DEFORM/src/utility/f1tenth_deform_bridge/launch/deform_f1tenth_4agents_narrow_render.launch
+[1mstarted roslaunch server http://ROGZ:40069/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /f1tenth_bridge/auto_publish_goal: True
+ * /f1tenth_bridge/cmd_timeout: 2.0
+ * /f1tenth_bridge/episode_end_mode: narrow_clear
+ * /f1tenth_bridge/episode_timeout_s: 180
+ * /f1tenth_bridge/goal_delay_s: 10.0
+ * /f1tenth_bridge/goal_republish_period_s: 2.0
+ * /f1tenth_bridge/goal_x: 41.305291
+ * /f1tenth_bridge/goal_y: -51.92901
+ * /f1tenth_bridge/goal_yaw: -1.2721
+ * /f1tenth_bridge/gym_root: /opt/f1tenth_gym
+ * /f1tenth_bridge/initial_poses: [[40.963384, -32....
+ * /f1tenth_bridge/map_name: open_narrow_obs
+ * /f1tenth_bridge/num_agents: 4
+ * /f1tenth_bridge/rate_hz: 50
+ * /f1tenth_bridge/render: True
+ * /f1tenth_bridge/target_episodes: 1
+ * /f1tenth_bridge/tb_num: 4
+ * /rosdistro: noetic
+ * /rosversion: 1.17.4
+ * /tb_0_manager_node/controller/T: 40
+ * /tb_0_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_0_manager_node/controller/dt: 0.1
+ * /tb_0_manager_node/controller/other_num_in_opti: 2
+ * /tb_0_manager_node/controller/tb_num: 4
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_0_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_0_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_0_manager_node/frm_rrt/iter_num: 1500
+ * /tb_0_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_0_manager_node/frm_rrt/rho_d: 15
+ * /tb_0_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_0_manager_node/frm_rrt/rho_w: 0
+ * /tb_0_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_0_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_0_manager_node/frm_rrt/var: 0.01
+ * /tb_0_manager_node/grid_map/cx: 320
+ * /tb_0_manager_node/grid_map/cy: 240
+ * /tb_0_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_0_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_0_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_0_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_0_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_0_manager_node/grid_map/frame_id: world
+ * /tb_0_manager_node/grid_map/fx: 347.998
+ * /tb_0_manager_node/grid_map/fy: 347.998
+ * /tb_0_manager_node/grid_map/ground_height: -0.01
+ * /tb_0_manager_node/grid_map/height: 480
+ * /tb_0_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_0_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_0_manager_node/grid_map/local_map_margin: 10
+ * /tb_0_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_0_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_0_manager_node/grid_map/map_size_x: 100.0
+ * /tb_0_manager_node/grid_map/map_size_y: 100.0
+ * /tb_0_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_0_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_0_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_0_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_0_manager_node/grid_map/p_hit: 0.65
+ * /tb_0_manager_node/grid_map/p_max: 0.9
+ * /tb_0_manager_node/grid_map/p_min: 0.12
+ * /tb_0_manager_node/grid_map/p_miss: 0.35
+ * /tb_0_manager_node/grid_map/p_occ: 0.8
+ * /tb_0_manager_node/grid_map/pose_type: 2
+ * /tb_0_manager_node/grid_map/resolution: 0.1
+ * /tb_0_manager_node/grid_map/show_esdf_time: False
+ * /tb_0_manager_node/grid_map/show_occ_time: False
+ * /tb_0_manager_node/grid_map/skip_pixel: 2
+ * /tb_0_manager_node/grid_map/use_depth_filter: True
+ * /tb_0_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_0_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_0_manager_node/grid_map/width: 640
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_0_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_0_manager_node/ot_client/tb_id: 0
+ * /tb_0_manager_node/ot_client/tb_num: 4
+ * /tb_0_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_0_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_0_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_0_manager_node/plan_manager/frm_type: 4
+ * /tb_0_manager_node/plan_manager/leader_id: 0
+ * /tb_0_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_0_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_0_manager_node/plan_manager/tb_id: 0
+ * /tb_0_manager_node/plan_manager/tb_num: 4
+ * /tb_0_manager_node/task_type: 1
+ * /tb_0_manager_node/vehicle_number: 4
+ * /tb_0_ot_server/ot_srv/tb_id: 0
+ * /tb_1_manager_node/controller/T: 40
+ * /tb_1_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_1_manager_node/controller/dt: 0.1
+ * /tb_1_manager_node/controller/other_num_in_opti: 2
+ * /tb_1_manager_node/controller/tb_num: 4
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_1_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_1_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_1_manager_node/frm_rrt/iter_num: 1500
+ * /tb_1_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_1_manager_node/frm_rrt/rho_d: 15
+ * /tb_1_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_1_manager_node/frm_rrt/rho_w: 0
+ * /tb_1_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_1_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_1_manager_node/frm_rrt/var: 0.01
+ * /tb_1_manager_node/grid_map/cx: 320
+ * /tb_1_manager_node/grid_map/cy: 240
+ * /tb_1_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_1_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_1_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_1_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_1_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_1_manager_node/grid_map/frame_id: world
+ * /tb_1_manager_node/grid_map/fx: 347.998
+ * /tb_1_manager_node/grid_map/fy: 347.998
+ * /tb_1_manager_node/grid_map/ground_height: -0.01
+ * /tb_1_manager_node/grid_map/height: 480
+ * /tb_1_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_1_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_1_manager_node/grid_map/local_map_margin: 10
+ * /tb_1_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_1_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_1_manager_node/grid_map/map_size_x: 100.0
+ * /tb_1_manager_node/grid_map/map_size_y: 100.0
+ * /tb_1_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_1_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_1_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_1_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_1_manager_node/grid_map/p_hit: 0.65
+ * /tb_1_manager_node/grid_map/p_max: 0.9
+ * /tb_1_manager_node/grid_map/p_min: 0.12
+ * /tb_1_manager_node/grid_map/p_miss: 0.35
+ * /tb_1_manager_node/grid_map/p_occ: 0.8
+ * /tb_1_manager_node/grid_map/pose_type: 2
+ * /tb_1_manager_node/grid_map/resolution: 0.1
+ * /tb_1_manager_node/grid_map/show_esdf_time: False
+ * /tb_1_manager_node/grid_map/show_occ_time: False
+ * /tb_1_manager_node/grid_map/skip_pixel: 2
+ * /tb_1_manager_node/grid_map/use_depth_filter: True
+ * /tb_1_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_1_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_1_manager_node/grid_map/width: 640
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_1_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_1_manager_node/ot_client/tb_id: 1
+ * /tb_1_manager_node/ot_client/tb_num: 4
+ * /tb_1_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_1_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_1_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_1_manager_node/plan_manager/frm_type: 4
+ * /tb_1_manager_node/plan_manager/leader_id: 0
+ * /tb_1_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_1_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_1_manager_node/plan_manager/tb_id: 1
+ * /tb_1_manager_node/plan_manager/tb_num: 4
+ * /tb_1_manager_node/task_type: 1
+ * /tb_1_manager_node/vehicle_number: 4
+ * /tb_1_ot_server/ot_srv/tb_id: 1
+ * /tb_2_manager_node/controller/T: 40
+ * /tb_2_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_2_manager_node/controller/dt: 0.1
+ * /tb_2_manager_node/controller/other_num_in_opti: 2
+ * /tb_2_manager_node/controller/tb_num: 4
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_2_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_2_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_2_manager_node/frm_rrt/iter_num: 1500
+ * /tb_2_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_2_manager_node/frm_rrt/rho_d: 15
+ * /tb_2_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_2_manager_node/frm_rrt/rho_w: 0
+ * /tb_2_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_2_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_2_manager_node/frm_rrt/var: 0.01
+ * /tb_2_manager_node/grid_map/cx: 320
+ * /tb_2_manager_node/grid_map/cy: 240
+ * /tb_2_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_2_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_2_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_2_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_2_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_2_manager_node/grid_map/frame_id: world
+ * /tb_2_manager_node/grid_map/fx: 347.998
+ * /tb_2_manager_node/grid_map/fy: 347.998
+ * /tb_2_manager_node/grid_map/ground_height: -0.01
+ * /tb_2_manager_node/grid_map/height: 480
+ * /tb_2_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_2_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_2_manager_node/grid_map/local_map_margin: 10
+ * /tb_2_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_2_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_2_manager_node/grid_map/map_size_x: 100.0
+ * /tb_2_manager_node/grid_map/map_size_y: 100.0
+ * /tb_2_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_2_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_2_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_2_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_2_manager_node/grid_map/p_hit: 0.65
+ * /tb_2_manager_node/grid_map/p_max: 0.9
+ * /tb_2_manager_node/grid_map/p_min: 0.12
+ * /tb_2_manager_node/grid_map/p_miss: 0.35
+ * /tb_2_manager_node/grid_map/p_occ: 0.8
+ * /tb_2_manager_node/grid_map/pose_type: 2
+ * /tb_2_manager_node/grid_map/resolution: 0.1
+ * /tb_2_manager_node/grid_map/show_esdf_time: False
+ * /tb_2_manager_node/grid_map/show_occ_time: False
+ * /tb_2_manager_node/grid_map/skip_pixel: 2
+ * /tb_2_manager_node/grid_map/use_depth_filter: True
+ * /tb_2_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_2_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_2_manager_node/grid_map/width: 640
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_2_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_2_manager_node/ot_client/tb_id: 2
+ * /tb_2_manager_node/ot_client/tb_num: 4
+ * /tb_2_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_2_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_2_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_2_manager_node/plan_manager/frm_type: 4
+ * /tb_2_manager_node/plan_manager/leader_id: 0
+ * /tb_2_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_2_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_2_manager_node/plan_manager/tb_id: 2
+ * /tb_2_manager_node/plan_manager/tb_num: 4
+ * /tb_2_manager_node/task_type: 1
+ * /tb_2_manager_node/vehicle_number: 4
+ * /tb_2_ot_server/ot_srv/tb_id: 2
+ * /tb_3_manager_node/controller/T: 40
+ * /tb_3_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_3_manager_node/controller/dt: 0.1
+ * /tb_3_manager_node/controller/other_num_in_opti: 2
+ * /tb_3_manager_node/controller/tb_num: 4
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_3_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_3_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_3_manager_node/frm_rrt/iter_num: 1500
+ * /tb_3_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_3_manager_node/frm_rrt/rho_d: 15
+ * /tb_3_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_3_manager_node/frm_rrt/rho_w: 0
+ * /tb_3_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_3_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_3_manager_node/frm_rrt/var: 0.01
+ * /tb_3_manager_node/grid_map/cx: 320
+ * /tb_3_manager_node/grid_map/cy: 240
+ * /tb_3_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_3_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_3_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_3_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_3_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_3_manager_node/grid_map/frame_id: world
+ * /tb_3_manager_node/grid_map/fx: 347.998
+ * /tb_3_manager_node/grid_map/fy: 347.998
+ * /tb_3_manager_node/grid_map/ground_height: -0.01
+ * /tb_3_manager_node/grid_map/height: 480
+ * /tb_3_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_3_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_3_manager_node/grid_map/local_map_margin: 10
+ * /tb_3_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_3_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_3_manager_node/grid_map/map_size_x: 100.0
+ * /tb_3_manager_node/grid_map/map_size_y: 100.0
+ * /tb_3_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_3_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_3_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_3_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_3_manager_node/grid_map/p_hit: 0.65
+ * /tb_3_manager_node/grid_map/p_max: 0.9
+ * /tb_3_manager_node/grid_map/p_min: 0.12
+ * /tb_3_manager_node/grid_map/p_miss: 0.35
+ * /tb_3_manager_node/grid_map/p_occ: 0.8
+ * /tb_3_manager_node/grid_map/pose_type: 2
+ * /tb_3_manager_node/grid_map/resolution: 0.1
+ * /tb_3_manager_node/grid_map/show_esdf_time: False
+ * /tb_3_manager_node/grid_map/show_occ_time: False
+ * /tb_3_manager_node/grid_map/skip_pixel: 2
+ * /tb_3_manager_node/grid_map/use_depth_filter: True
+ * /tb_3_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_3_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_3_manager_node/grid_map/width: 640
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_3_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_3_manager_node/ot_client/tb_id: 3
+ * /tb_3_manager_node/ot_client/tb_num: 4
+ * /tb_3_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_3_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_3_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_3_manager_node/plan_manager/frm_type: 4
+ * /tb_3_manager_node/plan_manager/leader_id: 0
+ * /tb_3_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_3_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_3_manager_node/plan_manager/tb_id: 3
+ * /tb_3_manager_node/plan_manager/tb_num: 4
+ * /tb_3_manager_node/task_type: 1
+ * /tb_3_manager_node/vehicle_number: 4
+ * /tb_3_ot_server/ot_srv/tb_id: 3
+ * /test_drone_0_detect/cam_cx: 320.0
+ * /test_drone_0_detect/cam_cy: 240.0
+ * /test_drone_0_detect/cam_fx: 347.997558
+ * /test_drone_0_detect/cam_fy: 347.997558
+ * /test_drone_0_detect/cam_height: 480
+ * /test_drone_0_detect/cam_width: 640
+ * /test_drone_0_detect/estimate/drone_height: 0.2
+ * /test_drone_0_detect/estimate/drone_width: 0.3
+ * /test_drone_0_detect/estimate/max_pose_error: 0.3
+ * /test_drone_0_detect/my_id: 0
+ * /test_drone_0_detect/pixel_ratio: 0.1
+ * /test_drone_1_detect/cam_cx: 320.0
+ * /test_drone_1_detect/cam_cy: 240.0
+ * /test_drone_1_detect/cam_fx: 347.997558
+ * /test_drone_1_detect/cam_fy: 347.997558
+ * /test_drone_1_detect/cam_height: 480
+ * /test_drone_1_detect/cam_width: 640
+ * /test_drone_1_detect/estimate/drone_height: 0.2
+ * /test_drone_1_detect/estimate/drone_width: 0.3
+ * /test_drone_1_detect/estimate/max_pose_error: 0.3
+ * /test_drone_1_detect/my_id: 1
+ * /test_drone_1_detect/pixel_ratio: 0.1
+ * /test_drone_2_detect/cam_cx: 320.0
+ * /test_drone_2_detect/cam_cy: 240.0
+ * /test_drone_2_detect/cam_fx: 347.997558
+ * /test_drone_2_detect/cam_fy: 347.997558
+ * /test_drone_2_detect/cam_height: 480
+ * /test_drone_2_detect/cam_width: 640
+ * /test_drone_2_detect/estimate/drone_height: 0.2
+ * /test_drone_2_detect/estimate/drone_width: 0.3
+ * /test_drone_2_detect/estimate/max_pose_error: 0.3
+ * /test_drone_2_detect/my_id: 2
+ * /test_drone_2_detect/pixel_ratio: 0.1
+ * /test_drone_3_detect/cam_cx: 320.0
+ * /test_drone_3_detect/cam_cy: 240.0
+ * /test_drone_3_detect/cam_fx: 347.997558
+ * /test_drone_3_detect/cam_fy: 347.997558
+ * /test_drone_3_detect/cam_height: 480
+ * /test_drone_3_detect/cam_width: 640
+ * /test_drone_3_detect/estimate/drone_height: 0.2
+ * /test_drone_3_detect/estimate/drone_width: 0.3
+ * /test_drone_3_detect/estimate/max_pose_error: 0.3
+ * /test_drone_3_detect/my_id: 3
+ * /test_drone_3_detect/pixel_ratio: 0.1
+
+NODES
+  /
+    f1tenth_bridge (f1tenth_deform_bridge/f1tenth_bridge_node.py)
+    tb_0_manager_node (plan_manager/plan_manager_node)
+    tb_0_ot_server (ot_process/ot_srv.py)
+    tb_1_manager_node (plan_manager/plan_manager_node)
+    tb_1_ot_server (ot_process/ot_srv.py)
+    tb_2_manager_node (plan_manager/plan_manager_node)
+    tb_2_ot_server (ot_process/ot_srv.py)
+    tb_3_manager_node (plan_manager/plan_manager_node)
+    tb_3_ot_server (ot_process/ot_srv.py)
+    test_drone_0_detect (drone_detect/drone_detect)
+    test_drone_1_detect (drone_detect/drone_detect)
+    test_drone_2_detect (drone_detect/drone_detect)
+    test_drone_3_detect (drone_detect/drone_detect)
+[33m[WARN] [1779939028.714762262]: Task type is navigation[0m
+tb 0 from WAIT_ODOM_OR_TARGET to FRM_INIT_PATH
+tb 1 from WAIT_ODOM_OR_TARGET to FRM_INIT_PATH
+tb 2 from WAIT_ODOM_OR_TARGET to FRM_INIT_PATH
+tb 3 from WAIT_ODOM_OR_TARGET to FRM_INIT_PATH
+[31m[ERROR] [1779939073.714887559]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939073.714983185]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939073.715010716]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939073.715027347]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939073.715043918]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939073.715090273]: the path only have two points[0m
+tb 0 from FRM_INIT_PATH to FRM_KEEP
+tb 1 from FRM_INIT_PATH to FRM_KEEP
+tb 2 from FRM_INIT_PATH to FRM_KEEP
+tb 3 from FRM_INIT_PATH to FRM_KEEP
+[33m[WARN] [1779939073.930453482]: rotation angle is -312.43, task allocation[0m
+0-->1	1-->3	2-->2	3-->0	
+0-->1	1-->3	2-->2	3-->0	
+[31m[ERROR] [1779939074.293807370]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939074.296299673]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939074.296377547]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939074.296393076]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939074.296409636]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939074.296475698]: the path only have two points[0m
+[31m[ERROR] [1779939074.766182170]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939074.766221914]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939074.766242973]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939074.766253733]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939074.766266035]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939074.766291643]: the path only have two points[0m
+[31m[ERROR] [1779939075.167914764]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939075.167960117]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939075.167986426]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939075.168004339]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939075.168023925]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939075.168057948]: the path only have two points[0m
+[31m[ERROR] [1779939075.583295805]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939075.583386623]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939075.583427078]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939075.583472592]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939075.583495033]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939075.583540718]: the path only have two points[0m
+0-->2	1-->1	2-->0	3-->3	
+0-->2	1-->1	2-->0	3-->3	
+[31m[ERROR] [1779939075.992822945]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939075.994179069]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939075.994238179]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939075.994269136]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939075.994289293]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939075.994303529]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939075.994341870]: the path only have two points[0m
+[31m[ERROR] [1779939075.994587694]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939075.994629972]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939075.994649809]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939075.994668994]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939075.994701665]: the path only have two points[0m
+[33m[WARN] [1779939075.998133012]: tb in avoid status is much, reduce formation[0m
+0-->1	1-->3	2-->2	3-->0	
+[31m[ERROR] [1779939076.373698644]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939076.373740471]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939076.373784863]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939076.373808316]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939076.373826229]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939076.373856054]: the path only have two points[0m
+[31m[ERROR] [1779939076.398780771]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939076.398858604]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939076.398894000]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939076.398913005]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939076.398932220]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939076.398970521]: the path only have two points[0m
+[31m[ERROR] [1779939076.773075284]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939076.773132991]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939076.773159870]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939076.773178485]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939076.773203461]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939076.773245829]: the path only have two points[0m
+[31m[ERROR] [1779939076.777686100]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939076.777764866]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939076.777791936]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939076.777812344]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939076.777830347]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939076.777865081]: the path only have two points[0m
+[31m[ERROR] [1779939077.161279459]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939077.161338207]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.161371619]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939077.161384172]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.161396044]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.161425498]: the path only have two points[0m
+[31m[ERROR] [1779939077.182388016]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939077.182480246]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.182507447]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939077.182518207]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.182531772]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.182568680]: the path only have two points[0m
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+
+[31m[ERROR] [1779939077.584287896]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939077.584410783]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.584440818]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939077.584455896]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.584470243]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.584521297]: the path only have two points[0m
+[31m[ERROR] [1779939077.590449026]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939077.590545774]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.590575099]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939077.590591579]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.590613620]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.590667138]: the path only have two points[0m
+0-->1	1-->3	2-->2	3-->0	
+0-->3	1-->0	2-->1	3-->2	
+0-->3	1-->0	2-->1	3-->2	
+[31m[ERROR] [1779939077.924469542]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939077.927111883]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.927172334]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939077.927193854]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.927211907]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.927255568]: the path only have two points[0m
+[33m[WARN] [1779939077.930693879]: tb in avoid status is much, reduce formation[0m
+[31m[ERROR] [1779939077.953128646]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939077.953198184]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.953218191]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939077.953228881]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.953245892]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.953291987]: the path only have two points[0m
+[31m[ERROR] [1779939077.991809129]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939077.991867506]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939077.991896239]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939077.991918571]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939077.991937476]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939077.991981797]: the path only have two points[0m
+[33m[WARN] [1779939077.995509263]: tb in avoid status is much, reduce formation[0m
+0-->2	1-->0	2-->3	3-->1	
+0-->3	1-->0	2-->1	3-->2	
+[31m[ERROR] [1779939078.342458508]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939078.342501848]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939078.342527836]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939078.342550187]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939078.342568180]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939078.342605690]: the path only have two points[0m
+[31m[ERROR] [1779939078.381389543]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939078.381463731]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939078.381486392]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939078.381496511]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939078.381509645]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939078.381537156]: the path only have two points[0m
+[31m[ERROR] [1779939078.738379875]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939078.738447650]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939078.738477735]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939078.738490860]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939078.738504515]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939078.738544078]: the path only have two points[0m
+[31m[ERROR] [1779939078.777130667]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939078.777175901]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939078.777206057]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939078.777216516]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939078.777226294]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939078.777249657]: the path only have two points[0m
+[31m[ERROR] [1779939079.113599345]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.113661389]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.113690423]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.113710811]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.113732591]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.113770250]: the path only have two points[0m
+[31m[ERROR] [1779939079.174928209]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.174984052]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.175012845]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.175043011]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.175064741]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.175104655]: the path only have two points[0m
+[31m[ERROR] [1779939079.509047236]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.509129728]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.509152500]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.509164172]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.509177256]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.509211890]: the path only have two points[0m
+[31m[ERROR] [1779939079.591873546]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.591915854]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.591936693]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.591948444]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.591958072]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.591979922]: the path only have two points[0m
+0-->2	1-->0	2-->3	3-->1	
+0-->2	1-->1	2-->0	3-->3	
+0-->2	1-->1	2-->0	3-->3	
+[31m[ERROR] [1779939079.893003863]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.893073842]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.893157948]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.893198583]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.893225552]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.893270866]: the path only have two points[0m
+[33m[WARN] [1779939079.897209050]: tb in avoid status is much, reduce formation[0m
+[31m[ERROR] [1779939079.977307151]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.977340182]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.977370778]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939079.977386207]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.977408448]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.977429287]: the path only have two points[0m
+[31m[ERROR] [1779939079.981250925]: Ran out of pool, index=405 -1[0m
+[31m[ERROR] [1779939079.981336964]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939079.981369354]: Ran out of pool, index=405 -1[0m
+[31m[ERROR] [1779939079.981379933]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939079.981391605]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939079.981413976]: the path only have two points[0m
+[33m[WARN] [1779939079.986587892]: tb in avoid status is much, reduce formation[0m
+0-->2	1-->0	2-->3	3-->1	
+0-->1	1-->3	2-->2	3-->0	
+[33m[WARN] [1779939080.075986311]: rotation angle is -231.05, task allocation[0m
+0-->1	1-->3	2-->2	3-->0	
+[33m[WARN] [1779939080.087769014]: rotation angle is -232.92, task allocation[0m
+0-->3	1-->0	2-->1	3-->2	
+[31m[ERROR] [1779939080.290370958]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.290447199]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939080.290477585]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.290498123]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939080.290520124]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939080.290553205]: the path only have two points[0m
+[31m[ERROR] [1779939080.381231718]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.381286589]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939080.381314521]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.381326834]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939080.381336922]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939080.381380883]: the path only have two points[0m
+[31m[ERROR] [1779939080.693969723]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.694014195]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939080.694037348]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.694058427]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939080.694077673]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939080.694107398]: the path only have two points[0m
+[31m[ERROR] [1779939080.780802172]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.780843349]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939080.780866551]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939080.780885286]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939080.780906505]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939080.780938494]: the path only have two points[0m
+[31m[ERROR] [1779939081.098305980]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939081.098373245]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.098401637]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939081.098418138]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.098437854]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.098476055]: the path only have two points[0m
+[31m[ERROR] [1779939081.182096571]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939081.182147325]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.182173954]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939081.182193169]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.182204811]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.182228825]: the path only have two points[0m
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+
+[31m[ERROR] [1779939081.491333479]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939081.491405102]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.491435087]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939081.491446919]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.491457949]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.491484608]: the path only have two points[0m
+[31m[ERROR] [1779939081.570999141]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939081.571076564]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.571102663]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939081.571120626]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.571138879]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.571179975]: the path only have two points[0m
+0-->2	1-->0	2-->3	3-->1	
+0-->2	1-->1	2-->0	3-->3	
+[31m[ERROR] [1779939081.732379099]: Ran out of pool, index=405 -1[0m
+[31m[ERROR] [1779939081.732437797]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.732460630]: Ran out of pool, index=405 -1[0m
+[31m[ERROR] [1779939081.732471410]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.732484003]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.732513778]: the path only have two points[0m
+CasADi - 2026-05-28 03:31:21 WARNING("solver:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 4 (row 286, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:21 WARNING("solver:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 4 (row 286, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:21 WARNING("solver:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 4 (row 286, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:21 WARNING("solver:nlp_grad failed: NaN detected for output grad_gamma_p, at (row 221, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:21 WARNING("Failed to calculate multipliers") [.../casadi/core/nlpsol.cpp:758]
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Invalid_Number_Detected'
+
+0-->2	1-->1	2-->0	3-->3	
+[31m[ERROR] [1779939081.897493684]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939081.897561991]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.897591014]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939081.897610039]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.897630427]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.897668277]: the path only have two points[0m
+[33m[WARN] [1779939081.898390511]: tb in avoid status is much, reduce formation[0m
+[33m[WARN] [1779939081.898453848]: Timeout, reassignment![0m
+[31m[ERROR] [1779939081.973685380]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939081.973737136]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.973766850]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939081.973783762]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.973803949]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.973835567]: the path only have two points[0m
+[31m[ERROR] [1779939081.977590964]: Ran out of pool, index=405 -1[0m
+[31m[ERROR] [1779939081.977627231]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939081.977651786]: Ran out of pool, index=405 -1[0m
+[31m[ERROR] [1779939081.977667445]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939081.977677073]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939081.977702469]: the path only have two points[0m
+[33m[WARN] [1779939081.980741252]: tb in avoid status is much, reduce formation[0m
+0-->2	1-->0	2-->3	3-->1	
+0-->3	1-->0	2-->2	3-->1	
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+
+[31m[ERROR] [1779939082.297079085]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939082.297146740]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939082.297174502]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939082.297189038]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939082.297200690]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939082.297229613]: the path only have two points[0m
+[31m[ERROR] [1779939082.386754705]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939082.386822831]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939082.386849631]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939082.386872022]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939082.386891498]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939082.386929147]: the path only have two points[0m
+[31m[ERROR] [1779939082.703279063]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939082.703326631]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939082.703347599]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939082.703370692]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939082.703386521]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939082.703412820]: the path only have two points[0m
+[31m[ERROR] [1779939082.765244492]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939082.765286109]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939082.765308190]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939082.765320262]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939082.765335140]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939082.765375384]: the path only have two points[0m
+[31m[ERROR] [1779939083.103607666]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939083.103662467]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.103683666]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939083.103695438]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.103705286]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.103737426]: the path only have two points[0m
+[31m[ERROR] [1779939083.165476046]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939083.165516160]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.165539022]: Ran out of pool, index=406 -1[0m
+[31m[ERROR] [1779939083.165550293]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.165561604]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.165585849]: the path only have two points[0m
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+
+[31m[ERROR] [1779939083.497061170]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939083.497194606]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.497224993]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939083.497246783]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.497262001]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.497317974]: the path only have two points[0m
+[31m[ERROR] [1779939083.580742338]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939083.580785588]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.580805264]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939083.580817216]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.580827175]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.580852291]: the path only have two points[0m
+0-->2	1-->0	2-->1	3-->3	
+0-->1	1-->3	2-->2	3-->0	
+[31m[ERROR] [1779939083.893461737]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939083.893510057]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.893537026]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939083.893558606]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.893580457]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.893614509]: the path only have two points[0m
+[33m[WARN] [1779939083.894130012]: tb in avoid status is much, reduce formation[0m
+0-->1	1-->3	2-->2	3-->0	
+[31m[ERROR] [1779939083.967822992]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939083.967878705]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.967910934]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939083.967933295]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.967950106]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.967987465]: the path only have two points[0m
+[31m[ERROR] [1779939083.995706152]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939083.995776932]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939083.995807509]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939083.995826193]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939083.995843185]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939083.995873481]: the path only have two points[0m
+[33m[WARN] [1779939084.001424954]: tb in avoid status is much, reduce formation[0m
+0-->3	1-->0	2-->1	3-->2	
+[31m[ERROR] [1779939084.326705403]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939084.326782595]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939084.326813823]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939084.326834812]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939084.326856311]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939084.326898369]: the path only have two points[0m
+[31m[ERROR] [1779939084.398978500]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939084.399147542]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939084.399226518]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939084.399253097]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939084.399277723]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939084.399386514]: the path only have two points[0m
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+
+[31m[ERROR] [1779939084.728167798]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939084.728262203]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939084.728294622]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939084.728313978]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939084.728332713]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939084.728408833]: the path only have two points[0m
+[31m[ERROR] [1779939084.804321223]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939084.804402102]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939084.804438700]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939084.804463215]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939084.804481849]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939084.804541810]: the path only have two points[0m
+CasADi - 2026-05-28 03:31:25 WARNING("solver:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 4 (row 286, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:25 WARNING("solver:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 4 (row 286, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:25 WARNING("solver:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 4 (row 286, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:25 WARNING("solver:nlp_grad failed: NaN detected for output grad_gamma_p, at (row 221, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-05-28 03:31:25 WARNING("Failed to calculate multipliers") [.../casadi/core/nlpsol.cpp:758]
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Invalid_Number_Detected'
+
+[31m[ERROR] [1779939085.107988612]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939085.108040468]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939085.108068650]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939085.108085861]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939085.108097363]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939085.108126567]: the path only have two points[0m
+[31m[ERROR] [1779939085.195983727]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939085.196076008]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939085.196103268]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939085.196120009]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939085.196142340]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939085.196171414]: the path only have two points[0m
+
+Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1334: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is 'Infeasible_Problem_Detected'
+
+[31m[ERROR] [1779939085.506288856]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939085.506360088]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939085.506391676]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939085.506412194]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939085.506440306]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939085.506485600]: the path only have two points[0m
+[31m[ERROR] [1779939085.606081972]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939085.606134449]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939085.606155107]: Ran out of pool, index=395 -1[0m
+[31m[ERROR] [1779939085.606166258]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939085.606177359]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939085.606204228]: the path only have two points[0m
+0-->2	1-->0	2-->1	3-->3	
+0-->2	1-->0	2-->1	3-->3	
+[31m[ERROR] [1779939085.900538028]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939085.900707611]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939085.900741213]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939085.900757193]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939085.900771640]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939085.900798008]: the path only have two points[0m
+[33m[WARN] [1779939085.901677022]: tb in avoid status is much, reduce formation[0m
+[31m[ERROR] [1779939085.973772120]: Ran out of pool, index=394 -1[0m
+[31m[ERROR] [1779939085.973817684]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939085.973841538]: Ran out of pool, index=394 -1[0m
+[31m[ERROR] [1779939085.973857458]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939085.973877535]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939085.973919052]: the path only have two points[0m
+[31m[ERROR] [1779939086.000279930]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939086.000339500]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939086.000393359]: Ran out of pool, index=407 -1[0m
+[31m[ERROR] [1779939086.000412495]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939086.000428775]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939086.000472866]: the path only have two points[0m
+[31m[ERROR] [1779939086.249735369]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939086.249780383]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939086.249797544]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939086.249812372]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939086.249828822]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939086.249858958]: the path only have two points[0m
+[WARN] [1779939085.951409]: [Bridge] Episode 1 ended — collision/lap (gym signalled done)
+pygame 2.6.1 (SDL 2.28.4, Python 3.8.10)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[INFO] [1779939029.281240]: [Bridge] Centerline loaded: /opt/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_centerline.csv (97 wp)
+[INFO] [1779939029.290502]: [Bridge] Narrow region: center=(40.89843, -41.31974), gap=3.300 m
+[INFO] [1779939063.314463]: [Bridge] Published map 'open_narrow_obs' (1600x1600 @ 0.0625 m/px)
+[INFO] [1779939063.320470]: [Bridge] Occupancy map loaded for raycasting (1600x1600 @ 0.0625m)
+[INFO] [1779939063.326029]: [Bridge] Published 4 obstacle marker(s) on /obstacle_features
+[INFO] [1779939063.327557]: [Bridge] Ready — 4 agents, map='open_narrow_obs', rate=50 Hz, auto_goal=True, episode_end=narrow_clear
+[INFO] [1779939063.329199]: [Bridge] GoalThread: waiting for 4 plan_manager(s)…
+[INFO] [1779939063.329428]: [Bridge] Spinning…
+[INFO] [1779939063.357184]: [Bridge] GoalThread: /tb_0/cmd_vel ready
+[INFO] [1779939063.420300]: [Bridge] GoalThread: /tb_1/cmd_vel ready
+[INFO] [1779939063.446901]: [Bridge] GoalThread: /tb_2/cmd_vel ready
+[INFO] [1779939063.458388]: [Bridge] GoalThread: /tb_3/cmd_vel ready
+[INFO] [1779939063.463303]: [Bridge] GoalThread: all planners up — publishing in 10.0s
+[INFO] [1779939073.489716]: [Bridge] GoalThread: republishing goal every 2.0s → (41.31, -51.93)
+[INFO] [1779939085.954270]: [Bridge] ── Episode 1 narrow-zone metrics ──
+  avg_speed_mps   : 0.086
+  success         : 0.0
+  time_to_goal_s  : inf
+  flow_rate       : 0.0000 agents/(m·s)
+  deformability   : 1.004
+  n_cleared       : 0 / 4
+[INFO] [1779939085.957027]: [Bridge] Metrics saved → /tmp/deform_results/zone_ep001_20260528_033125.csv
+[INFO] [1779939085.959954]: [Bridge] Reached target_episodes=1 — shutting down
+[31m[ERROR] [1779939086.673052689]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939086.673111217]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939086.673136403]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939086.673165307]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939086.673178341]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939086.673204880]: the path only have two points[0m
+[31m[ERROR] [1779939086.980967362]: odom or depth lost! ros::Time::now()=1779939086.980917, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.005546178]: odom or depth lost! ros::Time::now()=1779939087.005473, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.019726269]: odom or depth lost! ros::Time::now()=1779939087.019673, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.055542030]: odom or depth lost! ros::Time::now()=1779939087.055440, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.062925827]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939087.063009362]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939087.063036642]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939087.063052742]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939087.063078569]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939087.063109807]: the path only have two points[0m
+[31m[ERROR] [1779939087.063482405]: odom or depth lost! ros::Time::now()=1779939087.063413, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.063799331]: odom or depth lost! ros::Time::now()=1779939087.063768, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.069747116]: odom or depth lost! ros::Time::now()=1779939087.069657, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.080945449]: odom or depth lost! ros::Time::now()=1779939087.080881, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.113522819]: odom or depth lost! ros::Time::now()=1779939087.113426, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.130991553]: odom or depth lost! ros::Time::now()=1779939087.130908, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.164593676]: odom or depth lost! ros::Time::now()=1779939087.164557, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.164697197]: odom or depth lost! ros::Time::now()=1779939087.164678, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.168329596]: odom or depth lost! ros::Time::now()=1779939087.168287, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.169638213]: odom or depth lost! ros::Time::now()=1779939087.169607, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.180954895]: odom or depth lost! ros::Time::now()=1779939087.180882, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.201726389]: odom or depth lost! ros::Time::now()=1779939087.201691, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.205469202]: odom or depth lost! ros::Time::now()=1779939087.205401, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.213485307]: odom or depth lost! ros::Time::now()=1779939087.213421, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.219688455]: odom or depth lost! ros::Time::now()=1779939087.219627, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.255474140]: odom or depth lost! ros::Time::now()=1779939087.255402, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.263419455]: odom or depth lost! ros::Time::now()=1779939087.263372, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.269675961]: odom or depth lost! ros::Time::now()=1779939087.269626, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.271154441]: odom or depth lost! ros::Time::now()=1779939087.271119, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.280940075]: odom or depth lost! ros::Time::now()=1779939087.280886, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.313472852]: odom or depth lost! ros::Time::now()=1779939087.313405, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.331013500]: odom or depth lost! ros::Time::now()=1779939087.330908, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.354085253]: odom or depth lost! ros::Time::now()=1779939087.354045, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.355412995]: odom or depth lost! ros::Time::now()=1779939087.355370, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.355505496]: odom or depth lost! ros::Time::now()=1779939087.355471, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.369702217]: odom or depth lost! ros::Time::now()=1779939087.369650, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.381041180]: odom or depth lost! ros::Time::now()=1779939087.380935, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.395341883]: odom or depth lost! ros::Time::now()=1779939087.395313, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.405551320]: odom or depth lost! ros::Time::now()=1779939087.405439, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.413461860]: odom or depth lost! ros::Time::now()=1779939087.413407, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.419694071]: odom or depth lost! ros::Time::now()=1779939087.419631, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.455467203]: odom or depth lost! ros::Time::now()=1779939087.455407, md_.last_occ_update_time_=1779939086.001626, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.455657084]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939087.455683883]: Unable to handle the initial or end point, force return![0m
+[31m[ERROR] [1779939087.455702328]: Ran out of pool, index=396 -1[0m
+[31m[ERROR] [1779939087.455717726]: Unable to handle the initial or end point, force return![0m
+[33m[WARN] [1779939087.455736380]: A* failed (ESDF + occupancy); returning straight segment[0m
+[33m[WARN] [1779939087.455761547]: the path only have two points[0m
+[31m[ERROR] [1779939087.456143953]: odom or depth lost! ros::Time::now()=1779939087.456128, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.463440009]: odom or depth lost! ros::Time::now()=1779939087.463388, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.469755774]: odom or depth lost! ros::Time::now()=1779939087.469654, md_.last_occ_update_time_=1779939085.975276, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.481003618]: odom or depth lost! ros::Time::now()=1779939087.480906, md_.last_occ_update_time_=1779939085.980868, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.513460536]: odom or depth lost! ros::Time::now()=1779939087.513398, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.589211647]: odom or depth lost! ros::Time::now()=1779939087.589167, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.613460053]: odom or depth lost! ros::Time::now()=1779939087.613396, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.663440335]: odom or depth lost! ros::Time::now()=1779939087.663387, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1779939087.713503421]: odom or depth lost! ros::Time::now()=1779939087.713436, md_.last_occ_update_time_=1779939086.020551, mp_.odom_depth_timeout_=1.000000[0m
+[31m================================================================================REQUIRED process [f1tenth_bridge-2] has died!
+process has finished cleanly
+log file: /root/.ros/log/91b90428-5a45-11f1-ad9a-38d57a3b5003/f1tenth_bridge-2*.log
+Initiating shutdown!
+================================================================================[0m
+
+auto-starting new master
+[1mprocess[master]: started with pid [85][0m
+[1mROS_MASTER_URI=http://localhost:11311[0m
+]2;/root/DEFORM/src/utility/f1tenth_deform_bridge/launch/deform_f1tenth_4agents_narrow_render.launch http://localhost:11311
+[1msetting /run_id to 91b90428-5a45-11f1-ad9a-38d57a3b5003[0m
+[1mprocess[rosout-1]: started with pid [110][0m
+started core service [/rosout]
+[1mprocess[f1tenth_bridge-2]: started with pid [117][0m
+[1mprocess[tb_0_manager_node-3]: started with pid [118][0m
+[1mprocess[tb_0_ot_server-4]: started with pid [119][0m
+[1mprocess[test_drone_0_detect-5]: started with pid [120][0m
+[1mprocess[tb_1_manager_node-6]: started with pid [121][0m
+[1mprocess[tb_1_ot_server-7]: started with pid [122][0m
+[1mprocess[test_drone_1_detect-8]: started with pid [123][0m
+[1mprocess[tb_2_manager_node-9]: started with pid [124][0m
+[1mprocess[tb_2_ot_server-10]: started with pid [125][0m
+[1mprocess[test_drone_2_detect-11]: started with pid [126][0m
+[1mprocess[tb_3_manager_node-12]: started with pid [127][0m
+[1mprocess[tb_3_ot_server-13]: started with pid [149][0m
+[1mprocess[test_drone_3_detect-14]: started with pid [169][0m
+[test_drone_3_detect-14] killing on exit
+[tb_3_ot_server-13] killing on exit
+[tb_3_manager_node-12] killing on exit
+[test_drone_2_detect-11] killing on exit
+[tb_2_ot_server-10] killing on exit
+[tb_2_manager_node-9] killing on exit
+[test_drone_1_detect-8] killing on exit
+[tb_1_ot_server-7] killing on exit
+[tb_1_manager_node-6] killing on exit
+[test_drone_0_detect-5] killing on exit
+[tb_0_ot_server-4] killing on exit
+[tb_0_manager_node-3] killing on exit
+[f1tenth_bridge-2] killing on exit
+[rosout-1] killing on exit
+[master] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

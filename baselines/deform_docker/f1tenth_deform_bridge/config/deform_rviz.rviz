@@ -1,0 +1,82 @@
+Panels:
+  - Class: rviz/Displays
+    Name: Displays
+  - Class: rviz/Selection
+    Name: Selection
+  - Class: rviz/Tool Properties
+    Name: Tool Properties
+  - Class: rviz/Views
+    Name: Views
+  - Class: rviz/Time
+    Name: Time
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.7
+      Class: rviz/Map
+      Color Scheme: map
+      Draw Behind: false
+      Enabled: true
+      Name: Map
+      Topic: /map
+      Value: true
+    - Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+      Reference Frame: world
+      Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Marker Scale: 0.3
+      Name: TF
+      Value: true
+    - Class: rviz/Odometry
+      Enabled: true
+      Name: tb_0 odom
+      Topic: /tb_0/odom
+      Value: true
+    - Class: rviz/Odometry
+      Enabled: true
+      Name: tb_1 odom
+      Topic: /tb_1/odom
+      Value: true
+    - Class: rviz/Odometry
+      Enabled: true
+      Name: tb_2 odom
+      Topic: /tb_2/odom
+      Value: true
+    - Class: rviz/Odometry
+      Enabled: true
+      Name: tb_3 odom
+      Topic: /tb_3/odom
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: world
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/FocusCamera
+    - Class: rviz/Measure
+    - Class: rviz/SetInitialPose
+      Topic: /initialpose
+      X std deviation: 0.5
+      Y std deviation: 0.5
+      Theta std deviation: 0.2617993950843811
+    - Class: rviz/SetGoal
+      Topic: /move_base_simple/goal
+    - Class: rviz/PublishPoint
+      Single publish: false
+      Topic: /clicked_point
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 900
+  Width: 1200
+  X: 50
+  Y: 50

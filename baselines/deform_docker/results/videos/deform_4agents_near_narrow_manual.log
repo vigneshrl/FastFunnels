@@ -1,0 +1,598 @@
+... logging to /root/.ros/log/5be51588-5e34-11f1-855f-38d57a3b5003/roslaunch-ROGZ-1.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/root/DEFORM/src/utility/f1tenth_deform_bridge/launch/deform_f1tenth_4agents_narrow_render_upstream.launch
+[1mstarted roslaunch server http://ROGZ:40195/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /f1tenth_bridge/auto_publish_goal: True
+ * /f1tenth_bridge/cmd_timeout: 2.0
+ * /f1tenth_bridge/episode_end_mode: narrow_clear
+ * /f1tenth_bridge/episode_timeout_s: 180
+ * /f1tenth_bridge/goal_delay_s: 15.0
+ * /f1tenth_bridge/goal_republish_period_s: 2.0
+ * /f1tenth_bridge/goal_x: 38.8
+ * /f1tenth_bridge/goal_y: -50.0
+ * /f1tenth_bridge/goal_yaw: -1.5708
+ * /f1tenth_bridge/gym_root: /opt/f1tenth_gym
+ * /f1tenth_bridge/initial_poses: [[38.8, -16.5, -1...
+ * /f1tenth_bridge/map_name: open_narrow_obs
+ * /f1tenth_bridge/num_agents: 4
+ * /f1tenth_bridge/rate_hz: 50
+ * /f1tenth_bridge/render: True
+ * /f1tenth_bridge/target_episodes: 1
+ * /f1tenth_bridge/tb_num: 4
+ * /rosdistro: noetic
+ * /rosversion: 1.17.4
+ * /tb_0_manager_node/controller/T: 40
+ * /tb_0_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_0_manager_node/controller/dt: 0.1
+ * /tb_0_manager_node/controller/other_num_in_opti: 2
+ * /tb_0_manager_node/controller/tb_num: 4
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_0_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_0_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_0_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_0_manager_node/frm_rrt/iter_num: 1500
+ * /tb_0_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_0_manager_node/frm_rrt/rho_d: 15
+ * /tb_0_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_0_manager_node/frm_rrt/rho_w: 0
+ * /tb_0_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_0_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_0_manager_node/frm_rrt/var: 0.01
+ * /tb_0_manager_node/grid_map/cx: 320
+ * /tb_0_manager_node/grid_map/cy: 240
+ * /tb_0_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_0_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_0_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_0_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_0_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_0_manager_node/grid_map/frame_id: world
+ * /tb_0_manager_node/grid_map/fx: 347.998
+ * /tb_0_manager_node/grid_map/fy: 347.998
+ * /tb_0_manager_node/grid_map/ground_height: -0.01
+ * /tb_0_manager_node/grid_map/height: 480
+ * /tb_0_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_0_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_0_manager_node/grid_map/local_map_margin: 10
+ * /tb_0_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_0_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_0_manager_node/grid_map/map_size_x: 100.0
+ * /tb_0_manager_node/grid_map/map_size_y: 100.0
+ * /tb_0_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_0_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_0_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_0_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_0_manager_node/grid_map/p_hit: 0.65
+ * /tb_0_manager_node/grid_map/p_max: 0.9
+ * /tb_0_manager_node/grid_map/p_min: 0.12
+ * /tb_0_manager_node/grid_map/p_miss: 0.35
+ * /tb_0_manager_node/grid_map/p_occ: 0.8
+ * /tb_0_manager_node/grid_map/pose_type: 2
+ * /tb_0_manager_node/grid_map/resolution: 0.1
+ * /tb_0_manager_node/grid_map/show_esdf_time: False
+ * /tb_0_manager_node/grid_map/show_occ_time: False
+ * /tb_0_manager_node/grid_map/skip_pixel: 2
+ * /tb_0_manager_node/grid_map/use_depth_filter: True
+ * /tb_0_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_0_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_0_manager_node/grid_map/width: 640
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_0_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_0_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_0_manager_node/ot_client/tb_id: 0
+ * /tb_0_manager_node/ot_client/tb_num: 4
+ * /tb_0_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_0_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_0_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_0_manager_node/plan_manager/frm_type: 4
+ * /tb_0_manager_node/plan_manager/leader_id: 0
+ * /tb_0_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_0_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_0_manager_node/plan_manager/tb_id: 0
+ * /tb_0_manager_node/plan_manager/tb_num: 4
+ * /tb_0_manager_node/task_type: 1
+ * /tb_0_manager_node/vehicle_number: 4
+ * /tb_0_ot_server/ot_srv/tb_id: 0
+ * /tb_1_manager_node/controller/T: 40
+ * /tb_1_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_1_manager_node/controller/dt: 0.1
+ * /tb_1_manager_node/controller/other_num_in_opti: 2
+ * /tb_1_manager_node/controller/tb_num: 4
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_1_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_1_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_1_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_1_manager_node/frm_rrt/iter_num: 1500
+ * /tb_1_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_1_manager_node/frm_rrt/rho_d: 15
+ * /tb_1_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_1_manager_node/frm_rrt/rho_w: 0
+ * /tb_1_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_1_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_1_manager_node/frm_rrt/var: 0.01
+ * /tb_1_manager_node/grid_map/cx: 320
+ * /tb_1_manager_node/grid_map/cy: 240
+ * /tb_1_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_1_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_1_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_1_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_1_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_1_manager_node/grid_map/frame_id: world
+ * /tb_1_manager_node/grid_map/fx: 347.998
+ * /tb_1_manager_node/grid_map/fy: 347.998
+ * /tb_1_manager_node/grid_map/ground_height: -0.01
+ * /tb_1_manager_node/grid_map/height: 480
+ * /tb_1_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_1_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_1_manager_node/grid_map/local_map_margin: 10
+ * /tb_1_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_1_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_1_manager_node/grid_map/map_size_x: 100.0
+ * /tb_1_manager_node/grid_map/map_size_y: 100.0
+ * /tb_1_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_1_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_1_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_1_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_1_manager_node/grid_map/p_hit: 0.65
+ * /tb_1_manager_node/grid_map/p_max: 0.9
+ * /tb_1_manager_node/grid_map/p_min: 0.12
+ * /tb_1_manager_node/grid_map/p_miss: 0.35
+ * /tb_1_manager_node/grid_map/p_occ: 0.8
+ * /tb_1_manager_node/grid_map/pose_type: 2
+ * /tb_1_manager_node/grid_map/resolution: 0.1
+ * /tb_1_manager_node/grid_map/show_esdf_time: False
+ * /tb_1_manager_node/grid_map/show_occ_time: False
+ * /tb_1_manager_node/grid_map/skip_pixel: 2
+ * /tb_1_manager_node/grid_map/use_depth_filter: True
+ * /tb_1_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_1_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_1_manager_node/grid_map/width: 640
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_1_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_1_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_1_manager_node/ot_client/tb_id: 1
+ * /tb_1_manager_node/ot_client/tb_num: 4
+ * /tb_1_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_1_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_1_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_1_manager_node/plan_manager/frm_type: 4
+ * /tb_1_manager_node/plan_manager/leader_id: 0
+ * /tb_1_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_1_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_1_manager_node/plan_manager/tb_id: 1
+ * /tb_1_manager_node/plan_manager/tb_num: 4
+ * /tb_1_manager_node/task_type: 1
+ * /tb_1_manager_node/vehicle_number: 4
+ * /tb_1_ot_server/ot_srv/tb_id: 1
+ * /tb_2_manager_node/controller/T: 40
+ * /tb_2_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_2_manager_node/controller/dt: 0.1
+ * /tb_2_manager_node/controller/other_num_in_opti: 2
+ * /tb_2_manager_node/controller/tb_num: 4
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_2_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_2_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_2_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_2_manager_node/frm_rrt/iter_num: 1500
+ * /tb_2_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_2_manager_node/frm_rrt/rho_d: 15
+ * /tb_2_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_2_manager_node/frm_rrt/rho_w: 0
+ * /tb_2_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_2_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_2_manager_node/frm_rrt/var: 0.01
+ * /tb_2_manager_node/grid_map/cx: 320
+ * /tb_2_manager_node/grid_map/cy: 240
+ * /tb_2_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_2_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_2_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_2_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_2_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_2_manager_node/grid_map/frame_id: world
+ * /tb_2_manager_node/grid_map/fx: 347.998
+ * /tb_2_manager_node/grid_map/fy: 347.998
+ * /tb_2_manager_node/grid_map/ground_height: -0.01
+ * /tb_2_manager_node/grid_map/height: 480
+ * /tb_2_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_2_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_2_manager_node/grid_map/local_map_margin: 10
+ * /tb_2_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_2_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_2_manager_node/grid_map/map_size_x: 100.0
+ * /tb_2_manager_node/grid_map/map_size_y: 100.0
+ * /tb_2_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_2_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_2_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_2_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_2_manager_node/grid_map/p_hit: 0.65
+ * /tb_2_manager_node/grid_map/p_max: 0.9
+ * /tb_2_manager_node/grid_map/p_min: 0.12
+ * /tb_2_manager_node/grid_map/p_miss: 0.35
+ * /tb_2_manager_node/grid_map/p_occ: 0.8
+ * /tb_2_manager_node/grid_map/pose_type: 2
+ * /tb_2_manager_node/grid_map/resolution: 0.1
+ * /tb_2_manager_node/grid_map/show_esdf_time: False
+ * /tb_2_manager_node/grid_map/show_occ_time: False
+ * /tb_2_manager_node/grid_map/skip_pixel: 2
+ * /tb_2_manager_node/grid_map/use_depth_filter: True
+ * /tb_2_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_2_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_2_manager_node/grid_map/width: 640
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_2_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_2_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_2_manager_node/ot_client/tb_id: 2
+ * /tb_2_manager_node/ot_client/tb_num: 4
+ * /tb_2_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_2_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_2_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_2_manager_node/plan_manager/frm_type: 4
+ * /tb_2_manager_node/plan_manager/leader_id: 0
+ * /tb_2_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_2_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_2_manager_node/plan_manager/tb_id: 2
+ * /tb_2_manager_node/plan_manager/tb_num: 4
+ * /tb_2_manager_node/task_type: 1
+ * /tb_2_manager_node/vehicle_number: 4
+ * /tb_2_ot_server/ot_srv/tb_id: 2
+ * /tb_3_manager_node/controller/T: 40
+ * /tb_3_manager_node/controller/distance_other_tb_dist: 0.4
+ * /tb_3_manager_node/controller/dt: 0.1
+ * /tb_3_manager_node/controller/other_num_in_opti: 2
+ * /tb_3_manager_node/controller/tb_num: 4
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_2/x: -1.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_2/y: 1.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_3/x: -2.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_3_manager_node/desired_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_3_manager_node/frm_rrt/desire_width: 1.8
+ * /tb_3_manager_node/frm_rrt/goal_tolerance: 0.5
+ * /tb_3_manager_node/frm_rrt/iter_num: 1500
+ * /tb_3_manager_node/frm_rrt/min_dis_to_obs: 0.3
+ * /tb_3_manager_node/frm_rrt/rho_d: 15
+ * /tb_3_manager_node/frm_rrt/rho_v: 0.1
+ * /tb_3_manager_node/frm_rrt/rho_w: 0
+ * /tb_3_manager_node/frm_rrt/sigma_v: 1413.7
+ * /tb_3_manager_node/frm_rrt/steerMaxStep: 1.0
+ * /tb_3_manager_node/frm_rrt/var: 0.01
+ * /tb_3_manager_node/grid_map/cx: 320
+ * /tb_3_manager_node/grid_map/cy: 240
+ * /tb_3_manager_node/grid_map/depth_filter_margin: 2
+ * /tb_3_manager_node/grid_map/depth_filter_maxdist: 5.0
+ * /tb_3_manager_node/grid_map/depth_filter_mindist: 0.2
+ * /tb_3_manager_node/grid_map/depth_filter_tolerance: 0.15
+ * /tb_3_manager_node/grid_map/esdf_slice_height: 0.3
+ * /tb_3_manager_node/grid_map/frame_id: world
+ * /tb_3_manager_node/grid_map/fx: 347.998
+ * /tb_3_manager_node/grid_map/fy: 347.998
+ * /tb_3_manager_node/grid_map/ground_height: -0.01
+ * /tb_3_manager_node/grid_map/height: 480
+ * /tb_3_manager_node/grid_map/k_depth_scaling_factor: 1000.0
+ * /tb_3_manager_node/grid_map/local_bound_inflate: 0.0
+ * /tb_3_manager_node/grid_map/local_map_margin: 10
+ * /tb_3_manager_node/grid_map/local_update_range_x: 4.5
+ * /tb_3_manager_node/grid_map/local_update_range_y: 4.5
+ * /tb_3_manager_node/grid_map/map_size_x: 100.0
+ * /tb_3_manager_node/grid_map/map_size_y: 100.0
+ * /tb_3_manager_node/grid_map/max_ray_length: 4.5
+ * /tb_3_manager_node/grid_map/min_ray_length: 0.1
+ * /tb_3_manager_node/grid_map/mobile_robot_height: 0.3
+ * /tb_3_manager_node/grid_map/obstacles_inflation: 0.1
+ * /tb_3_manager_node/grid_map/p_hit: 0.65
+ * /tb_3_manager_node/grid_map/p_max: 0.9
+ * /tb_3_manager_node/grid_map/p_min: 0.12
+ * /tb_3_manager_node/grid_map/p_miss: 0.35
+ * /tb_3_manager_node/grid_map/p_occ: 0.8
+ * /tb_3_manager_node/grid_map/pose_type: 2
+ * /tb_3_manager_node/grid_map/resolution: 0.1
+ * /tb_3_manager_node/grid_map/show_esdf_time: False
+ * /tb_3_manager_node/grid_map/show_occ_time: False
+ * /tb_3_manager_node/grid_map/skip_pixel: 2
+ * /tb_3_manager_node/grid_map/use_depth_filter: True
+ * /tb_3_manager_node/grid_map/virtual_ceil_height: 3.0
+ * /tb_3_manager_node/grid_map/visualization_truncate_height: 2.8
+ * /tb_3_manager_node/grid_map/width: 640
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_1/x: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_1/y: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_2/x: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_2/y: -1.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_3/x: -1.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_3/y: 0.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_4/x: -1.0
+ * /tb_3_manager_node/initial_shape_positions/vehicle_pos_4/y: -1.0
+ * /tb_3_manager_node/optimization/goal_distance_thresh: 0.15
+ * /tb_3_manager_node/ot_client/tb_id: 3
+ * /tb_3_manager_node/ot_client/tb_num: 4
+ * /tb_3_manager_node/path_optimizer/obs_clearance: 0.35
+ * /tb_3_manager_node/plan_manager/formation_interval: 0.8
+ * /tb_3_manager_node/plan_manager/forward_distance: 1.3
+ * /tb_3_manager_node/plan_manager/frm_type: 4
+ * /tb_3_manager_node/plan_manager/leader_id: 0
+ * /tb_3_manager_node/plan_manager/other_num_in_opti: 2
+ * /tb_3_manager_node/plan_manager/scalability_data_dir: /root/DEFORM/src/...
+ * /tb_3_manager_node/plan_manager/tb_id: 3
+ * /tb_3_manager_node/plan_manager/tb_num: 4
+ * /tb_3_manager_node/task_type: 1
+ * /tb_3_manager_node/vehicle_number: 4
+ * /tb_3_ot_server/ot_srv/tb_id: 3
+ * /test_drone_0_detect/cam_cx: 320.0
+ * /test_drone_0_detect/cam_cy: 240.0
+ * /test_drone_0_detect/cam_fx: 347.997558
+ * /test_drone_0_detect/cam_fy: 347.997558
+ * /test_drone_0_detect/cam_height: 480
+ * /test_drone_0_detect/cam_width: 640
+ * /test_drone_0_detect/estimate/drone_height: 0.2
+ * /test_drone_0_detect/estimate/drone_width: 0.3
+ * /test_drone_0_detect/estimate/max_pose_error: 0.3
+ * /test_drone_0_detect/my_id: 0
+ * /test_drone_0_detect/pixel_ratio: 0.1
+ * /test_drone_1_detect/cam_cx: 320.0
+ * /test_drone_1_detect/cam_cy: 240.0
+ * /test_drone_1_detect/cam_fx: 347.997558
+ * /test_drone_1_detect/cam_fy: 347.997558
+ * /test_drone_1_detect/cam_height: 480
+ * /test_drone_1_detect/cam_width: 640
+ * /test_drone_1_detect/estimate/drone_height: 0.2
+ * /test_drone_1_detect/estimate/drone_width: 0.3
+ * /test_drone_1_detect/estimate/max_pose_error: 0.3
+ * /test_drone_1_detect/my_id: 1
+ * /test_drone_1_detect/pixel_ratio: 0.1
+ * /test_drone_2_detect/cam_cx: 320.0
+ * /test_drone_2_detect/cam_cy: 240.0
+ * /test_drone_2_detect/cam_fx: 347.997558
+ * /test_drone_2_detect/cam_fy: 347.997558
+ * /test_drone_2_detect/cam_height: 480
+ * /test_drone_2_detect/cam_width: 640
+ * /test_drone_2_detect/estimate/drone_height: 0.2
+ * /test_drone_2_detect/estimate/drone_width: 0.3
+ * /test_drone_2_detect/estimate/max_pose_error: 0.3
+ * /test_drone_2_detect/my_id: 2
+ * /test_drone_2_detect/pixel_ratio: 0.1
+ * /test_drone_3_detect/cam_cx: 320.0
+ * /test_drone_3_detect/cam_cy: 240.0
+ * /test_drone_3_detect/cam_fx: 347.997558
+ * /test_drone_3_detect/cam_fy: 347.997558
+ * /test_drone_3_detect/cam_height: 480
+ * /test_drone_3_detect/cam_width: 640
+ * /test_drone_3_detect/estimate/drone_height: 0.2
+ * /test_drone_3_detect/estimate/drone_width: 0.3
+ * /test_drone_3_detect/estimate/max_pose_error: 0.3
+ * /test_drone_3_detect/my_id: 3
+ * /test_drone_3_detect/pixel_ratio: 0.1
+
+NODES
+  /
+    f1tenth_bridge (f1tenth_deform_bridge/f1tenth_bridge_node.py)
+    tb_0_manager_node (plan_manager/plan_manager_node)
+    tb_0_ot_server (ot_process/ot_srv.py)
+    tb_1_manager_node (plan_manager/plan_manager_node)
+    tb_1_ot_server (ot_process/ot_srv.py)
+    tb_2_manager_node (plan_manager/plan_manager_node)
+    tb_2_ot_server (ot_process/ot_srv.py)
+    tb_3_manager_node (plan_manager/plan_manager_node)
+    tb_3_ot_server (ot_process/ot_srv.py)
+    test_drone_0_detect (drone_detect/drone_detect)
+    test_drone_1_detect (drone_detect/drone_detect)
+    test_drone_2_detect (drone_detect/drone_detect)
+    test_drone_3_detect (drone_detect/drone_detect)
+[33m[WARN] [1780371444.481332234]: Task type is navigation[0m
+/usr/local/lib/python3.8/dist-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/usr/local/lib/python3.8/dist-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `step()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+[WARN] [1780371548.565805]: [Bridge] Episode 1 ended — collision/lap (gym signalled done)
+pygame 2.6.1 (SDL 2.28.4, Python 3.8.10)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[INFO] [1780371445.105741]: [Bridge] Centerline loaded: /opt/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_centerline.csv (97 wp)
+[INFO] [1780371445.125919]: [Bridge] Narrow region: center=(40.89843, -41.31974), gap=3.300 m
+[INFO] [1780371544.217743]: [Bridge] Published map 'open_narrow_obs' (1600x1600 @ 0.0625 m/px)
+[INFO] [1780371544.236467]: [Bridge] Occupancy map loaded for raycasting (1600x1600 @ 0.0625m)
+[INFO] [1780371544.249112]: [Bridge] Published 4 obstacle marker(s) on /obstacle_features
+[INFO] [1780371544.253406]: [Bridge] Ready — 4 agents, map='open_narrow_obs', rate=50 Hz, auto_goal=True, episode_end=narrow_clear
+[INFO] [1780371544.256526]: [Bridge] GoalThread: waiting for 4 plan_manager(s)…
+[INFO] [1780371544.256993]: [Bridge] Spinning…
+[INFO] [1780371544.269459]: [Bridge] GoalThread: /tb_0/cmd_vel ready
+[INFO] [1780371544.470578]: [Bridge] GoalThread: /tb_1/cmd_vel ready
+[INFO] [1780371544.532851]: [Bridge] GoalThread: /tb_2/cmd_vel ready
+[INFO] [1780371544.560197]: [Bridge] GoalThread: /tb_3/cmd_vel ready
+[INFO] [1780371544.578823]: [Bridge] GoalThread: all planners up — publishing in 15.0s
+[INFO] [1780371548.573285]: [Bridge] ── Episode 1 narrow-zone metrics ──
+  avg_speed_mps   : 0.000
+  success         : 0.0
+  time_to_goal_s  : nan
+  flow_rate       : 0.0000 agents/(m·s)
+  deformability   : nan
+  n_cleared       : 0 / 4
+[INFO] [1780371548.578676]: [Bridge] Metrics saved → /tmp/deform_results/zone_ep001_20260602_033908.csv
+[INFO] [1780371548.584803]: [Bridge] Reached target_episodes=1 — shutting down
+[31m[ERROR] [1780371549.553201969]: odom or depth lost! ros::Time::now()=1780371549.552984, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.603029480]: odom or depth lost! ros::Time::now()=1780371549.602911, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.604106830]: odom or depth lost! ros::Time::now()=1780371549.603651, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.614466977]: odom or depth lost! ros::Time::now()=1780371549.613973, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.638493320]: odom or depth lost! ros::Time::now()=1780371549.638268, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.653488132]: odom or depth lost! ros::Time::now()=1780371549.653071, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.653858660]: odom or depth lost! ros::Time::now()=1780371549.653675, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.664087653]: odom or depth lost! ros::Time::now()=1780371549.663985, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.688325709]: odom or depth lost! ros::Time::now()=1780371549.688255, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.703027788]: odom or depth lost! ros::Time::now()=1780371549.702909, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.703880231]: odom or depth lost! ros::Time::now()=1780371549.703827, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.714107661]: odom or depth lost! ros::Time::now()=1780371549.713993, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.738393325]: odom or depth lost! ros::Time::now()=1780371549.738237, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.752935447]: odom or depth lost! ros::Time::now()=1780371549.752869, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.753648281]: odom or depth lost! ros::Time::now()=1780371549.753568, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.764048281]: odom or depth lost! ros::Time::now()=1780371549.763972, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.788311093]: odom or depth lost! ros::Time::now()=1780371549.788240, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.802929617]: odom or depth lost! ros::Time::now()=1780371549.802856, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.803857119]: odom or depth lost! ros::Time::now()=1780371549.803624, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.814041540]: odom or depth lost! ros::Time::now()=1780371549.813943, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.838302658]: odom or depth lost! ros::Time::now()=1780371549.838240, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.852915361]: odom or depth lost! ros::Time::now()=1780371549.852852, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.853495799]: odom or depth lost! ros::Time::now()=1780371549.853456, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.864051649]: odom or depth lost! ros::Time::now()=1780371549.863969, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.889192851]: odom or depth lost! ros::Time::now()=1780371549.888605, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.902932533]: odom or depth lost! ros::Time::now()=1780371549.902853, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.903598460]: odom or depth lost! ros::Time::now()=1780371549.903545, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.914383295]: odom or depth lost! ros::Time::now()=1780371549.914161, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.938755259]: odom or depth lost! ros::Time::now()=1780371549.938427, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.952958151]: odom or depth lost! ros::Time::now()=1780371549.952877, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.953892376]: odom or depth lost! ros::Time::now()=1780371549.953707, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.964077097]: odom or depth lost! ros::Time::now()=1780371549.963990, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371549.988296558]: odom or depth lost! ros::Time::now()=1780371549.988238, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.003044943]: odom or depth lost! ros::Time::now()=1780371550.002921, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.003676877]: odom or depth lost! ros::Time::now()=1780371550.003596, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.014051831]: odom or depth lost! ros::Time::now()=1780371550.013949, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.038353986]: odom or depth lost! ros::Time::now()=1780371550.038268, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.053010751]: odom or depth lost! ros::Time::now()=1780371550.052892, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.053681576]: odom or depth lost! ros::Time::now()=1780371550.053546, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.064203854]: odom or depth lost! ros::Time::now()=1780371550.064045, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.089143272]: odom or depth lost! ros::Time::now()=1780371550.088466, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.103074300]: odom or depth lost! ros::Time::now()=1780371550.102950, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.103708678]: odom or depth lost! ros::Time::now()=1780371550.103629, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.114684959]: odom or depth lost! ros::Time::now()=1780371550.114204, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.138272356]: odom or depth lost! ros::Time::now()=1780371550.138183, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.153055516]: odom or depth lost! ros::Time::now()=1780371550.152914, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.153721853]: odom or depth lost! ros::Time::now()=1780371550.153620, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.164160937]: odom or depth lost! ros::Time::now()=1780371550.164060, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.188545725]: odom or depth lost! ros::Time::now()=1780371550.188321, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.203003811]: odom or depth lost! ros::Time::now()=1780371550.202897, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.203840945]: odom or depth lost! ros::Time::now()=1780371550.203609, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.214507571]: odom or depth lost! ros::Time::now()=1780371550.213995, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.238534395]: odom or depth lost! ros::Time::now()=1780371550.238356, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.253075715]: odom or depth lost! ros::Time::now()=1780371550.252917, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.253686950]: odom or depth lost! ros::Time::now()=1780371550.253546, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.264268648]: odom or depth lost! ros::Time::now()=1780371550.264089, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.289117428]: odom or depth lost! ros::Time::now()=1780371550.288494, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.303035842]: odom or depth lost! ros::Time::now()=1780371550.302924, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.303656855]: odom or depth lost! ros::Time::now()=1780371550.303582, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.314261346]: odom or depth lost! ros::Time::now()=1780371550.314188, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.338470428]: odom or depth lost! ros::Time::now()=1780371550.338279, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.352987423]: odom or depth lost! ros::Time::now()=1780371550.352892, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.353870753]: odom or depth lost! ros::Time::now()=1780371550.353685, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.364700142]: odom or depth lost! ros::Time::now()=1780371550.364199, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.388471080]: odom or depth lost! ros::Time::now()=1780371550.388372, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.403002693]: odom or depth lost! ros::Time::now()=1780371550.402903, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.403843123]: odom or depth lost! ros::Time::now()=1780371550.403639, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.414352317]: odom or depth lost! ros::Time::now()=1780371550.414056, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.438605671]: odom or depth lost! ros::Time::now()=1780371550.438346, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.453077362]: odom or depth lost! ros::Time::now()=1780371550.452933, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.453672317]: odom or depth lost! ros::Time::now()=1780371550.453554, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.464177062]: odom or depth lost! ros::Time::now()=1780371550.464074, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.488399589]: odom or depth lost! ros::Time::now()=1780371550.488301, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.502972859]: odom or depth lost! ros::Time::now()=1780371550.502892, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.503661628]: odom or depth lost! ros::Time::now()=1780371550.503580, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.514107975]: odom or depth lost! ros::Time::now()=1780371550.514007, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.538712792]: odom or depth lost! ros::Time::now()=1780371550.538342, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.553065282]: odom or depth lost! ros::Time::now()=1780371550.552915, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.553822638]: odom or depth lost! ros::Time::now()=1780371550.553598, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.564351258]: odom or depth lost! ros::Time::now()=1780371550.564215, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.588316226]: odom or depth lost! ros::Time::now()=1780371550.588248, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.603167683]: odom or depth lost! ros::Time::now()=1780371550.602919, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.603849529]: odom or depth lost! ros::Time::now()=1780371550.603621, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.614060058]: odom or depth lost! ros::Time::now()=1780371550.613951, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.638554550]: odom or depth lost! ros::Time::now()=1780371550.638380, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.653088967]: odom or depth lost! ros::Time::now()=1780371550.652920, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.653595949]: odom or depth lost! ros::Time::now()=1780371550.653528, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.664179080]: odom or depth lost! ros::Time::now()=1780371550.664039, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.688329132]: odom or depth lost! ros::Time::now()=1780371550.688251, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.703190076]: odom or depth lost! ros::Time::now()=1780371550.702984, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.703854189]: odom or depth lost! ros::Time::now()=1780371550.703639, md_.last_occ_update_time_=1780371548.603576, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.714843845]: odom or depth lost! ros::Time::now()=1780371550.714234, md_.last_occ_update_time_=1780371548.564680, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.738380318]: odom or depth lost! ros::Time::now()=1780371550.738217, md_.last_occ_update_time_=1780371548.588414, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.753014561]: odom or depth lost! ros::Time::now()=1780371550.752914, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.802993363]: odom or depth lost! ros::Time::now()=1780371550.802892, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.853544678]: odom or depth lost! ros::Time::now()=1780371550.853200, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.903103930]: odom or depth lost! ros::Time::now()=1780371550.902931, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371550.955774380]: odom or depth lost! ros::Time::now()=1780371550.955669, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371551.002985863]: odom or depth lost! ros::Time::now()=1780371551.002896, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371551.053062126]: odom or depth lost! ros::Time::now()=1780371551.052904, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371551.102953275]: odom or depth lost! ros::Time::now()=1780371551.102872, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m[ERROR] [1780371551.152992279]: odom or depth lost! ros::Time::now()=1780371551.152882, md_.last_occ_update_time_=1780371548.552866, mp_.odom_depth_timeout_=1.000000[0m
+[31m================================================================================REQUIRED process [f1tenth_bridge-2] has died!
+process has finished cleanly
+log file: /root/.ros/log/5be51588-5e34-11f1-855f-38d57a3b5003/f1tenth_bridge-2*.log
+Initiating shutdown!
+================================================================================[0m
+
+auto-starting new master
+[1mprocess[master]: started with pid [85][0m
+[1mROS_MASTER_URI=http://localhost:11311[0m
+]2;/root/DEFORM/src/utility/f1tenth_deform_bridge/launch/deform_f1tenth_4agents_narrow_render_upstream.launch http://localhost:11311
+[1msetting /run_id to 5be51588-5e34-11f1-855f-38d57a3b5003[0m
+[1mprocess[rosout-1]: started with pid [110][0m
+started core service [/rosout]
+[1mprocess[f1tenth_bridge-2]: started with pid [117][0m
+[1mprocess[tb_0_manager_node-3]: started with pid [118][0m
+[1mprocess[tb_0_ot_server-4]: started with pid [119][0m
+[1mprocess[test_drone_0_detect-5]: started with pid [120][0m
+[1mprocess[tb_1_manager_node-6]: started with pid [121][0m
+[1mprocess[tb_1_ot_server-7]: started with pid [122][0m
+[1mprocess[test_drone_1_detect-8]: started with pid [123][0m
+[1mprocess[tb_2_manager_node-9]: started with pid [124][0m
+[1mprocess[tb_2_ot_server-10]: started with pid [125][0m
+[1mprocess[test_drone_2_detect-11]: started with pid [126][0m
+[1mprocess[tb_3_manager_node-12]: started with pid [127][0m
+[1mprocess[tb_3_ot_server-13]: started with pid [143][0m
+[1mprocess[test_drone_3_detect-14]: started with pid [157][0m
+[test_drone_3_detect-14] killing on exit
+[tb_3_ot_server-13] killing on exit
+[tb_3_manager_node-12] killing on exit
+[test_drone_2_detect-11] killing on exit
+[tb_2_ot_server-10] killing on exit
+[tb_2_manager_node-9] killing on exit
+[test_drone_1_detect-8] killing on exit
+[tb_1_manager_node-6] killing on exit
+[tb_1_ot_server-7] killing on exit
+[test_drone_0_detect-5] killing on exit
+[tb_0_ot_server-4] killing on exit
+[tb_0_manager_node-3] killing on exit
+[f1tenth_bridge-2] killing on exit
+[rosout-1] killing on exit
+[master] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

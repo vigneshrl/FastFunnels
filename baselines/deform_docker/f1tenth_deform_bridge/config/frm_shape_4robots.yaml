@@ -1,0 +1,27 @@
+# frm_shape_4robots.yaml
+# Formation config for 4 F1Tenth agents.
+# This file is mounted over /root/DEFORM/src/plan_manager/config/frm_shape.yaml
+# at runtime so DEFORM's plan_manager uses these positions instead of the
+# default 12-robot config.
+#
+# task_type:
+#   1 = formation navigation (keep shape, navigate to goal)
+#   2 = formation change / reconfiguration
+
+task_type: 1
+vehicle_number: 4  # MUST match tb_num in one_run.xml
+
+# Initial shape — 2×2 square grid, 1 m spacing
+initial_shape_positions:
+  vehicle_pos_1: {x:  0.0, y:  0.0}
+  vehicle_pos_2: {x:  0.0, y: -1.0}
+  vehicle_pos_3: {x: -1.0, y:  0.0}
+  vehicle_pos_4: {x: -1.0, y: -1.0}
+
+# Desired shape — diamond formation, 1 m spacing
+# The OT optimal transport re-assigns robots to minimise travel cost.
+desired_shape_positions:
+  vehicle_pos_1: {x:  0.0, y:  0.0}
+  vehicle_pos_2: {x: -1.0, y:  1.0}
+  vehicle_pos_3: {x: -2.0, y:  0.0}
+  vehicle_pos_4: {x: -1.0, y: -1.0}

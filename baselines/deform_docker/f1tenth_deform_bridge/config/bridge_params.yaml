@@ -1,0 +1,14 @@
+# f1tenth_deform_bridge — runtime parameters
+# These are loaded by f1tenth_bridge_node.py via ROS param server
+
+num_agents: 4
+map_name: open_narrow_obs
+gym_root: /opt/f1tenth_gym
+rate_hz: 50          # Bridge step rate (Hz). f1tenth_gym timestep = 0.01s internally.
+cmd_timeout: 0.5     # Seconds before a stale cmd_vel is replaced with a stop command
+
+initial_poses:
+  - [3.0, -1.2, 0.0]
+  - [3.0, -0.4, 0.0]
+  - [3.0,  0.4, 0.0]
+  - [3.0,  1.2, 0.0]

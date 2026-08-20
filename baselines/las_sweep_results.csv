@@ -1,0 +1,4 @@
+baseline,n_agents,target_speed_mps,avg_speed_mps,success,time_to_goal_s,flow_rate,deformability,n_completed,n_collided,safety_rate,collision,spread_at_entry_m,spread_at_narrow_m
+las,3,0.5,0.739,0.2,14.25,0.0255,nan,2.4,0.6,0.8,0.3,0.0,0.0
+las,3,0.6,0.739,0.2,14.25,0.0255,nan,2.4,0.6,0.8,0.3,0.0,0.0
+las,3,0.7,0.739,0.2,14.25,0.0255,nan,2.4,0.6,0.8,0.3,0.0,0.0

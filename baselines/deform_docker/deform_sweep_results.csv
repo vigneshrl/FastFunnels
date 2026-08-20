@@ -1,0 +1,2 @@
+baseline,n_agents,target_speed_mps,avg_speed_mps,success,time_to_goal_s,flow_rate,deformability,n_completed,collision,spread_at_entry_m,spread_at_narrow_m
+deform,2,nan,0.01,0.0,inf,0.0,nan,0.0,0.0,0.6,0.0

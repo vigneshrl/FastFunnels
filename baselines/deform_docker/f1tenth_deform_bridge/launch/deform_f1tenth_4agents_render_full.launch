@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+  <arg name="target_episodes" default="1"/>
+  <arg name="episode_timeout_s" default="300.0"/>
+
+  <node name="f1tenth_bridge" pkg="f1tenth_deform_bridge"
+        type="f1tenth_bridge_node.py" output="screen" required="true">
+    <rosparam file="/root/DEFORM/src/utility/f1tenth_deform_bridge/config/bridge_params.yaml"
+              command="load"/>
+    <param name="num_agents" value="4"/>
+    <param name="map_name" value="open_narrow_obs"/>
+    <param name="tb_num" value="4"/>
+    <param name="render" value="true"/>
+    <param name="auto_publish_goal" value="true"/>
+    <param name="goal_republish_period_s" value="2.0"/>
+    <param name="episode_end_mode" value="map_goal"/>
+    <param name="goal_x" value="60.33585784078515"/>
+    <param name="goal_y" value="-83.65054988811353"/>
+    <param name="goal_yaw" value="-1.0"/>
+    <param name="goal_delay_s" value="10.0"/>
+    <param name="cmd_timeout" value="2.0"/>
+    <param name="target_episodes" value="$(arg target_episodes)"/>
+    <param name="episode_timeout_s" value="$(arg episode_timeout_s)"/>
+    <!-- Track start: centerline wp1–wp2, side-by-side pairs -->
+    <rosparam param="initial_poses">
+      - [2.5142067547853175, -0.3, 0.0]
+      - [2.5142067547853175,  0.3, 0.0]
+      - [1.2571033773926588, -0.3, 0.0]
+      - [1.2571033773926588,  0.3, 0.0]
+    </rosparam>
+  </node>
+
+  <rosparam param="/tb_0_manager_node/grid_map/obstacles_inflation">0.0</rosparam>
+  <rosparam param="/tb_0_manager_node/grid_map/depth_filter_tolerance">0.25</rosparam>
+  <rosparam param="/tb_1_manager_node/grid_map/obstacles_inflation">0.0</rosparam>
+  <rosparam param="/tb_1_manager_node/grid_map/depth_filter_tolerance">0.25</rosparam>
+  <rosparam param="/tb_2_manager_node/grid_map/obstacles_inflation">0.0</rosparam>
+  <rosparam param="/tb_2_manager_node/grid_map/depth_filter_tolerance">0.25</rosparam>
+  <rosparam param="/tb_3_manager_node/grid_map/obstacles_inflation">0.0</rosparam>
+  <rosparam param="/tb_3_manager_node/grid_map/depth_filter_tolerance">0.25</rosparam>
+
+  <include file="$(find plan_manager)/launch/one_run.xml">
+    <arg name="tb_id" value="0"/>
+    <arg name="tb_num" value="4"/>
+    <arg name="frm_type" value="4"/>
+    <arg name="other_num_in_opti" value="2"/>
+  </include>
+  <include file="$(find plan_manager)/launch/one_run.xml">
+    <arg name="tb_id" value="1"/>
+    <arg name="tb_num" value="4"/>
+    <arg name="frm_type" value="4"/>
+    <arg name="other_num_in_opti" value="2"/>
+  </include>
+  <include file="$(find plan_manager)/launch/one_run.xml">
+    <arg name="tb_id" value="2"/>
+    <arg name="tb_num" value="4"/>
+    <arg name="frm_type" value="4"/>
+    <arg name="other_num_in_opti" value="2"/>
+  </include>
+  <include file="$(find plan_manager)/launch/one_run.xml">
+    <arg name="tb_id" value="3"/>
+    <arg name="tb_num" value="4"/>
+    <arg name="frm_type" value="4"/>
+    <arg name="other_num_in_opti" value="2"/>
+  </include>
+</launch>

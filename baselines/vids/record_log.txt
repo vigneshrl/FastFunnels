@@ -1,0 +1,349 @@
+Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/requests/__init__.py:86: RequestsDependencyWarning: Unable to find acceptable character detection dependency (chardet or charset_normalizer).
+  warnings.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:246: UserWarning: [33mWARN: The reward returned by `step()` must be a float, int, np.integer or np.floating, actual type: <class 'numpy.ndarray'>[0m
+  logger.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:246: UserWarning: [33mWARN: The reward returned by `step()` must be a float, int, np.integer or np.floating, actual type: <class 'numpy.ndarray'>[0m
+  logger.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:246: UserWarning: [33mWARN: The reward returned by `step()` must be a float, int, np.integer or np.floating, actual type: <class 'numpy.ndarray'>[0m
+  logger.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pygame/pkgdata.py:25: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import resource_stream, resource_exists
+/home/mrvik/Fastfunnels/baselines/learning_adaptive_safety/gym_envs/multi_agent_env/multi_agent_env.py:7: PydanticDeprecatedSince20: `pydantic.utils:deep_update` has been removed. We are importing from `pydantic.v1.utils:deep_update` instead.See the migration guide for more details: https://docs.pydantic.dev/latest/migration/. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+  from pydantic.utils import deep_update
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/f110_gym/envs/base_classes.py:96: UserWarning: Chosen integrator is RK4. This is different from previous versions of the gym.
+  warnings.warn(f"Chosen integrator is RK4. This is different from previous versions of the gym.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/f110_gym/envs/base_classes.py:99: UserWarning: Chosen dynamics 3. This is different from previous versions of the gym.
+  warnings.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/core.py:311: UserWarning: [33mWARN: env.track to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.track` for environment variables or `env.get_wrapper_attr('track')` that will search the reminding wrappers.[0m
+  logger.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/core.py:311: UserWarning: [33mWARN: env.agents_ids to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.agents_ids` for environment variables or `env.get_wrapper_attr('agents_ids')` that will search the reminding wrappers.[0m
+  logger.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/core.py:311: UserWarning: [33mWARN: env.is_vector_env to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.is_vector_env` for environment variables or `env.get_wrapper_attr('is_vector_env')` that will search the reminding wrappers.[0m
+  logger.warn(
+/home/mrvik/Fastfunnels/baselines/learning_adaptive_safety/rl/crpo.py:378: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  weights = torch.load(weight_file, map_location=map_location)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/core.py:311: UserWarning: [33mWARN: env.obs_rms to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.obs_rms` for environment variables or `env.get_wrapper_attr('obs_rms')` that will search the reminding wrappers.[0m
+  logger.warn(
+
+[ORCA] Recording 2-agent run at 5.0 m/s (from narrow approach) …
+[ORCA] Track is closed loop (2199 waypoints)
+[ORCA] Loaded obs_pos.yaml: /home/mrvik/Fastfunnels/baselines/../f1tenth_gym_latest/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_obs_pos.yaml
+[ORCA] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[ORCA] Registered 3 static obstacle polygon(s) in RVO2.
+  [ORCA] all agents cleared narrow zone at step 420
+  [ORCA] episode ended at step 429
+  [✓] Saved 431 frames → /home/mrvik/Fastfunnels/baselines/vids/orca_2agent_5mps_narrow.mp4  (1.3 MB)
+
+[ORCA] Recording 2-agent run at 5.0 m/s (from track start) …
+[ORCA] Track is closed loop (2199 waypoints)
+[ORCA] Loaded obs_pos.yaml: /home/mrvik/Fastfunnels/baselines/../f1tenth_gym_latest/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_obs_pos.yaml
+[ORCA] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[ORCA] Registered 3 static obstacle polygon(s) in RVO2.
+  [✓] Saved 601 frames → /home/mrvik/Fastfunnels/baselines/vids/orca_2agent_5mps_start.mp4  (2.8 MB)
+
+[ORCA] Recording 3-agent run at 5.0 m/s (from narrow approach) …
+[ORCA] Track is closed loop (2199 waypoints)
+[ORCA] Loaded obs_pos.yaml: /home/mrvik/Fastfunnels/baselines/../f1tenth_gym_latest/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_obs_pos.yaml
+[ORCA] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[ORCA] Registered 3 static obstacle polygon(s) in RVO2.
+  [ORCA] episode ended at step 412
+  [✓] Saved 414 frames → /home/mrvik/Fastfunnels/baselines/vids/orca_3agent_5mps_narrow.mp4  (1.3 MB)
+
+[ORCA] Recording 3-agent run at 5.0 m/s (from track start) …
+[ORCA] Track is closed loop (2199 waypoints)
+[ORCA] Loaded obs_pos.yaml: /home/mrvik/Fastfunnels/baselines/../f1tenth_gym_latest/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_obs_pos.yaml
+[ORCA] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[ORCA] Registered 3 static obstacle polygon(s) in RVO2.
+  [✓] Saved 601 frames → /home/mrvik/Fastfunnels/baselines/vids/orca_3agent_5mps_start.mp4  (3.0 MB)
+
+[LF] Recording 2-agent run at 5.0 m/s (from narrow approach) …
+[LF] Track is closed loop (2199 waypoints)
+[LF] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[LF] Loaded 4 hazard centre(s) from obs_pos.yaml
+  [LF] episode ended at step 56
+  [✓] Saved 58 frames → /home/mrvik/Fastfunnels/baselines/vids/lf_2agent_5mps_narrow.mp4  (0.1 MB)
+
+[LF] Recording 2-agent run at 5.0 m/s (from track start) …
+[LF] Track is closed loop (2199 waypoints)
+[LF] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[LF] Loaded 4 hazard centre(s) from obs_pos.yaml
+  [LF] episode ended at step 46
+  [✓] Saved 25 frames → /home/mrvik/Fastfunnels/baselines/vids/lf_2agent_5mps_start.mp4  (0.1 MB)
+
+[LF] Recording 3-agent run at 5.0 m/s (from narrow approach) …
+[LF] Track is closed loop (2199 waypoints)
+[LF] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[LF] Loaded 4 hazard centre(s) from obs_pos.yaml
+  [LF] episode ended at step 61
+  [✓] Saved 63 frames → /home/mrvik/Fastfunnels/baselines/vids/lf_3agent_5mps_narrow.mp4  (0.2 MB)
+
+[LF] Recording 3-agent run at 5.0 m/s (from track start) …
+[LF] Track is closed loop (2199 waypoints)
+[LF] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[LF] Loaded 4 hazard centre(s) from obs_pos.yaml
+  [LF] episode ended at step 51
+  [✓] Saved 27 frames → /home/mrvik/Fastfunnels/baselines/vids/lf_3agent_5mps_start.mp4  (0.1 MB)
+
+[LAS] Searching for successful runs (from narrow approach, up to 20 seeds) …
+[LAS] Loading checkpoint with render_mode=rgb_array …
+[LAS] Checkpoint loaded.
+[LAS] Narrow region: center=(40.89843, -41.31974), gap=3.300 m
+  [LAS] Trying seed=42 …/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/core.py:311: UserWarning: [33mWARN: env.state to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.state` for environment variables or `env.get_wrapper_attr('state')` that will search the reminding wrappers.[0m
+  logger.warn(
+/home/mrvik/Fastfunnels/baselines/learning_adaptive_safety/gym_envs/multi_agent_env/planners/lattice_planner.py:328: DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+  step = int(observation[self.agent_id]["time"] // 0.01)
+[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+  [✓] Saved 112 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed42.mp4  (0.8 MB)
+ success=0.0  frames=112
+  [LAS] Trying seed=43 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 118 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed43.mp4  (0.8 MB)
+ success=0.0  frames=118
+  [LAS] Trying seed=44 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 116 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed44.mp4  (0.8 MB)
+ success=0.0  frames=116
+  [LAS] Trying seed=45 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 110 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed45.mp4  (0.8 MB)
+ success=0.0  frames=110
+  [LAS] Trying seed=46 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 106 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed46.mp4  (0.7 MB)
+ success=0.0  frames=106
+  [LAS] Trying seed=47 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 117 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed47.mp4  (0.8 MB)
+ success=0.0  frames=117
+  [LAS] Trying seed=48 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 120 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed48.mp4  (0.8 MB)
+ success=0.0  frames=120
+  [LAS] Trying seed=49 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 119 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed49.mp4  (0.8 MB)
+ success=0.0  frames=119
+  [LAS] Trying seed=50 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 123 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed50.mp4  (0.8 MB)
+ success=0.0  frames=123
+  [LAS] Trying seed=51 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 112 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed51.mp4  (0.8 MB)
+ success=0.0  frames=112
+  [LAS] Trying seed=52 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 122 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed52.mp4  (0.8 MB)
+ success=0.0  frames=122
+  [LAS] Trying seed=53 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 109 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed53.mp4  (0.7 MB)
+ success=0.0  frames=109
+  [LAS] Trying seed=54 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 126 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed54.mp4  (0.9 MB)
+ success=0.0  frames=126
+  [LAS] Trying seed=55 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 124 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed55.mp4  (0.9 MB)
+ success=0.0  frames=124
+  [LAS] Trying seed=56 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 119 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed56.mp4  (0.8 MB)
+ success=0.0  frames=119
+  [LAS] Trying seed=57 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 112 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed57.mp4  (0.8 MB)
+ success=0.0  frames=112
+  [LAS] Trying seed=58 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 130 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed58.mp4  (0.9 MB)
+ success=0.0  frames=130
+  [LAS] Trying seed=59 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 124 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed59.mp4  (0.9 MB)
+ success=0.0  frames=124
+  [LAS] Trying seed=60 …[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 118 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed60.mp4  (0.8 MB)
+ success=0.0  frames=118
+  [LAS] Trying seed=61 …/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/f110_gym/envs/base_classes.py:96: UserWarning: Chosen integrator is RK4. This is different from previous versions of the gym.
+  warnings.warn(f"Chosen integrator is RK4. This is different from previous versions of the gym.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/f110_gym/envs/base_classes.py:99: UserWarning: Chosen dynamics 3. This is different from previous versions of the gym.
+  warnings.warn(
+[debug - env 0] poses: [[ 40.452457 -37.59395   -1.612254]
+ [ 41.05194  -37.618816  -1.612254]
+ [ 41.651424 -37.643684  -1.612254]]
+  [✓] Saved 113 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_seed61.mp4  (0.8 MB)
+ success=0.0  frames=113
+[LAS] No runs found — saving last episode.
+
+[LAS] Searching for successful runs (from track start, up to 20 seeds) …
+[LAS] Loading checkpoint with render_mode=rgb_array …
+[LAS] Checkpoint loaded.
+[LAS] Narrow region: center=(40.89843, -41.31974), gap=3.300 m
+  [LAS] Trying seed=42 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=43 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=44 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=45 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=46 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=47 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=48 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=49 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=50 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=51 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=52 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=53 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=54 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=55 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=56 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=57 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=58 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=59 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=60 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+  [LAS] Trying seed=61 …[debug - env 0] poses: [[ 0.  -0.6  0. ]
+ [ 0.   0.   0. ]
+ [ 0.   0.6  0. ]]
+  [✓] Saved 2 frames → /home/mrvik/Fastfunnels/baselines/vids/_las_tmp_start.mp4  (0.0 MB)
+ success=0.0  frames=2
+[LAS] No runs found — saving last episode.
+
+All recordings done in 299s — videos in /home/mrvik/Fastfunnels/baselines/vids/

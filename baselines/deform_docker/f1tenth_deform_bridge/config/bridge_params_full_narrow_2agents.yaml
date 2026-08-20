@@ -1,0 +1,19 @@
+num_agents: 2
+map_name:   open_narrow_obs
+gym_root:   /opt/f1tenth_gym
+rate_hz:    50
+cmd_timeout: 0.5
+render:     true
+
+# open_narrow_obs centerline: wp0=(0,0), wp1=(1.2571,0), heading along +x.
+# Two agents side-by-side at wp1, ±0.3 m in y.
+initial_poses:
+  - [1.2571033773926588, -0.3, 0.0]
+  - [1.2571033773926588,  0.3, 0.0]
+
+# Goal at the END of the open path (last centerline waypoint).
+goal_x:       60.33585784078515
+goal_y:      -83.65054988811353
+goal_yaw:    -1.0
+goal_delay_s: 5.0
+tb_num:       2

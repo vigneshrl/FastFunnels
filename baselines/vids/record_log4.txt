@@ -1,0 +1,54 @@
+Gym has been unmaintained since 2022 and does not support NumPy 2.0 amongst other critical functionality.
+Please upgrade to Gymnasium, the maintained drop-in replacement of Gym, or contact the authors of your software and request that they upgrade.
+See the migration guide at https://gymnasium.farama.org/introduction/migration_guide/ for additional information.
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/requests/__init__.py:86: RequestsDependencyWarning: Unable to find acceptable character detection dependency (chardet or charset_normalizer).
+  warnings.warn(
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/pyqtgraph/parametertree/Parameter.py:140: DeprecationWarning: Parameter has no default value. Pass a default, or use setDefault(). This will no longer set an implicit default after January 2025.
+  return cls(**opts)
+/home/mrvik/anaconda3/envs/fastfunnels/lib/python3.9/site-packages/gymnasium/utils/passive_env_checker.py:159: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+
+[ORCA] Recording 2-agent run at 5.0 m/s (from narrow approach) …
+[ORCA] Track is closed loop (2199 waypoints)
+[ORCA] Loaded obs_pos.yaml: /home/mrvik/Fastfunnels/baselines/../f1tenth_gym_latest/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_obs_pos.yaml
+[ORCA] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[ORCA] Registered 3 static obstacle polygon(s) in RVO2.
+  [ORCA] all agents cleared narrow zone at step 791
+  [ORCA] episode ended at step 803
+  [✓] Saved 805 frames → /home/mrvik/Fastfunnels/baselines/vids/orca_2agent_5mps_narrow.mp4  (2.6 MB)
+
+[ORCA] Recording 3-agent run at 5.0 m/s (from narrow approach) …
+[ORCA] Track is closed loop (2199 waypoints)
+[ORCA] Loaded obs_pos.yaml: /home/mrvik/Fastfunnels/baselines/../f1tenth_gym_latest/f1tenth_gym/maps/open_narrow_obs/open_narrow_obs_obs_pos.yaml
+[ORCA] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[ORCA] Registered 3 static obstacle polygon(s) in RVO2.
+  [ORCA] episode ended at step 43
+  [✓] Saved 45 frames → /home/mrvik/Fastfunnels/baselines/vids/orca_3agent_5mps_narrow.mp4  (0.3 MB)
+
+[LF] Recording 2-agent run at 5.0 m/s (from narrow approach) …
+[LF] Track is closed loop (2199 waypoints)
+[LF] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[LF] Loaded 4 hazard centre(s) from obs_pos.yaml
+  [LF] episode ended at step 980
+  [✓] Saved 982 frames → /home/mrvik/Fastfunnels/baselines/vids/lf_2agent_5mps_narrow.mp4  (3.2 MB)
+
+[LF] Recording 3-agent run at 5.0 m/s (from narrow approach) …
+[LF] Track is closed loop (2199 waypoints)
+[LF] Spawning at (40.90, -34.32), hdg=-90° (extended CL: 2245 wps, approach idx=378)
+[LF] Loaded 4 hazard centre(s) from obs_pos.yaml
+  [LF] episode ended at step 43
+  [✓] Saved 45 frames → /home/mrvik/Fastfunnels/baselines/vids/lf_3agent_5mps_narrow.mp4  (0.3 MB)
+
+All recordings done in 28s — videos in /home/mrvik/Fastfunnels/baselines/vids/
