@@ -52,6 +52,9 @@ OUT_DIR = _ROOT / "maps" / "scenario_corners"
 
 BASE_MAPS = ["mf_narrowing", "mf_zigzag", "mf_lshape", "mf_slalom"]
 
+PLACEMENT = "centre"    # "centre": obstacles on the centreline; "wall": hugging a wall
+WALL_MARGIN = 0.10      # wall mode: gap left between the obstacle and the wall (m)
+
 CORNER_FRAC = 0.75      # "corner" = curvature at or above this quantile
 STRAIGHT_FRAC = 0.60    # "centre" = curvature at or below this quantile
 N_CORNER = (2, 4)       # per-map corner obstacles, inclusive
@@ -86,7 +89,17 @@ def sample_corner_and_centre(base, rng, n_corner, n_centre):
                 kind = str(rng.choice(["rect", "rect", "disc", "tri"]))
                 size = (float(rng.uniform(*OBST_SIZE)), float(rng.uniform(*OBST_SIZE)))
                 angle = float(rng.uniform(0, 180))
-                off = float(rng.uniform(-LATERAL_JITTER, LATERAL_JITTER))
+                if PLACEMENT == "wall":
+                    # push the obstacle out against one wall: offset = half-width
+                    # minus half the obstacle minus a small margin, so it TOUCHES
+                    # the wall and leaves the middle of the corridor open.
+                    half = float(base.base_clear[k])
+                    reach = half - 0.5 * max(size) - WALL_MARGIN
+                    if reach <= 0.2:
+                        continue                       # corridor too tight to hug here
+                    off = float(rng.choice([-1.0, 1.0])) * reach
+                else:
+                    off = float(rng.uniform(-LATERAL_JITTER, LATERAL_JITTER))
                 ox = base.cx[k] + off * base.nrm[k, 0]
                 oy = base.cy[k] + off * base.nrm[k, 1]
 
@@ -97,7 +110,7 @@ def sample_corner_and_centre(base, rng, n_corner, n_centre):
                     continue
 
                 wimg = trial
-                placed.append(dict(kind=kind, family=family,
+                placed.append(dict(kind=kind, family=family, placement=PLACEMENT,
                                    center_m=[round(float(ox), 4), round(float(oy), 4)],
                                    size_m=[round(float(size[0]), 4), round(float(size[1]), 4)],
                                    angle_deg=round(float(angle), 2),
@@ -140,7 +153,7 @@ def preview(out_root, index, bases, path):
                      f"{row['gap_width_m']:.2f} m", fontsize=9)
         ax.set_aspect("equal")
         ax.tick_params(labelsize=7)
-    fig.suptitle("scenario_corners -- obstacles at bends AND mid-corridor "
+    fig.suptitle(f"obstacles at bends AND on the straights (placement={PLACEMENT}) "
                  f"(every map keeps a >= {PASS_MIN} m drivable lane)", fontsize=11)
     fig.tight_layout()
     fig.savefig(path, dpi=110)
@@ -155,8 +168,13 @@ def main():
     p.add_argument("--out", default=str(OUT_DIR))
     p.add_argument("--bases", default="", help="comma-separated subset of base maps")
     p.add_argument("--prefix", default="sc_")
+    p.add_argument("--placement", choices=["centre", "wall"], default="centre",
+                   help="'centre': obstacles on the centreline (blocks the racing "
+                        "line); 'wall': obstacles hug a wall (middle stays open)")
     args = p.parse_args()
 
+    global PLACEMENT
+    PLACEMENT = args.placement
     bases = args.bases.split(",") if args.bases else BASE_MAPS
     out_root = pathlib.Path(args.out)
     if out_root.exists():
@@ -187,7 +205,8 @@ def main():
 
     with open(out_root / "variants_index.json", "w") as f:
         json.dump({"base_maps": list(bases), "pass_min_m": PASS_MIN,
-                   "corner_frac": CORNER_FRAC, "seed": args.seed,
+                   "corner_frac": CORNER_FRAC, "placement": PLACEMENT,
+                   "seed": args.seed,
                    "variants": index}, f, indent=2)
     print(f"\n[corners] {len(index)} maps -> {out_root}/")
 
