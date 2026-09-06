@@ -20,16 +20,17 @@ MAPS = [
     ("on_rep_clean", "OPEN_NARROW (clean)"),
     ("on_rep_obs",   "OPEN_NARROW + obstacles"),
 ]
+MAP_DIR = "maps/scenario_on_rep"
 RESULT_RE = re.compile(
     r"steps (\d+) \| patch end reason '([\w_]+)' \| true progress ([\d.]+)%")
 INSIDE_RE = re.compile(r"all-inside (\d+)/(\d+) \((\d+)%\)")
 
 
 def run_one(job):
-    policy, map_name, n, steps, mpc_every, slots, seed, clip, every = job
+    (policy, map_name, map_dir, n, steps, mpc_every, slots, seed, clip, every) = job
     cmd = [sys.executable, "mpc_follower_native_n.py",
            "--policy", policy, "--map", map_name,
-           "--map-dir", "maps/scenario_on_rep",
+           "--map-dir", map_dir,
            "--n", str(n), "--seed", str(seed), "--steps", str(steps),
            "--mpc-every", str(mpc_every), "--every", str(every),
            "--render", "mpl", "--out", clip]
@@ -60,9 +61,17 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--every", type=int, default=10, help="render every Nth sim step")
     ap.add_argument("--workers", type=int, default=12)
+    ap.add_argument("--maps", default="", help="comma-separated map names (default: the on_rep pair)")
+    ap.add_argument("--map-dir", default=MAP_DIR)
+    ap.add_argument("--labels", default="", help="comma-separated title-card labels, one per map")
     args = ap.parse_args()
 
     ns = [int(x) for x in args.ns.split(",")]
+    global MAPS
+    if args.maps:
+        _names = args.maps.split(",")
+        _labs = args.labels.split(",") if args.labels else _names
+        MAPS = list(zip(_names, _labs))
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     tmp = tempfile.mkdtemp(prefix="nmpc_reel_")
 
@@ -70,7 +79,7 @@ def main():
     for map_name, _ in MAPS:
         for n in ns:
             clip = os.path.join(tmp, f"{map_name}_N{n}.mp4")
-            jobs.append((args.policy, map_name, n, args.steps,
+            jobs.append((args.policy, map_name, args.map_dir, n, args.steps,
                          args.mpc_every, args.slots, args.seed, clip, args.every))
 
     from concurrent.futures import ProcessPoolExecutor
