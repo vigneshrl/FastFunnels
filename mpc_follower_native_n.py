@@ -140,9 +140,27 @@ def load_patch(zp):
     presentation_code/make_legacy_patch_reel.py.
     """
     d = os.path.dirname(zp); b = os.path.basename(zp)[:-4]
-    vn = os.path.join(d, b + "_vecnormalize.pkl")
-    if not os.path.exists(vn):
-        vn = os.path.join(d, "best_vecnormalize.pkl")
+    # SB3 runs here save `best_model.zip` + `best_vecnormalize.pkl` and
+    # `final_model.zip` + `final_vecnormalize.pkl` -- the "_model" is DROPPED in
+    # the pkl name. Only trying "<stem>_vecnormalize.pkl" and then falling back
+    # to best_vecnormalize.pkl silently normalises one checkpoint's
+    # observations with ANOTHER checkpoint's statistics, which looks like a
+    # catastrophically bad policy rather than an error (final_model on
+    # sw_lshape001: 100% with the right stats, 11% with best_model's).
+    _cands = [os.path.join(d, b + "_vecnormalize.pkl"),
+              os.path.join(d, b + "_vecnorm.pkl")]
+    if b.endswith("_model"):
+        _short = b[: -len("_model")]
+        _cands += [os.path.join(d, _short + "_vecnormalize.pkl"),
+                   os.path.join(d, _short + "_model_vecnorm.pkl")]
+    _cands += [os.path.join(d, "best_vecnormalize.pkl")]
+    for _c in _cands:
+        if os.path.exists(_c):
+            vn = _c
+            break
+    else:
+        raise FileNotFoundError(f"no VecNormalize stats for {zp}; tried {_cands}")
+    print(f"[patch] vecnorm = {os.path.basename(vn)}")
     p = PPO.load(zp, device="cpu")
     v = pickle.load(open(vn, "rb"))
     mean = v.obs_rms.mean.astype(np.float32); var = v.obs_rms.var.astype(np.float32)
@@ -173,8 +191,19 @@ def load_patch(zp):
 
 patch_act = load_patch(zp)
 
+# MUST match the solo-eval env (make_legacy_patch_reel.make_env): PatchEnvConfig
+# defaults b_cmd_max to 4.5, but every legacy/raw-action checkpoint was trained
+# and evaluated with b in [1.0, 3.0]. Leaving the default inflates the commanded
+# funnel by 50% (a raw b=3.0 decodes to 4.5), so the patch drives a funnel far
+# too fat for the corridor and dies early -- with followers it looked like a
+# formation problem when it was an env mismatch.
 env = PatchCarEnv(PatchEnvConfig(num_agents=2, render_mode=None, random_spawn=False,
-                                 obs_mode="lidar", num_lidar_beams=108, map_name=args.map))
+                                 obs_mode="lidar",
+                                 num_lidar_beams=int(os.environ.get("PATCH_BEAMS", "108")),
+                                 a_cmd_min=1.5, a_cmd_max=3.0,
+                                 b_cmd_min=1.0, b_cmd_max=3.0,
+                                 wall_filter_enabled=False,
+                                 map_name=args.map))
 obs, _ = env.reset(seed=args.seed)
 p0 = env.active_patches[0]
 _, occ, res, origin = env.base_env.get_track_data()
