@@ -189,7 +189,25 @@ def load_patch(zp):
     return act
 
 
-patch_act = load_patch(zp)
+# Use the SOLO-EVAL loader verbatim rather than this file's own copy of the
+# shim. The two had drifted (p.predict vs model.policy.predict, and the
+# vecnorm lookup), and the drift is invisible from the outside: the patch just
+# behaves like a worse policy. On on_obs_x5 the eval path drives
+# ck16500000 to 94.7% while the local shim stalled it at 19%. The eval path is
+# the reference -- if they disagree, the runner is wrong.
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "presentation_code"))
+    from make_legacy_patch_reel import load_legacy_policy as _load_eval_policy
+    _act_eval, _obs_dim_eval, _is_legacy_eval = _load_eval_policy(zp)
+    print(f"[patch] loader = make_legacy_patch_reel.load_legacy_policy "
+          f"(obs {_obs_dim_eval}, legacy={_is_legacy_eval})")
+
+    def patch_act(o):
+        return _act_eval(o, env)
+except Exception as _e:
+    print(f"[patch] eval loader unavailable ({_e}); using local shim")
+    patch_act = load_patch(zp)
 
 # MUST match the solo-eval env (make_legacy_patch_reel.make_env): PatchEnvConfig
 # defaults b_cmd_max to 4.5, but every legacy/raw-action checkpoint was trained
@@ -200,8 +218,11 @@ patch_act = load_patch(zp)
 env = PatchCarEnv(PatchEnvConfig(num_agents=2, render_mode=None, random_spawn=False,
                                  obs_mode="lidar",
                                  num_lidar_beams=int(os.environ.get("PATCH_BEAMS", "108")),
-                                 a_cmd_min=1.5, a_cmd_max=3.0,
-                                 b_cmd_min=1.0, b_cmd_max=3.0,
+                                 a_cmd_min=float(os.environ.get("PATCH_A_MIN", "1.5")),
+                                 a_cmd_max=float(os.environ.get("PATCH_A_MAX", "3.0")),
+                                 b_cmd_min=float(os.environ.get("PATCH_B_MIN", "1.0")),
+                                 b_cmd_max=float(os.environ.get("PATCH_B_MAX", "3.0")),
+                                 lidar_clip_m=float(os.environ.get("PATCH_LIDAR_CLIP", "30.0")),
                                  wall_filter_enabled=False,
                                  map_name=args.map))
 obs, _ = env.reset(seed=args.seed)
