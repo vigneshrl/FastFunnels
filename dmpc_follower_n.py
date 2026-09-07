@@ -37,7 +37,7 @@ single-track plant, same funnel containment cost, same slot layouts (including
         --map on_rep_clean --map-dir maps/scenario_on_rep --n 6 --seed 0
 
 env vars: FOLLOWER_MODEL {st(default),kinematic}  MPC_MODEL {st(default),kinematic}
-          MPC_SLOTS {wedge(default),ring,trail,abreast,split}  MPC_GAP  MPC_STAGGER
+          MPC_SLOTS {wedge(default),adaptive,ring,plus,corners,trail,abreast,split}  MPC_GAP  MPC_STAGGER
           MPC_RING_RHO  MPC_SLOT_D  MPC_SLOT_LAT  MPC_MIN_DIST  MPC_HZ_S  MPC_HZ_N
           MPC_ST_SUBSTEPS  MPC_MAX_ITER  MPC_W_VEL/W_CENTER/W_CONTAIN  MPC_W_COLL
           DMPC_SWEEPS   coordination sweeps per control tick (default 2)
@@ -313,9 +313,151 @@ def _ring_slot(i, a, b):
     return (al, la)
 
 
+# "plus" / "corners": FIXED-geometry formations, unlike "ring" the radius does
+#   NOT follow the live funnel.  Kept fixed on purpose: the ring makes the whole
+#   formation contract every time the patch narrows for an obstacle, so the
+#   followers spend the episode chasing a moving reference.  A fixed frame gives
+#   them a stationary target; the cost is that the slots can fall OUTSIDE the
+#   funnel while it is pinched (with b at its 1.00 floor the containment
+#   half-width is only 0.85 m, so any lateral slot >= MIN_DIST=0.8 from the
+#   patch car is already at the edge).  PLUS_R sets the radius.
+PLUS_R = float(os.environ.get("MPC_PLUS_R", "1.10"))
+
+#   plus     : one ahead, one astern, one on each beam (patch car in the middle)
+_PLUS_DEG = [0.0, 90.0, 180.0, 270.0]
+#   corners  : one on each quarter -- the same four cars rotated 45 deg, so
+#              nobody sits directly ahead of or behind the patch car
+_CORNERS_DEG = [45.0, 135.0, 225.0, 315.0]
+
+
+def _fixed_slot(i, tbl):
+    """Slot i at a FIXED radius PLUS_R on the bearing given by tbl (deg,
+    0 = straight ahead, +90 = port)."""
+    phi = math.radians(tbl[i % len(tbl)] if i < len(tbl) else 360.0 * i / max(N, 1))
+    r = max(PLUS_R, MIN_DIST)              # never inside the patch car's keep-out
+    return (r * math.cos(phi), r * math.sin(phi))
+
+
+# "adaptive": the slots are not a fixed bearing pattern at all -- they are
+#   SOLVED for from the funnel's live shape on every tick.
+#
+#   Why: every fixed pattern (wedge/ring/plus/corners) pins each follower to a
+#   bearing. A slot on the beam (90 deg) needs lateral room, and when the patch
+#   narrows for an obstacle -- b hits its 1.00 floor on 44% of steps on
+#   open_narrow_obs -- the containment half-width falls to 0.85 m while
+#   min_agent_dist still forces every slot >= 0.80 m from the patch car. The
+#   beam slot ends up ON the ellipse boundary, so any tracking error puts that
+#   follower outside. Measured: a feasible arrangement EXISTS at 100% of steps
+#   for N up to 6, so the funnel is never actually too small -- the fixed
+#   bearings are simply the wrong shape for a narrow funnel.
+#
+#   What this does instead: pack N points into the live containment ellipse so
+#   that every point is >= MIN_DIST from the patch car and from every other
+#   point, and then pull the whole arrangement AS FAR INSIDE the boundary as it
+#   will go (binary search on an ellipse scale factor, taking the SMALLEST
+#   feasible scale). The leftover 1 - scale is containment margin: the room a
+#   follower has to lag or overshoot without leaving the funnel.
+#
+#   As b shrinks the solution migrates off the beam and toward the funnel's long
+#   axis by itself (the half-length is 1.35 m against 0.85 m of half-width when
+#   pinched), which is exactly the arrangement a fixed pattern cannot express.
+#   Seeds are deterministic and results are cached per rounded (a, b), so nearby
+#   funnel states give nearby formations -- the reference stays continuous
+#   rather than jumping between ticks.
+_PACK_CACHE = {}
+_PACK_ITERS = int(os.environ.get("MPC_PACK_ITERS", "140"))
+
+
+def _pack_relax(ae, be, n, seed_mode):
+    """Deterministic seed + projected repulsion inside the (ae, be) ellipse.
+    Returns the arrangement if it satisfies every constraint, else None."""
+    if n == 1:
+        cand = np.array([[min(ae, max(MIN_DIST, 0.9 * ae)), 0.0]])
+        return cand if np.linalg.norm(cand[0]) >= MIN_DIST - 1e-6 else None
+    th = 2.0 * math.pi * np.arange(n) / n
+    if seed_mode == 0:
+        pass
+    elif seed_mode == 1:
+        th = th + math.pi / n                      # rotate half a sector
+    else:
+        # long-axis-biased seed: alternate fore/aft, small lateral spread
+        th = np.where(np.arange(n) % 2 == 0, 0.0, math.pi) +              0.35 * (np.arange(n) - (n - 1) / 2.0)
+    P = np.stack([0.92 * ae * np.cos(th), 0.92 * be * np.sin(th)], axis=1)
+
+    for _ in range(_PACK_ITERS):
+        for i in range(n):
+            f = np.zeros(2)
+            for j in range(n):
+                if i == j:
+                    continue
+                d = P[i] - P[j]
+                r = float(np.linalg.norm(d)) + 1e-9
+                if r < MIN_DIST + 0.02:
+                    f += d / r * (MIN_DIST + 0.02 - r)
+            r0 = float(np.linalg.norm(P[i])) + 1e-9
+            if r0 < MIN_DIST + 0.02:               # clear the patch car itself
+                f += P[i] / r0 * (MIN_DIST + 0.02 - r0)
+            P[i] = P[i] + f
+            g = (P[i, 0] / ae) ** 2 + (P[i, 1] / be) ** 2
+            if g > 1.0:                            # project back inside
+                P[i] = P[i] / math.sqrt(g)
+
+    for i in range(n):
+        if np.linalg.norm(P[i]) < MIN_DIST - 1e-3:
+            return None
+        if (P[i, 0] / ae) ** 2 + (P[i, 1] / be) ** 2 > 1.0 + 1e-6:
+            return None
+        for j in range(i + 1, n):
+            if np.linalg.norm(P[i] - P[j]) < MIN_DIST - 1e-3:
+                return None
+    return P
+
+
+def _pack(ae, be, n):
+    for mode in (0, 1, 2):
+        P = _pack_relax(ae, be, n, mode)
+        if P is not None:
+            return P
+    return None
+
+
+def _adaptive_slots(i, a, b):
+    """Slot i for the CURRENT funnel, from the cached packing for this (a, b)."""
+    key = (round(float(a), 2), round(float(b), 2), N)
+    got = _PACK_CACHE.get(key)
+    if got is None:
+        ae = max(float(a) - CONTAIN_MARGIN, 0.5)
+        be = max(float(b) - CONTAIN_MARGIN, 0.5)
+        best = None
+        lo, hi = 0.25, 1.0
+        for _ in range(11):                        # smallest feasible scale
+            mid = 0.5 * (lo + hi)                  #   == largest margin
+            P = _pack(ae * mid, be * mid, N)
+            if P is not None:
+                best, hi = P, mid
+            else:
+                lo = mid
+        if best is None:
+            best = _pack(ae, be, N)
+        if best is None:                           # give up: ring fallback
+            got = tuple(_ring_slot(k, a, b) for k in range(N))
+        else:
+            order = np.argsort(-np.arctan2(best[:, 1], best[:, 0]))
+            got = tuple((float(best[k, 0]), float(best[k, 1])) for k in order)
+        _PACK_CACHE[key] = got
+    return got[i % len(got)]
+
+
 def _slot(i, a=None, b=None):
     if SLOTS == "ring":
         return _ring_slot(i, p0.a if a is None else a, p0.b if b is None else b)
+    if SLOTS == "adaptive":
+        return _adaptive_slots(i, p0.a if a is None else a,
+                               p0.b if b is None else b)
+    if SLOTS == "plus":
+        return _fixed_slot(i, _PLUS_DEG)
+    if SLOTS == "corners":
+        return _fixed_slot(i, _CORNERS_DEG)
     if SLOTS == "wedge":
         tbl = _WEDGE.get(N, _WEDGE[3])
         return tbl[i] if i < len(tbl) else (-GAP - (i // 2) * SLOT_D,
