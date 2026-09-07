@@ -23,7 +23,7 @@ in their slots, spaced >= MPC min_agent_dist.
     MPC_SLOTS=abreast $PY mpc_follower_native_n.py --policy ... --n 3
 
 env vars: FOLLOWER_MODEL {st(default),kinematic}  MPC_MODEL {st(default),kinematic}
-          MPC_SLOTS {wedge(default),ring,trail,abreast,split}  MPC_GAP  MPC_STAGGER
+          MPC_SLOTS {wedge(default),ring,plus,corners,trail,abreast,split}  MPC_GAP  MPC_STAGGER
           MPC_RING_RHO  (ring fill fraction of the funnel half-axes)
           MPC_SLOT_D  MPC_SLOT_LAT  MPC_MIN_DIST  MPC_HZ_S  MPC_HZ_N
           MPC_ST_SUBSTEPS  MPC_MAX_ITER  MPC_W_VEL/W_CENTER/W_CONTAIN
@@ -296,9 +296,38 @@ def _ring_slot(i, a, b):
     return (al, la)
 
 
+# "plus" / "corners": FIXED-geometry formations, unlike "ring" the radius does
+#   NOT follow the live funnel.  Kept fixed on purpose: the ring makes the whole
+#   formation contract every time the patch narrows for an obstacle, so the
+#   followers spend the episode chasing a moving reference.  A fixed frame gives
+#   them a stationary target; the cost is that the slots can fall OUTSIDE the
+#   funnel while it is pinched (with b at its 1.00 floor the containment
+#   half-width is only 0.85 m, so any lateral slot >= MIN_DIST=0.8 from the
+#   patch car is already at the edge).  PLUS_R sets the radius.
+PLUS_R = float(os.environ.get("MPC_PLUS_R", "1.10"))
+
+#   plus     : one ahead, one astern, one on each beam (patch car in the middle)
+_PLUS_DEG = [0.0, 90.0, 180.0, 270.0]
+#   corners  : one on each quarter -- the same four cars rotated 45 deg, so
+#              nobody sits directly ahead of or behind the patch car
+_CORNERS_DEG = [45.0, 135.0, 225.0, 315.0]
+
+
+def _fixed_slot(i, tbl):
+    """Slot i at a FIXED radius PLUS_R on the bearing given by tbl (deg,
+    0 = straight ahead, +90 = port)."""
+    phi = math.radians(tbl[i % len(tbl)] if i < len(tbl) else 360.0 * i / max(N, 1))
+    r = max(PLUS_R, MIN_DIST)              # never inside the patch car's keep-out
+    return (r * math.cos(phi), r * math.sin(phi))
+
+
 def _slot(i, a=None, b=None):
     if SLOTS == "ring":
         return _ring_slot(i, p0.a if a is None else a, p0.b if b is None else b)
+    if SLOTS == "plus":
+        return _fixed_slot(i, _PLUS_DEG)
+    if SLOTS == "corners":
+        return _fixed_slot(i, _CORNERS_DEG)
     if SLOTS == "wedge":
         tbl = _WEDGE.get(N, _WEDGE[3])
         return tbl[i] if i < len(tbl) else (-GAP - (i // 2) * SLOT_D,
