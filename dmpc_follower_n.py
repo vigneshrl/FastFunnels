@@ -131,6 +131,8 @@ SLOT_LAT = float(os.environ.get("MPC_SLOT_LAT", "0.62"))
 RING_RHO = float(os.environ.get("MPC_RING_RHO", "0.82"))   # ring radius as a fraction of the funnel half-axes
 CONTAIN_MARGIN = float(os.environ.get("MPC_CONTAIN_MARGIN", "0.15"))  # must match MPCConfig.containment_margin
 MIN_DIST = float(os.environ.get("MPC_MIN_DIST", "0.8"))   # MPC inter-agent keep-out
+# fraction of the follower speed limit the formation is allowed to demand
+PACK_V_FRAC = float(os.environ.get("MPC_PACK_V_FRAC", "0.80"))
 
 zp = args.policy if args.policy.endswith(".zip") else os.path.join(args.policy, "best_model.zip")
 tag = os.path.basename(os.path.dirname(zp)) or os.path.basename(args.policy)
@@ -372,7 +374,13 @@ def _pack_relax(ae, be, n, seed_mode):
     """Deterministic seed + projected repulsion inside the (ae, be) ellipse.
     Returns the arrangement if it satisfies every constraint, else None."""
     if n == 1:
-        cand = np.array([[min(ae, max(MIN_DIST, 0.9 * ae)), 0.0]])
+        # ASTERN. The packer only optimises geometry, and with one follower no
+        # separation constraint breaks the fore/aft tie -- but a slot AHEAD of
+        # the patch car is the worst place to be: the patch accelerates into it
+        # and the funnel's front edge is where containment is tightest (a is
+        # pinned at its 1.50 floor). Every fixed formation puts a lone follower
+        # behind for that reason.
+        cand = np.array([[-min(ae, max(MIN_DIST, 0.9 * ae)), 0.0]])
         return cand if np.linalg.norm(cand[0]) >= MIN_DIST - 1e-6 else None
     th = 2.0 * math.pi * np.arange(n) / n
     if seed_mode == 0:
@@ -421,9 +429,60 @@ def _pack(ae, be, n):
     return None
 
 
+def _prefer_astern(P, ae, be):
+    """Rotate a feasible packing to sit as far astern as it can.
+
+    Rotation preserves every pairwise distance and every distance to the patch
+    car, so a rotated packing is still separation-feasible; only ellipse
+    containment has to be rechecked (the ellipse is anisotropic). Among the
+    rotations that stay inside, take the one with the most negative mean
+    along-axis coordinate -- i.e. the formation that trails the patch rather
+    than leading it."""
+    best, best_score = P, float(np.mean(P[:, 0]))
+    for deg in range(10, 360, 10):
+        th = math.radians(deg)
+        c, s_ = math.cos(th), math.sin(th)
+        Q = np.stack([P[:, 0] * c - P[:, 1] * s_,
+                      P[:, 0] * s_ + P[:, 1] * c], axis=1)
+        if np.any((Q[:, 0] / ae) ** 2 + (Q[:, 1] / be) ** 2 > 1.0 + 1e-6):
+            continue
+        score = float(np.mean(Q[:, 0]))
+        if score < best_score - 1e-9:
+            best, best_score = Q, score
+    return best
+
+
+# Patch speed + yaw rate, refreshed once per tick by the main loop. A slot at
+# radius r on a funnel yawing at omega sweeps through the world at
+# v_patch + |omega|*r, and the follower has to match that. The measured demand
+# on open_narrow_obs peaked at 11.9 m/s against a 12.0 m/s follower limit --
+# feasible on paper, with no margin for the lag a nonholonomic car always has.
+_TICK_V = [0.0]
+_TICK_OM = [0.0]
+
+
+def set_tick_kinematics(v, omega):
+    _TICK_V[0], _TICK_OM[0] = float(v), float(omega)
+
+
+def _speed_scale(P):
+    """Shrink factor so tracking the formation stays inside the follower's
+    speed budget: v_patch + |omega| * r <= PACK_V_FRAC * V_HI."""
+    r = float(np.max(np.linalg.norm(P, axis=1))) if len(P) else 0.0
+    om = abs(_TICK_OM[0])
+    if r <= 1e-6 or om <= 1e-6:
+        return 1.0
+    budget = PACK_V_FRAC * V_HI - _TICK_V[0]
+    if budget <= 0.0:
+        return 0.35                       # patch already at the budget: pull in hard
+    r_max = budget / om
+    return float(np.clip(r_max / r, 0.35, 1.0))
+
+
 def _adaptive_slots(i, a, b):
     """Slot i for the CURRENT funnel, from the cached packing for this (a, b)."""
-    key = (round(float(a), 2), round(float(b), 2), N)
+    key = (round(float(a), 2), round(float(b), 2), N,
+           round(_speed_scale_key(), 1))
     got = _PACK_CACHE.get(key)
     if got is None:
         ae = max(float(a) - CONTAIN_MARGIN, 0.5)
@@ -442,10 +501,20 @@ def _adaptive_slots(i, a, b):
         if best is None:                           # give up: ring fallback
             got = tuple(_ring_slot(k, a, b) for k in range(N))
         else:
+            best = _prefer_astern(best, ae, be)
+            best = best * _speed_scale(best)
             order = np.argsort(-np.arctan2(best[:, 1], best[:, 0]))
             got = tuple((float(best[k, 0]), float(best[k, 1])) for k in order)
         _PACK_CACHE[key] = got
     return got[i % len(got)]
+
+
+def _speed_scale_key():
+    """Coarse key so the cache tracks the speed budget without thrashing."""
+    om = abs(_TICK_OM[0])
+    if om <= 1e-6:
+        return 1.0
+    return float(np.clip((PACK_V_FRAC * V_HI - _TICK_V[0]) / max(om, 1e-6), 0.0, 9.9))
 
 
 def _slot(i, a=None, b=None):
@@ -822,6 +891,7 @@ for step in range(1, args.steps + 1):
     omega, accel = patch_kinematics(p, dt=_KREP * DT)
     do_solve = (step - 1) % args.mpc_every == 0
     # MPC decides once, against the funnel state at the start of this tick
+    set_tick_kinematics(p.v, omega)   # speed-aware formation shrink
     cmds = dmpc_step(folls, p, omega, accel, do_solve)
 
     p_prev = _snap(p)

@@ -27,8 +27,9 @@ INSIDE_RE = re.compile(r"all-inside (\d+)/(\d+) \((\d+)%\)")
 
 
 def run_one(job):
-    (policy, map_name, map_dir, n, steps, mpc_every, slots, seed, clip, every) = job
-    cmd = [sys.executable, "mpc_follower_native_n.py",
+    (policy, map_name, map_dir, n, steps, mpc_every, slots, seed, clip, every,
+     runner) = job
+    cmd = [sys.executable, runner,
            "--policy", policy, "--map", map_name,
            "--map-dir", map_dir,
            "--n", str(n), "--seed", str(seed), "--steps", str(steps),
@@ -64,6 +65,9 @@ def main():
     ap.add_argument("--maps", default="", help="comma-separated map names (default: the on_rep pair)")
     ap.add_argument("--map-dir", default=MAP_DIR)
     ap.add_argument("--labels", default="", help="comma-separated title-card labels, one per map")
+    ap.add_argument("--runner", default="mpc_follower_native_n.py",
+                    help="mpc_follower_native_n.py (myopic NMPC) or "
+                         "dmpc_follower_n.py (distributed MPC)")
     args = ap.parse_args()
 
     ns = [int(x) for x in args.ns.split(",")]
@@ -80,7 +84,8 @@ def main():
         for n in ns:
             clip = os.path.join(tmp, f"{map_name}_N{n}.mp4")
             jobs.append((args.policy, map_name, args.map_dir, n, args.steps,
-                         args.mpc_every, args.slots, args.seed, clip, args.every))
+                         args.mpc_every, args.slots, args.seed, clip, args.every,
+                         args.runner))
 
     from concurrent.futures import ProcessPoolExecutor
     results = {}
