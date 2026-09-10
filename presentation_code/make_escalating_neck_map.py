@@ -68,6 +68,12 @@ def main():
     ap.add_argument("--counts", default="1,2,4,8",
                     help="obstacles per wide zone, in order along the course")
     ap.add_argument("--size", default="3.39x3.80")
+    ap.add_argument("--first-size", default="",
+                    help="override the pinned first triangle's size, WxH in metres. "
+                         "Default keeps extended_open_narrow_clutter10's 3.39x3.80. "
+                         "Centred, that block eats ~4.25 m of a 9.25 m corridor and "
+                         "leaves a 2.50 m committed lane -- +-0.25 m of tolerance for "
+                         "a funnel whose floor is 2.0 m wide.")
     ap.add_argument("--offset-frac", type=float, default=0.0,
                     help="lateral offset as a fraction of the half-width; 0 = the "
                          "obstacle sits ON the centerline and the patch must go "
@@ -80,6 +86,10 @@ def main():
 
     _w, _h = a.size.lower().split("x")
     size = (float(_w), float(_h))
+    global FIRST_SIZE
+    if a.first_size:
+        _fw, _fh = a.first_size.lower().split("x")
+        FIRST_SIZE = (float(_fw), float(_fh))
     counts = [int(c) for c in a.counts.split(",")]
 
     base = msp.BaseMap(a.base)
