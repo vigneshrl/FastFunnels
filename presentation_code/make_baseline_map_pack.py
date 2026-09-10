@@ -40,6 +40,31 @@ MAPS = {
     "lshape_obs":               ("maps/scenario_walls",   "sw_lshape001"),
     "zigzag_obs":               ("maps/scenario_walls",   "sw_zigzag001"),
     "slalom_obs":               ("maps/scenario_walls",   "sw_slalom_g7_5000"),
+    # the 87% run's course (videos/v7a_ck36M_clutter_w10_87pct.mp4): same 356 m
+    # 3-tunnel chain, 10 wall-only obstacles (5 large). Best cluttered result of
+    # the campaign -- v7a/checkpoint_36000000 reached 87.0% here, vs 33.8% on the
+    # mixed-placement version and 9.3% at 30 wall obstacles.
+    "extended_open_narrow_clutter10": ("maps/scenario_clutter", "clutter_ext_w10"),
+    # 6 large triangles at the neck throats, offset alternately port/starboard so
+    # the funnel must move LATERALLY to pass, not just shrink. No wall obstacles.
+    # Best measured: v7a/ck36750000 54.1% (clean, no reversal).
+    "neck_swerve":              ("maps/scenario_neck",    "neck_swerve"),
+    # 14 slalom gates 11 m apart (vs mf_slalom_g7_5's 6 at 22 m): the centreline
+    # weaves continuously, so the patch turns almost the whole way. Gate kept at
+    # 7.5 m -- 7.0 m is already below the traversability cliff.
+    # Best measured: best_patch/ck15000000 47.7% clean; ck18510000 73.3% but with
+    # 9.3% reversal.
+    "slalom_zigzag14":          ("maps/map_foundations",  "mf_slalom_zig14"),
+    # ESCALATING gauntlet, one group per wide zone between the necks: 1 block
+    # before neck 1, 2 before neck 2, 4 before neck 3, 8 after neck 3. The first
+    # block is pinned to s=41.2 with the exact triangle of
+    # extended_open_narrow_clutter10, so the course opens identically to that
+    # map and then gets progressively harder. Free-standing (no wall obstacles),
+    # offset alternately port/starboard so the open lane keeps switching side.
+    "neck_escalate":            ("maps/scenario_neck",    "neck_escalate"),
+    # deeper slalom: 14 gates, 4.5 m gate -> 4.75 m bars reaching well past the
+    # midline, weave amplitude 4.7 m (vs 1.7 m for slalom_zigzag14).
+    "slalom_longbars45":        ("maps/map_foundations",  "mf_slalom_lb45"),
 }
 
 
