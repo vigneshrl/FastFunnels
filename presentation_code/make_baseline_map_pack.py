@@ -62,6 +62,18 @@ MAPS = {
     # map and then gets progressively harder. Free-standing (no wall obstacles),
     # offset alternately port/starboard so the open lane keeps switching side.
     "neck_escalate":            ("maps/scenario_neck",    "neck_escalate"),
+    # Same layout as neck_escalate -- centred blocks, escalating 1/2/4/8, same
+    # stations -- but every block INCLUDING the pinned first triangle scaled to
+    # 2.30 x 2.55. neck_escalate's full-size 3.39 x 3.80 triangle, centred in a
+    # 9.25 m corridor, leaves a 2.50 m committed lane against a 2.0 m funnel
+    # floor; scaled, the lanes are 3.0-4.2 m and the course is completable.
+    # v7b checkpoint_14250000 runs it 100% clean, 0% reversal.
+    "neck_escalate_easy":       ("maps/scenario_neck",    "neck_escalate_easy"),
+    # 25 free-standing blocks strung along the CENTRELINE (no wall obstacles at
+    # all, 10 of them large), so the patch must steer around every one rather
+    # than shrink past a side intrusion. Committed-lane audit: 0/25 sections
+    # under 0.6 m of slack, so it is hard but passable throughout.
+    "clutter_c25":              ("maps/scenario_clutter", "clutter_c25"),
     # deeper slalom: 14 gates, 4.5 m gate -> 4.75 m bars reaching well past the
     # midline, weave amplitude 4.7 m (vs 1.7 m for slalom_zigzag14).
     "slalom_longbars45":        ("maps/map_foundations",  "mf_slalom_lb45"),
