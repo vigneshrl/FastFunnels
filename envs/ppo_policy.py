@@ -242,6 +242,12 @@ class PatchEnvConfig:
     # free run per station independently and its SIGN flips between adjacent
     # metres at a centred block (s=39 -2.41, s=40 +2.78, s=41 -2.41).
     crosstrack_relax_at_obstacle: bool = False
+    # Measure drivable room at the funnel's OWN lateral position rather than
+    # taking the widest free span on the scan (see _lookup_side_room). With two
+    # lanes either side of a centred block the widest-span measure reports the
+    # lane the funnel is NOT in, so the overwidth penalty sees room that is not
+    # there and lets b re-expand inside the narrow lane.
+    room_is_side_aware: bool = False
     # Cruise speed (m/s) at which the fill-ratio bonus is paid in full. Below
     # it the bonus is scaled down linearly by progress, so a stationary fat
     # patch earns nothing — see _compute_reward_for.
@@ -3270,6 +3276,7 @@ class PatchEnv(gym.Env):
         s_vals = np.linspace(0.0, float(self.track_length), n_samples, endpoint=False)
         pw = np.full(n_samples, 6.0, dtype=np.float32)
         goff = np.zeros(n_samples, dtype=np.float32)
+        spans = [[] for _ in range(n_samples)]
         for i, s in enumerate(s_vals):
             try:
                 x, y = self.cl.position_at(float(s))
@@ -3284,6 +3291,10 @@ class PatchEnv(gym.Env):
                 starts, ends = edges[::2], edges[1::2]
                 if starts.size:
                     runs = ends - starts
+                    # keep EVERY free span at this station, so the reward can ask
+                    # about the lane the funnel is actually in, not the widest one
+                    spans[i] = [(-6.0 + a * res, -6.0 + (b - 1) * res)
+                                for a, b in zip(starts, ends)]
                     k = int(np.argmax(runs))
                     pw[i] = runs[k] * res
                     # signed offset (m) of that gap's centre from the centreline,
@@ -3295,6 +3306,7 @@ class PatchEnv(gym.Env):
         self._pass_s_vals = s_vals.astype(np.float32)
         self._pass_w = pw
         self._pass_off = goff
+        self._pass_spans = spans
 
     def _lookup_pass_w(self, s: float) -> float:
         """O(1) drivable-gap (full width, m) lookup. Falls back to 2*half_w."""
@@ -3304,6 +3316,30 @@ class PatchEnv(gym.Env):
         idx = int(np.searchsorted(self._pass_s_vals, s_wrapped))
         idx = min(idx, len(self._pass_w) - 1)
         return float(self._pass_w[idx])
+
+    def _lookup_side_room(self, s: float, ey: float):
+        """Half-room the funnel has AT ITS OWN LATERAL POSITION: for the free
+        span containing `ey`, the distance to that span's nearer edge.
+
+        _lookup_pass_w reports the WIDEST free span on the scan, which is the
+        wrong lane once the funnel has committed to the narrower side of a
+        centred obstacle. Measured on neck_escalate at s=42.65 the spans are
+        [-3.44,+0.62] (4.06 m) and [+0.81,+3.25] (2.44 m); the funnel sat at
+        ey=+2.15 in the narrow one, so pass_w claimed 2.03 m of half-room where
+        the truth was 1.10 m -- b re-expanded to 1.10 and clipped the wall by
+        1 cm with the overwidth penalty never firing. None if uncomputed, or if
+        ey is inside no span (already in collision).
+        """
+        spans = getattr(self, "_pass_spans", None)
+        if not spans:
+            return None
+        s_wrapped = float(s) % float(self.track_length)
+        idx = int(np.searchsorted(self._pass_s_vals, s_wrapped))
+        idx = min(idx, len(spans) - 1)
+        for lo, hi in spans[idx]:
+            if lo <= ey <= hi:
+                return float(min(ey - lo, hi - ey))
+        return None
 
     def _lookup_gap_offset(self, s: float) -> float:
         """O(1) lookup: signed lateral offset (m, left-positive) of the widest
@@ -3808,6 +3844,10 @@ class PatchEnv(gym.Env):
             for d in (0.0,) + tuple(self.cfg.pass_lookahead_m)
         )
         pass_half = max(0.5 * float(_pass_ahead), 1e-3)
+        if self.cfg.room_is_side_aware:
+            _sr = self._lookup_side_room(float(s), float(ey))
+            if _sr is not None:
+                pass_half = min(pass_half, _sr)
         room_half = max(min(half_w, pass_half), self.cfg.b_cmd_min)
         # see PatchEnvConfig.crosstrack_relax_at_obstacle
         _ct_scale = (float(np.clip(pass_half / max(half_w, 1e-3), 0.0, 1.0))
