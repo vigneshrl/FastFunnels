@@ -230,6 +230,18 @@ class PatchEnvConfig:
     # this term; this flag lends it to the legacy reward without touching
     # anything else. Zero in open corridor, so "fill the corridor" survives.
     legacy_use_overwidth: bool = False
+    # Release the centreline pull where the lane ahead is blocked. The crosstrack
+    # term is reward_crosstrack_weight*|ey| against the TRACK centreline, which is
+    # exactly where a centred obstacle sits -- so it fights the swerve needed to
+    # go around one. Traced on neck_escalate after a full 40M-step run: the funnel
+    # reaches ey=+2.73 m just before the s=41 triangle, then RELAXES back to +2.46
+    # and +2.20 while still passing it, and clips. Scaling by pass_half/half_w
+    # cuts that pull in proportion to how blocked the lane is (0.39x at that
+    # triangle) and is exactly 1.0 in open corridor, so lane-keeping is unchanged.
+    # Deliberately NOT keyed to _lookup_gap_offset: that signal picks the widest
+    # free run per station independently and its SIGN flips between adjacent
+    # metres at a centred block (s=39 -2.41, s=40 +2.78, s=41 -2.41).
+    crosstrack_relax_at_obstacle: bool = False
     # Cruise speed (m/s) at which the fill-ratio bonus is paid in full. Below
     # it the bonus is scaled down linearly by progress, so a stationary fat
     # patch earns nothing — see _compute_reward_for.
@@ -3797,6 +3809,9 @@ class PatchEnv(gym.Env):
         )
         pass_half = max(0.5 * float(_pass_ahead), 1e-3)
         room_half = max(min(half_w, pass_half), self.cfg.b_cmd_min)
+        # see PatchEnvConfig.crosstrack_relax_at_obstacle
+        _ct_scale = (float(np.clip(pass_half / max(half_w, 1e-3), 0.0, 1.0))
+                     if self.cfg.crosstrack_relax_at_obstacle else 1.0)
 
         # Relative fill: how much of the AVAILABLE room the funnel occupies
         # (room shrinks at obstacles -> the policy is rewarded for shrinking b
@@ -3901,7 +3916,7 @@ class PatchEnv(gym.Env):
             # degenerate optima that gated bonuses (paradoxically) opened up.
             reward_raw = (
                 self.cfg.reward_progress_scale * ds
-                - self.cfg.reward_crosstrack_weight * abs(ey)
+                - self.cfg.reward_crosstrack_weight * _ct_scale * abs(ey)
                 - self.cfg.reward_steer_bias_weight * abs(steer_cmd)
                 - self.cfg.reward_steer_rate_weight * steer_rate
                 - self.cfg.reward_spin_weight * spin_excess
@@ -3930,7 +3945,7 @@ class PatchEnv(gym.Env):
             # was another knob that could open a new exploit.
             reward_raw = (
                 self.cfg.reward_progress_scale * _prog
-                - self.cfg.reward_crosstrack_weight * abs(ey)
+                - self.cfg.reward_crosstrack_weight * _ct_scale * abs(ey)
                 - self.cfg.reward_steer_rate_weight * steer_rate
                 - (self.cfg.collision_penalty if collision else 0.0)
                 # Reaching point B was being computed (`arrived` -> lap_finish_bonus)
