@@ -15,9 +15,10 @@ s=41.2 with the size of the triangle in
 baselines/maps/extended_open_narrow_clutter10, so the opening of the course is
 identical to the map that run came from.
 
-Obstacles are free-standing (not wall-attached) and offset alternately port and
-starboard, so the open lane switches side and the patch has to move laterally
-rather than thread the middle. Shapes cycle triangle / rect / disc.
+Obstacles sit ON THE CENTERLINE (offset 0 by default), like the blocks in
+baselines/maps/extended_open_narrow_clutter10: the patch meets each one head-on
+and has to steer AROUND it -- port or starboard -- instead of a one-sided wall
+intrusion that it can shrink past. Shapes cycle triangle / rect / disc.
 
 Every candidate is rejection-tested: a >= --pass-min drivable lane must survive
 within 3 m, so the course stays passable.
@@ -67,8 +68,10 @@ def main():
     ap.add_argument("--counts", default="1,2,4,8",
                     help="obstacles per wide zone, in order along the course")
     ap.add_argument("--size", default="3.39x3.80")
-    ap.add_argument("--offset-frac", type=float, default=0.34,
-                    help="lateral offset as a fraction of the half-width")
+    ap.add_argument("--offset-frac", type=float, default=0.0,
+                    help="lateral offset as a fraction of the half-width; 0 = the "
+                         "obstacle sits ON the centerline and the patch must go "
+                         "around it (the default, and what clutter10 looks like)")
     ap.add_argument("--pass-min", type=float, default=2.6)
     ap.add_argument("--margin", type=float, default=4.0,
                     help="keep this far from a zone's own ends (m)")
@@ -95,7 +98,11 @@ def main():
         n_want = counts[zi] if zi < len(counts) else 0
         if n_want <= 0:
             continue
-        lo, hi = s0 + a.margin, s1 - a.margin
+        # A fixed 4 m margin swallows a short zone (zone 4 is only 19 m), so cap
+        # it at 15% of the zone length -- that keeps the group inside the wide
+        # stretch without squeezing 8 blocks into a couple of metres.
+        margin = min(a.margin, 0.15 * (s1 - s0))
+        lo, hi = s0 + margin, s1 - margin
         if hi <= lo:
             lo, hi = s0 + 1.0, s1 - 1.0
         # evenly spaced stations across the zone
@@ -106,6 +113,21 @@ def main():
             targets = [FIRST_S]
         else:
             targets = list(np.linspace(lo, hi, n_want))
+
+        # Auto-fit: with the blocks ON the centerline they also have to clear
+        # each ALONG the course. If the spacing this zone can offer is tighter
+        # than the block, the group would fuse into one wall -- so scale the
+        # block down to 70% of the pitch. Escalation then reads as "more and
+        # tighter", not "impossible".
+        zone_size = size
+        if n_want > 1:
+            pitch = (hi - lo) / (n_want - 1)
+            if pitch < max(size):
+                f = max(0.45, 0.70 * pitch / max(size))
+                zone_size = (size[0] * f, size[1] * f)
+                print(f"[esc]   zone {zi+1}: pitch {pitch:.1f} m < block "
+                      f"{max(size):.1f} m -> scale {f:.2f} "
+                      f"({zone_size[0]:.2f} x {zone_size[1]:.2f} m)")
         for st in targets:
             k = int(np.argmin(np.abs(base.s - st)))
             half = float(base.base_clear[k])
@@ -114,7 +136,7 @@ def main():
                 continue
             side = -side
             kind = KINDS[n_shape % len(KINDS)]
-            sz = FIRST_SIZE if (zi == 0 and abs(st - FIRST_S) < 0.5) else size
+            sz = FIRST_SIZE if (zi == 0 and abs(st - FIRST_S) < 0.5) else zone_size
             kd = "tri" if (zi == 0 and abs(st - FIRST_S) < 0.5) else kind
             n_shape += 1
             off = side * a.offset_frac * 2.0 * half
@@ -175,7 +197,8 @@ def main():
         ax.set_title(f"{a.name}   {base.s[-1]:.0f} m   {len(placed)} obstacles, "
                      f"escalating per zone " +
                      "/".join(str(by_zone.get(z, 0)) for z in range(1, len(counts)+1)) +
-                     "\n^ tri, square rect, o disc; offset alternately to force a swerve",
+                     "\n^ tri, square rect, o disc; ON the centerline -- the patch "
+                     "must steer around each one",
                      fontsize=10)
         ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]"); ax.set_aspect("equal")
         fig.tight_layout()
