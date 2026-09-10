@@ -152,6 +152,24 @@ class PatchEnvConfig:
     # cap/overspeed), plus the steer_bias/spin/area/time_penalty terms today's
     # reward drops entirely. See _compute_reward_for for the exact formula.
     legacy_reward: bool = False
+
+    # --- reversal / U-turn penalties (added 2026-09-08) ----------------------
+    # The legacy reward already pays reward_progress_scale * ds with signed ds,
+    # so a backward step costs what the same forward step would earn. That is
+    # apparently not enough: v5 checkpoints on the cluttered course drove
+    # forward, got stuck, and backed up (11 of 17 gave back >5% of the course,
+    # up to 8.7%). These make reversing strictly worse than standing still.
+    #
+    # reward_reverse_weight: EXTRA penalty per metre of backward travel, on top
+    #   of the signed-ds progress term, so ds<0 is punished ~(1+w/scale) times
+    #   as hard as the matching forward step is rewarded.
+    # reward_uturn_weight: flat per-step penalty while the car's heading is
+    #   opposed to the track direction (course angle more than uturn_deg off
+    #   the tangent) -- catches turning round and driving back at speed, which
+    #   the ds term alone only charges for gradually.
+    reward_reverse_weight: float = 0.0
+    reward_uturn_weight: float = 0.0
+    reward_uturn_deg: float = 110.0
     # v3_x5: lidar range cap in metres (obs clip AND the gym scan simulator's max_range);
     # 30 m suits a 9 m corridor, on a 46 m corridor the far wall vanishes behind the cap.
     lidar_clip_m: float = 30.0
@@ -202,6 +220,16 @@ class PatchEnvConfig:
     reward_spin_weight: float = 0.15         # penalty for spinning (yaw_rate > threshold)
     reward_speed_weight: float = 2.0         # +speed_now² per step — encourages high-speed agile navigation
     reward_size_weight: float = 2.0        # reward for patch fill ratio: b/half_w (0=min, 1=full track)
+    # Legacy reward only: also charge reward_overwidth_weight when the funnel is
+    # wider than the drivable gap ahead. The legacy size bonus is b/half_w, the
+    # TRACK's half-width, which does not change when an obstacle blocks the lane
+    # -- so on obstacle maps the legacy reward gives no local signal to shrink and
+    # the only cue is the terminal collision penalty, which the size bonus
+    # accumulated on the way there very nearly cancels (measured ~830 of a 1000
+    # penalty at neck_escalate's first triangle). The lean reward already carries
+    # this term; this flag lends it to the legacy reward without touching
+    # anything else. Zero in open corridor, so "fill the corridor" survives.
+    legacy_use_overwidth: bool = False
     # Cruise speed (m/s) at which the fill-ratio bonus is paid in full. Below
     # it the bonus is scaled down linearly by progress, so a stationary fat
     # patch earns nothing — see _compute_reward_for.
@@ -3844,6 +3872,21 @@ class PatchEnv(gym.Env):
         # unconditionally (cheap) so it's available in `terms` either way.
         legacy_fill_ratio = float(np.clip(b_now / half_w, 0.0, 1.0))
 
+        # heading vs track tangent: 1.0 while driving back down the corridor
+        _uturn_now = 0.0
+        if self.cfg.reward_uturn_weight > 0.0:
+            try:
+                _tan = self._track_tangent_at(s) if hasattr(self, "_track_tangent_at") else None
+                if _tan is not None:
+                    _hd = float(getattr(patch, "theta", 0.0))
+                    _dp = math.atan2(math.sin(_hd - _tan), math.cos(_hd - _tan))
+                    _uturn_now = 1.0 if abs(math.degrees(_dp)) > self.cfg.reward_uturn_deg else 0.0
+                elif ds < 0.0 and speed_now > 1.0:
+                    # no tangent helper: fall back to "moving backwards at speed"
+                    _uturn_now = 1.0
+            except Exception:
+                _uturn_now = 0.0
+
         if self.cfg.legacy_reward:
             # EXACT June-2026 formula, recovered from git commit d750295
             # (patch_policy_models/best_patch/config.yaml) -- added 2026-09-06
@@ -3870,6 +3913,12 @@ class PatchEnv(gym.Env):
                 - self.cfg.reward_speed_steer_weight * speed_now * abs(steer_cmd)
                 + self.cfg.reward_size_weight * legacy_fill_ratio
                 + self.cfg.reward_speed_weight * speed_now * max(ds, 0.0)
+                # reversal / U-turn (see PatchEnvConfig.reward_reverse_weight)
+                - self.cfg.reward_reverse_weight * max(-ds, 0.0)
+                - self.cfg.reward_uturn_weight * float(_uturn_now)
+                # funnel wider than the drivable gap ahead (see legacy_use_overwidth)
+                - (self.cfg.reward_overwidth_weight * max(0.0, b_now - room_half)
+                   if self.cfg.legacy_use_overwidth else 0.0)
             )
         else:
             # LEAN reward (2026-09-04, run A): progress + collision + obstacle-aware
